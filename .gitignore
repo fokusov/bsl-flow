@@ -1,0 +1,12 @@
+# Local BSL Flow state and generated delivery artifacts
+/.bsl-flow/
+work/
+outputs/
+*.zip
+*.log
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*~

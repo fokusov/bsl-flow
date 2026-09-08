@@ -1,0 +1,21 @@
+# bsl-flow managed:start
+# Local runtime evidence; keep the project sentinel and directory placeholders.
+.bsl-flow/reports/*
+!.bsl-flow/reports/.gitkeep
+.bsl-flow/evidence/*
+!.bsl-flow/evidence/.gitkeep
+.bsl-flow/local/*
+!.bsl-flow/local/.gitkeep
+
+# Common local 1C/runtime temporary files.
+v8project.local.yaml
+v8project.local.yml
+*.1cd
+*.dt
+*.log
+*.tmp
+*.bak
+~$*
+Thumbs.db
+Desktop.ini
+# bsl-flow managed:end

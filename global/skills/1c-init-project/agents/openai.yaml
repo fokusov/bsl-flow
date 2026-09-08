@@ -1,0 +1,4 @@
+interface:
+  display_name: "1C project bootstrap"
+  short_description: "Initialize a safe BSL Flow project workspace"
+  default_prompt: "Use $1c-init-project to initialize this folder as a 1C project."

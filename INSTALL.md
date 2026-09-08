@@ -1,0 +1,160 @@
+# Установка BSL Flow v0.6.1
+
+Установка framework не загружает расширения в базы.
+
+## Требования
+
+- Windows PowerShell 5.1 или PowerShell 7;
+- Git;
+- Node.js 20.19 или новее;
+- OpenSpec CLI;
+- Codex;
+- OpenCode с подключённым provider для reviewer-модели.
+
+Для полного регрессионного набора пакета дополнительно нужен .NET SDK 5 или новее: тесты компилируют маленький имитатор reviewer и не обращаются к платной модели. Для повседневной работы skills SDK не нужен. Проверки запускай через `scripts/Test-BSLFlowPackage.ps1`; они не запускают 1С и не заменяют приёмку в тестовой базе.
+
+Базовая проверенная комбинация: OpenSpec `1.11.0` и OpenCode `1.18.23`. Результаты текущей сборки — в [VERIFICATION.md](VERIFICATION.md).
+
+```powershell
+git --version
+node --version
+openspec --version
+opencode --version
+```
+
+Если OpenSpec ещё не установлен:
+
+```powershell
+npm install -g @fission-ai/openspec@1.11.0
+```
+
+Для default reviewer запусти `opencode`, выполни `/connect`, подключи DeepSeek и проверь:
+
+```powershell
+opencode models | Select-String deepseek-v4-pro
+```
+
+На момент сборки exact model ID: `deepseek/deepseek-v4-pro`. Установщик не делает платный model-run и не меняет credentials.
+
+## Автоматическая установка
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\Install-BSLFlow.ps1
+```
+
+Установщик:
+
+- проверит packaged OpenSpec schema;
+- проверит эффективные права bounded read/file listing и sealed agents через `opencode debug agent`, включая запрет unrestricted grep;
+- установит единственную копию шести skills в общий `%USERPROFILE%\.agents\skills` и после backup удалит управляемые дубликаты из `%CODEX_HOME%\skills`;
+- установит глобальную schema `bsl-flow`;
+- заменит старый managed bootstrap-блок новым bsl-flow-блоком и удалит после backup старую OpenSpec schema;
+- создаст backup и выполнит rollback при ошибке;
+- создаст пустой `~/.bsl-flow/evals/spec-runs.jsonl`, только если файла ещё нет;
+- никогда не перезапишет накопленные metrics.
+
+Предварительный просмотр:
+
+```powershell
+.\scripts\Install-BSLFlow.ps1 -WhatIf
+```
+
+После установки перезапусти Codex.
+
+Для работы непосредственно из OpenCode установи отдельный адаптер по [инструкции](OPENCODE_SETUP_RU.md). Он использует ту же копию skills в `%USERPROFILE%\.agents\skills`, а в OpenCode-каталог добавляет только managed rules и manifest. Адаптер использует plan/`-Apply`, не меняет `opencode.json` и отдельно проверяет effective model routing.
+
+Установка не настраивает тестовые базы, Unica, YaXUnit или Vanessa. Для этого используй отдельное [руководство по тестовому окружению](TEST_ENVIRONMENT_GUIDE_RU.md). Сначала подготовь разрешённую файловую копию; глобальное обновление skills не является разрешением на build/test или загрузку расширений.
+
+### Каталоги тестовых инструментов
+
+При первой настройке создай workstation profile. Без параметров каталогов проверяются `C:\YAxUnit` и `C:\vanessa-automation`. Для любого другого расположения передай абсолютные пути; они сохранятся вне Git в `%USERPROFILE%\.bsl-flow\workstation.json` и будут переиспользоваться проектами:
+
+```powershell
+& "$env:USERPROFILE\.agents\skills\1c-init-project\scripts\Enable-BSLFlowWorkstationProfile.ps1" `
+  -DevelopmentDatabasePath "C:\BASES\DEMO\bp1" `
+  -PlatformBin "C:\Program Files\1cv8\8.3.27.2074\bin" `
+  -YaxunitDirectory "D:\1c-tools\YAxUnit" `
+  -VanessaDirectory "D:\1c-tools\vanessa-automation"
+```
+
+Скрипт не ищет инструменты в других местах и не создаёт отсутствующие каталоги. Чтобы перенести общие инструменты, повторно выполни команду с новыми путями и хотя бы одной зарегистрированной базой. `Get-1CTestTooling.ps1` различает отсутствующий каталог и отсутствие подходящего файла; setup оставляет provider в `not_configured`. Несколько подходящих версий блокируют автоматический выбор — нужную поставку следует разложить в отдельный однозначный каталог.
+
+Отсутствие YAxUnit или Vanessa не мешает установить BSL Flow. Оно мешает только доказать требования, для которых выбран соответствующий provider: такая проверка остаётся `BLOCKED`, пока точный локальный релиз не выбран и не проверен. Автоматического скачивания из интернета нет. Vanessa Automation запускается как EPF и не устанавливается расширением в каждую базу; загрузка YAxUnit CFE или необязательного `VAExtension` допустима только в явно разрешённую базу после read-only инвентаризации фактического состава и через поддержанный runtime-маршрут.
+
+## Настройка проекта
+
+Новые проекты получают review-блок автоматически. Основные значения:
+
+```yaml
+review:
+  enabled: true
+  routing:
+    s_default: optional
+    m_default: required
+    l_default: required
+    high_risk_override: required
+  reviewer:
+    provider: opencode
+    agent: bsl-flow-spec-reviewer
+    model: deepseek/deepseek-v4-pro
+    variant: high
+  permissions:
+    project_read_mode: read_search
+    edit: false
+    shell: false
+    subagents: false
+    web: false
+    external_directory: false
+  runtime:
+    timeout_seconds: 600
+```
+
+Для sealed review без чтения проекта установи `project_read_mode: attached_only`. В стандартном `read_search` reviewer может читать релевантные исходники, но не должен обходить всё дерево; служебные каталоги `.git`, `.bsl-flow` и бинарные артефакты закрыты permissions. Не пытайся включить запрещённые permissions: wrapper завершится ошибкой. Для другой модели меняй только `model` и при необходимости `variant`; silent fallback не выполняется. Таймаут 600 секунд выбран для `deepseek-v4-pro/high`; уменьшай его только после измеренного пилота выбранной модели.
+
+Новые поля существующей секции `policy`:
+
+```yaml
+policy:
+  test_selection: smallest_sufficient
+  computer_use: justified_only
+  test_database_mode: file_preferred
+```
+
+Это декларативные настройки для skills, не новый API runner-а и не исполняемый запрет tool calls. Если полей нет, действуют эти defaults из `1c-verify`. Не добавляй второй `policy:` поверх существующего: при обновлении объедини поля. Существующие `verification.*.enabled: false` означают неготовность provider-а, а не отказ от необходимых тестов. После фактической настройки укажи доступные проверки; реальные пути/секреты держи в локальном runtime-конфиге вне Git.
+
+## Ручной bootstrap проекта
+
+```powershell
+& "$env:USERPROFILE\.agents\skills\1c-init-project\scripts\Initialize-BSLFlowProject.ps1" `
+  -ProjectPath "C:\PRJ\client\project" `
+  -Explicit1CProject
+```
+
+## Ручная установка
+
+1. Скопируй `global/skills/*` в общий `%USERPROFILE%\.agents\skills\`.
+2. Скопируй schema в `%LOCALAPPDATA%\openspec\schemas\bsl-flow\`.
+3. Добавь `global/AGENTS.bootstrap.md` в глобальный `%USERPROFILE%\.codex\AGENTS.md`.
+4. Создай `%USERPROFILE%\.bsl-flow\evals\spec-runs.jsonl`, если его ещё нет.
+5. Проверь schema и agents.
+
+```powershell
+openspec schema validate bsl-flow
+$env:OPENCODE_CONFIG = "$env:USERPROFILE\.agents\skills\1c-spec-review\reviewer\opencode-reviewer.json"
+$env:OPENCODE_DISABLE_PROJECT_CONFIG = "1"
+opencode debug agent bsl-flow-spec-reviewer
+opencode debug agent bsl-flow-spec-reviewer-sealed
+```
+
+После проверки закрой терминал или удали временные `OPENCODE_*` переменные из процесса.
+
+## Ошибки внешнего review
+
+Для обязательного route отсутствие OpenCode, credentials, модели, корректного JSON или допустимой политики данных является blocker. Framework не подменяет модель и не пропускает review автоматически. Невалидный output не записывается в `review.json`.
+
+Project config может усилить routing, но не отключить обязательный review для M/L/high-risk. `review.enabled: false` допустим только там, где review и так необязателен; попытка обойти обязательный gate завершается ошибкой.
+
+OpenCode `run` создаёт локальную session/log/cache даже у sealed agent. Read-only гарантирует отсутствие project/tool mutations, но не полное отсутствие локального служебного состояния OpenCode.
+
+В OpenCode 1.18.23 глобальный `AGENTS.md` нельзя отключить отдельным флагом, поэтому считай его доверенной локальной границей и не помещай туда недоверенные инструкции. Изолированный reviewer config отключает project config и legacy Claude instructions, но не эту глобальную границу.

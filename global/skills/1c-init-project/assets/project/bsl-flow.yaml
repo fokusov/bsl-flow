@@ -1,0 +1,95 @@
+version: 2
+
+source:
+  paths:
+    - src
+
+environment:
+  platform_bin: "${ONEC_PLATFORM_BIN}"
+  development_db: "${ONEC_DEV_IB}"
+  test_db: "${ONEC_TEST_IB}"
+
+test_setup:
+  # Agent workflow, not runner arguments or permission to mutate a database.
+  policy: inspect_then_install_missing_when_authorized
+  yaxunit_directory: 'C:\YAxUnit'
+  vanessa_directory: 'C:\vanessa-automation'
+  workstation_profile: '${BSL_FLOW_WORKSTATION_PROFILE}'
+  development_database_is_test_target: true
+
+verification:
+  # Agent policy only, not Unica/v8-runner configuration or environment expansion.
+  # enabled=false means not configured; required evidence still cannot be skipped.
+  reports_dir: ".bsl-flow/reports"
+  evidence_dir: ".bsl-flow/evidence"
+
+  static:
+    enabled: true
+
+  unit:
+    enabled: false
+    provider: yaxunit
+    readiness: not_configured
+
+  integration:
+    enabled: false
+    provider: yaxunit
+    readiness: not_configured
+
+  ui:
+    enabled: false
+    provider: vanessa-automation
+    readiness: not_configured
+    mcp:
+      enabled: false
+
+  smoke:
+    enabled: false
+
+policy:
+  test_selection: smallest_sufficient
+  computer_use: justified_only
+  test_database_mode: file_preferred
+  # These additive policy fields guide skills; they do not enforce tool permissions.
+  require_ui_for_form_changes: true
+  require_integration_for_posting_changes: true
+  require_independent_review_for_high_risk: true
+  max_review_fix_rounds: 1
+
+review:
+  enabled: true
+
+  routing:
+    s_default: optional
+    m_default: required
+    l_default: required
+    high_risk_override: required
+
+  reviewer:
+    provider: opencode
+    agent: bsl-flow-spec-reviewer
+    model: deepseek/deepseek-v4-pro
+    variant: high
+
+  permissions:
+    # read_search checks project evidence; attached_only is the sealed mode.
+    project_read_mode: read_search
+    edit: false
+    shell: false
+    subagents: false
+    web: false
+    external_directory: false
+
+  input:
+    max_file_bytes: 262144
+
+  runtime:
+    # DeepSeek V4 Pro/high reviews may legitimately take 5-8 minutes.
+    timeout_seconds: 600
+    max_output_bytes: 1048576
+
+  thresholds:
+    pass_weighted_score: 4.3
+    block_below_weighted_score: 3.5
+    max_overengineering_index_for_pass: 1
+    max_unjustified_ratio_for_pass: 0

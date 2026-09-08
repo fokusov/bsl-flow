@@ -1,0 +1,4 @@
+format_version: 1
+framework: bsl-flow
+framework_version: "0.6.1"
+initialized_at: "__INITIALIZED_AT__"

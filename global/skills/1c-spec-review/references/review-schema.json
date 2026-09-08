@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bsl-flow.local/schemas/spec-review-v1.json",
+  "title": "bsl-flow specification review",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "reviewed_at_utc",
+    "review_iteration",
+    "reviewer_verdict",
+    "verdict",
+    "summary",
+    "scores",
+    "weighted_score",
+    "overengineering",
+    "blocking_findings",
+    "findings",
+    "do_not_change",
+    "confidence",
+    "reviewer",
+    "inputs",
+    "gate"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "reviewed_at_utc": { "type": "string", "format": "date-time" },
+    "review_iteration": { "const": 1 },
+    "reviewer_verdict": { "enum": ["PASS", "REVISE", "BLOCK"] },
+    "verdict": { "enum": ["PASS", "REVISE", "BLOCK"] },
+    "summary": { "type": "string", "minLength": 1 },
+    "scores": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["intent_fidelity", "minimality", "completeness", "architecture_fit", "testability", "assumption_discipline", "clarity"],
+      "properties": {
+        "intent_fidelity": { "$ref": "#/$defs/score" },
+        "minimality": { "$ref": "#/$defs/score" },
+        "completeness": { "$ref": "#/$defs/score" },
+        "architecture_fit": { "$ref": "#/$defs/score" },
+        "testability": { "$ref": "#/$defs/score" },
+        "assumption_discipline": { "$ref": "#/$defs/score" },
+        "clarity": { "$ref": "#/$defs/score" }
+      }
+    },
+    "weighted_score": { "type": "number", "minimum": 1, "maximum": 5 },
+    "overengineering": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["architectural_decision_count", "required_count", "justified_count", "optional_count", "unjustified_count", "index", "optional_ratio", "unjustified_ratio", "normalized_index", "items"],
+      "properties": {
+        "architectural_decision_count": { "type": "integer", "minimum": 0 },
+        "required_count": { "type": "integer", "minimum": 0 },
+        "justified_count": { "type": "integer", "minimum": 0 },
+        "optional_count": { "type": "integer", "minimum": 0 },
+        "unjustified_count": { "type": "integer", "minimum": 0 },
+        "index": { "type": "integer", "minimum": 0 },
+        "optional_ratio": { "type": "number", "minimum": 0, "maximum": 1 },
+        "unjustified_ratio": { "type": "number", "minimum": 0, "maximum": 1 },
+        "normalized_index": { "type": "number", "minimum": 0, "maximum": 1 },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["spec_ref", "item", "necessity", "evidence", "simpler_direction"],
+            "properties": {
+              "spec_ref": { "type": "string", "minLength": 1 },
+              "item": { "type": "string", "minLength": 1 },
+              "necessity": { "enum": ["required", "justified", "optional", "unjustified"] },
+              "evidence": { "type": "string", "minLength": 1 },
+              "simpler_direction": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "blocking_findings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^R-[0-9]{3,}$" }
+    },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    },
+    "do_not_change": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "reviewer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "agent", "model"],
+      "properties": {
+        "provider": { "const": "opencode" },
+        "agent": { "type": "string", "minLength": 1 },
+        "model": { "type": "string", "minLength": 3 }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["original_task_sha256", "spec_sha256", "design_sha256"],
+      "properties": {
+        "original_task_sha256": { "$ref": "#/$defs/sha256" },
+        "spec_sha256": { "$ref": "#/$defs/sha256" },
+        "design_sha256": { "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pass_weighted_score", "block_below_weighted_score", "max_overengineering_index_for_pass", "max_unjustified_ratio_for_pass"],
+      "properties": {
+        "pass_weighted_score": { "type": "number", "minimum": 1, "maximum": 5 },
+        "block_below_weighted_score": { "type": "number", "minimum": 1, "maximum": 5 },
+        "max_overengineering_index_for_pass": { "type": "integer", "minimum": 0 },
+        "max_unjustified_ratio_for_pass": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "score": { "type": "integer", "minimum": 1, "maximum": 5 },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "severity", "category", "spec_ref", "issue", "evidence", "suggested_direction"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^R-[0-9]{3,}$" },
+        "severity": { "enum": ["blocker", "high", "medium", "low"] },
+        "category": { "enum": ["intent_drift", "missing_requirement", "unsupported_assumption", "overengineering", "architecture_fit", "testability", "clarity", "prompt_injection"] },
+        "spec_ref": { "type": "string", "minLength": 1 },
+        "issue": { "type": "string", "minLength": 1 },
+        "evidence": { "type": "string", "minLength": 1 },
+        "suggested_direction": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

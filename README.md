@@ -2,7 +2,7 @@
 
 **Lightweight AI-assisted engineering workflow for BSL development.**
 
-BSL Flow is an open-source workflow for AI coding agents working with BSL and 1C:Enterprise projects. It focuses on the minimum engineering process needed to get reliable results without turning every change into a heavyweight software-development ceremony.
+BSL Flow is a public workflow project for AI coding agents working with BSL and 1C:Enterprise projects. It focuses on the minimum engineering process needed to get reliable results without turning every change into a heavyweight software-development ceremony.
 
 The core idea is simple:
 
@@ -51,9 +51,56 @@ The framework is intended to work with tools such as:
 - YAxUnit for unit and integration testing;
 - Vanessa Automation / TestClient for UI and end-to-end scenarios.
 
-## Status
+## Current release
 
-**Pre-release.** The public repository is being prepared. The first complete framework package, installation guide and examples will be published here shortly.
+The repository contains **BSL Flow v0.6.1**, including six agent skills, the OpenSpec schema, independent specification review, test-environment guidance, durable verification evidence and standalone installers for Codex and OpenCode. The patch release also preserves bounded interactive YAxUnit/Vanessa pilots as immutable setup history and refreshes provider state without misclassifying UI observation as unattended evidence.
+
+The bounded interactive YAxUnit and Vanessa engine pilots passed on the explicitly authorized FILE demo base. Unattended execution, fresh durable reports and Vanessa TestClient readiness remain separate evidence gates; see [verification boundaries](VERIFICATION.md).
+
+## Install
+
+Requirements and the full procedure are in [INSTALL.md](INSTALL.md). On Windows, first inspect the installer plan and then apply it:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\Install-BSLFlow.ps1 -WhatIf
+.\scripts\Install-BSLFlow.ps1
+```
+
+For standalone OpenCode:
+
+```powershell
+.\scripts\Install-BSLFlowForOpenCode.ps1
+.\scripts\Install-BSLFlowForOpenCode.ps1 -Apply
+.\scripts\Test-BSLFlowOpenCode.ps1
+```
+
+The OpenCode installer does not rewrite `opencode.json`, model routing, providers or credentials.
+
+## YAxUnit and Vanessa discovery
+
+BSL Flow does not recursively search disks or silently download test tools. The one-time workstation profile stores the exact shared catalogs used by all explicitly registered FILE development bases. If no paths are supplied, the defaults are `C:\YAxUnit` and `C:\vanessa-automation`; tools in another location must be registered explicitly:
+
+```powershell
+& "$env:USERPROFILE\.agents\skills\1c-init-project\scripts\Enable-BSLFlowWorkstationProfile.ps1" `
+  -DevelopmentDatabasePath "C:\BASES\DEMO\bp1" `
+  -PlatformBin "C:\Program Files\1cv8\8.3.27.2074\bin" `
+  -YaxunitDirectory "D:\1c-tools\YAxUnit" `
+  -VanessaDirectory "D:\1c-tools\vanessa-automation"
+```
+
+Inventory checks only the top level of those exact directories: `YAxUnit*.cfe`, `vanessa-automation*.epf`, `VAExtension*.cfe` and `client_mcp.cfe`. A missing directory or artifact becomes `not_configured`; multiple candidates or an empty file become `blocked`. A discovered file is only `files_found`: database installation, compatibility and readiness still require inspection and a focused runtime pilot. See the [test environment guide](TEST_ENVIRONMENT_GUIDE_RU.md).
+
+On a machine without these tools, BSL Flow still installs, but tests that require the missing provider stay `BLOCKED`. The framework does not silently download third-party releases. Vanessa Automation is an external EPF runner; YAxUnit and optional `VAExtension` have separate database-installation requirements.
+
+## Repository layout
+
+- `global/skills/` — installable agent skills;
+- `global/openspec/` — the OpenSpec schema and templates;
+- `scripts/` — installers and offline regression checks;
+- [OPENCODE_SETUP_RU.md](OPENCODE_SETUP_RU.md) — standalone OpenCode setup;
+- [TEST_ENVIRONMENT_GUIDE_RU.md](TEST_ENVIRONMENT_GUIDE_RU.md) — persistent YAxUnit/Vanessa test environment;
+- [VERIFICATION.md](VERIFICATION.md) — proven and blocked evidence boundaries.
 
 ## Who it is for
 
@@ -65,11 +112,11 @@ BSL, 1C:Enterprise, 1C development, AI coding agents, Codex, OpenCode, OpenSpec,
 
 ## Trademark notice
 
-BSL Flow is an independent open-source project and is not affiliated with or endorsed by 1C Company. 1C and 1C:Enterprise are trademarks of their respective owner and are referenced only to describe compatibility and the target development ecosystem.
+BSL Flow is an independent project and is not affiliated with or endorsed by 1C Company. 1C and 1C:Enterprise are trademarks of their respective owner and are referenced only to describe compatibility and the target development ecosystem.
 
 ## License
 
-License will be selected before the first public framework release.
+Licensed under the [MIT License](LICENSE).
 
 ---
 

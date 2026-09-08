@@ -1,0 +1,54 @@
+name: bsl-flow
+version: 2
+description: "Minimal SDD workflow for 1C development: concise spec, optional design, independent criticism, direct implementation."
+
+artifacts:
+  - id: spec
+    generates: spec.md
+    description: "Concise behavioral specification for a 1C change."
+    template: spec.md
+    instruction: |
+      Describe only the behavior and constraints required to implement this change safely.
+      Inspect existing 1C metadata and code before finalizing the spec.
+      Prefer existing extension points and project mechanisms.
+      Do not invent architecture, metadata objects, frameworks, abstractions, or refactoring
+      unless a concrete requirement or discovered technical constraint requires them.
+      Keep the document concise enough that a 1C developer can understand it quickly.
+      Explicitly state unknowns and assumptions that materially affect implementation.
+      Acceptance criteria must be executable or objectively observable.
+      Briefly trace the affected mechanism to evidence and map material criteria to the
+      smallest sufficient tests: unit/integration for logic/data, Vanessa for client flows.
+      Computer-use requires a concrete observation gap or explicit user request.
+      Classify the task as S/M/L and low/medium/high risk.
+      Preserve the original request in original-task.md beside the spec. It is a review sidecar,
+      not another OpenSpec workflow artifact.
+    requires: []
+
+  - id: design
+    generates: design.md
+    description: "Optional technical design for large, cross-cutting, or high-risk changes."
+    template: design.md
+    instruction: |
+      Create this artifact only for L/high-risk changes or when the implementation has a genuine
+      architectural choice that should be resolved before coding.
+      Explain the selected approach and rejected meaningful alternatives.
+      Focus on 1C boundaries: metadata objects, client/server execution, transactions, locks,
+      registers, integration contracts, extension vs vendor code, compatibility and migration.
+      Do not produce a line-by-line implementation plan.
+    requires:
+      - spec
+
+apply:
+  requires:
+    - spec
+  instruction: |
+    Implement the smallest change that satisfies spec.md.
+    If design.md exists, follow its decisions.
+    Read AGENTS.md and bsl-flow.yaml.
+    For M/L or high-risk work, require a passed 1c-spec-review final invariant check before coding.
+    Review evidence remains sidecar files in the change; do not add tasks.md.
+    Reuse existing project mechanisms and patterns.
+    Do not create an implementation-plan artifact unless sequencing is genuinely complex.
+    Add or update tests according to change impact.
+    Follow 1c-verify testing policy; missing automation is not an automatic computer-use fallback.
+    Perform developer-side checks before handing the task to independent verification.

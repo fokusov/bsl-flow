@@ -1,0 +1,6 @@
+interface:
+  display_name: "1C Spec Review"
+  short_description: "Independent critique and spec quality gate"
+  default_prompt: "Use $1c-spec-review to critique and reconcile the active 1C specification."
+policy:
+  allow_implicit_invocation: true

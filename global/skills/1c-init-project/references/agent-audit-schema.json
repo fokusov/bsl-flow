@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bsl-flow.local/schemas/agent-audit-v1.json",
+  "title": "bsl-flow subagent audit event",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "event_id", "run_id", "task_id", "attempt_id", "agent_id", "parent_agent_id", "role", "complexity", "event_type", "emitted_at_utc"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "event_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "run_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "task_id": {"type": "string", "minLength": 1},
+    "attempt_id": {"type": "string", "minLength": 1},
+    "agent_id": {"type": "string", "minLength": 1},
+    "parent_agent_id": {"type": "string", "minLength": 1},
+    "role": {"type": "string", "minLength": 1},
+    "complexity": {"enum": ["S", "M", "L"]},
+    "event_type": {"enum": ["delegated", "started", "completed", "failed", "interrupted", "cancelled", "corrected", "escalated", "acceptance", "task_changed", "unknown"]},
+    "emitted_at_utc": {"type": "string", "format": "date-time"},
+    "requested_model": {"type": ["string", "null"]},
+    "requested_effort": {"type": ["string", "null"]},
+    "observed_model": {"type": ["string", "null"]},
+    "observed_effort": {"type": ["string", "null"]},
+    "model_source": {"type": ["string", "null"]},
+    "routing_rule": {"type": ["string", "null"]},
+    "routing_reason": {"type": ["string", "null"]},
+    "usage": {
+      "type": ["object", "null"],
+      "required": ["mode", "provenance"],
+      "properties": {
+        "mode": {"enum": ["delta", "cumulative", "unknown"]},
+        "measurement_id": {"type": ["string", "null"]},
+        "total_tokens": {"type": ["number", "null"], "minimum": 0},
+        "provenance": {"type": "string", "minLength": 1},
+        "completeness": {"enum": ["complete", "partial", null]},
+        "unavailable_reason": {"type": ["string", "null"]}
+      }
+    },
+    "timing": {
+      "type": ["object", "null"],
+      "required": ["provenance"],
+      "properties": {
+        "duration_ms": {"type": ["number", "null"], "minimum": 0},
+        "provenance": {"type": "string", "minLength": 1},
+        "unavailable_reason": {"type": ["string", "null"]}
+      }
+    }
+  }
+}
