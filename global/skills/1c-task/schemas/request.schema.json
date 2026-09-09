@@ -1,0 +1,214 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BSL Flow trusted request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "request_id",
+    "prompt",
+    "mode",
+    "analysis_goal",
+    "complexity",
+    "risk",
+    "impact_flags",
+    "criteria",
+    "provenance",
+    "models"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "request_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "prompt": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 262144
+    },
+    "mode": {
+      "enum": [
+        "analysis_only",
+        "implement"
+      ]
+    },
+    "analysis_goal": {
+      "enum": [
+        "analysis",
+        "specification"
+      ]
+    },
+    "complexity": {
+      "enum": [
+        "S",
+        "M",
+        "L"
+      ]
+    },
+    "risk": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "impact_flags": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "permissions",
+          "data_migration",
+          "data_deletion",
+          "posting",
+          "data_exchange",
+          "form_flow",
+          "external_artifact",
+          "ambiguous_business_rule"
+        ]
+      }
+    },
+    "criteria": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "observation",
+          "kind"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+          },
+          "observation": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "file_assertion",
+              "static",
+              "unit",
+              "integration",
+              "ui",
+              "external_artifact"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "contains": {
+            "type": "string"
+          },
+          "executable": {
+            "type": "string"
+          },
+          "arguments": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "report": {
+            "type": "string"
+          },
+          "expected_tests": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "target": {
+            "type": "string"
+          },
+          "profile": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "source",
+        "reference",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "const": "user"
+        },
+        "reference": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "models": {
+      "type": "object",
+      "required": [
+        "worker",
+        "worker_effort",
+        "reviewer",
+        "reviewer_effort"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "worker": {
+          "type": "string"
+        },
+        "worker_effort": {
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "xhigh"
+          ]
+        },
+        "reviewer": {
+          "type": "string"
+        },
+        "reviewer_effort": {
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "xhigh"
+          ]
+        }
+      }
+    },
+    "source_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "require_spec_review": {
+      "type": "boolean"
+    },
+    "require_code_review": {
+      "type": "boolean"
+    },
+    "max_attempts": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 64
+    },
+    "timeout_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 14400
+    }
+  }
+}

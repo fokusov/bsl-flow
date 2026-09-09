@@ -325,6 +325,7 @@ if (-not $SkipProjectUpgrade) {
     $upgradeScript = Join-Path $PSScriptRoot 'Update-BSLFlowProject.ps1'
     [void](& $upgradeScript -ProjectPath $projectRoot -Apply)
     $preserved.Add('bsl-flow.yaml user values/comments; missing framework keys merged')
+    $preserved.Add('AGENTS.md user instructions; BSL Flow managed block merged')
 }
 
 foreach ($evidenceDirectoryName in @('reports', 'evidence')) {

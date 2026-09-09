@@ -122,6 +122,12 @@
       }
     }
   },
+  "allOf": [
+    {
+      "if": { "properties": { "verdict": { "enum": ["REVISE", "BLOCK"] } }, "required": ["verdict"] },
+      "then": { "properties": { "findings": { "minItems": 1 } } }
+    }
+  ],
   "$defs": {
     "score": { "type": "integer", "minimum": 1, "maximum": 5 },
     "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },

@@ -36,8 +36,11 @@ description: Must survive adapter installation.
     $agentsBytes=[IO.File]::ReadAllBytes($agentsPath)
     Assert-O ($agentsBytes[0]-eq0xEF -and $agentsBytes[1]-eq0xBB -and $agentsBytes[2]-eq0xBF) 'AGENTS UTF-8 BOM was not preserved.'
     Assert-O ($agents.Contains("Keep this line.`r`n`r`n<!-- bsl-flow bootstrap:start -->")) 'AGENTS CRLF or user suffix was not preserved.'
-    foreach($name in @('1c-init-project','1c-spec','1c-spec-review','1c-implement','1c-verify','1c-debug')) { Assert-O (Test-Path -LiteralPath (Join-Path $sharedSkillsRoot "$name\SKILL.md")) "Shared skill missing: $name"; Assert-O (-not(Test-Path -LiteralPath (Join-Path $configRoot "skills\$name"))) "Duplicate OpenCode-local skill exists: $name" }
+    foreach($name in @('1c-init-project','1c-spec','1c-spec-review','1c-implement','1c-verify','1c-debug','1c-task')) { Assert-O (Test-Path -LiteralPath (Join-Path $sharedSkillsRoot "$name\SKILL.md")) "Shared skill missing: $name"; Assert-O (-not(Test-Path -LiteralPath (Join-Path $configRoot "skills\$name"))) "Duplicate OpenCode-local skill exists: $name" }
     Assert-O (Test-Path -LiteralPath (Join-Path $configRoot '.bsl-flow\manifest.json')) 'Adapter manifest was not created.'
+    $adapterManifest = Get-Content -Raw -LiteralPath (Join-Path $configRoot '.bsl-flow\manifest.json') | ConvertFrom-Json
+    Assert-O (@($adapterManifest.skills).Count -eq 7) 'Adapter manifest does not inventory exactly seven managed skills.'
+    Assert-O (@($adapterManifest.skills | Where-Object name -eq '1c-task').Count -eq 1) 'Adapter manifest omitted 1c-task.'
     $first = Get-Content -Raw -LiteralPath (Join-Path $configRoot 'AGENTS.md')
     $secondPlan=(& $installer -OpenCodeConfigRoot $configRoot -SharedSkillsRoot $sharedSkillsRoot -SkipCliValidation -Apply | ConvertFrom-Json)
     $second = Get-Content -Raw -LiteralPath (Join-Path $configRoot 'AGENTS.md')
@@ -103,6 +106,7 @@ description: Must survive adapter installation.
     Assert-O $failed 'Simulated post-apply failure did not fail.'
     Assert-O ((Get-Content -Raw -LiteralPath $rollbackAgents)-eq"original`r`n") 'Rollback did not restore AGENTS.md.'
     Assert-O (-not(Test-Path -LiteralPath (Join-Path $rollbackShared '1c-spec'))) 'Rollback left an installed shared skill.'
+    Assert-O (-not(Test-Path -LiteralPath (Join-Path $rollbackShared '1c-task'))) 'Rollback left an installed 1c-task skill.'
     if(Test-Path -LiteralPath $rollbackTop){Remove-Item -LiteralPath $rollbackTop -Recurse -Force}
 
     $conflictTop=Join-Path ([IO.Path]::GetTempPath()) ('bsl-flow-opencode-test-'+[Guid]::NewGuid().ToString('N'));$conflictRoot=Join-Path $conflictTop 'opencode'

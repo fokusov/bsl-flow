@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BSL Flow immutable revision v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "revision",
+    "previous_sha256",
+    "project_path",
+    "worker_path",
+    "baseline",
+    "request_hash",
+    "intent_hash",
+    "policy_hash",
+    "created_at",
+    "updated_at",
+    "request",
+    "intent_revision",
+    "authorization_revision",
+    "correction_rounds",
+    "policy_files",
+    "attempts",
+    "evidence",
+    "events",
+    "blockers",
+    "acceptances",
+    "policy_rules",
+    "classification",
+    "status",
+    "stage",
+    "active_attempt",
+    "unresolved_effect",
+    "question"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "task_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "previous_sha256": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "project_path": {
+      "type": "string"
+    },
+    "worker_path": {
+      "type": "string"
+    },
+    "baseline": {
+      "type": "string"
+    },
+    "request_hash": {
+      "type": "string"
+    },
+    "intent_hash": {
+      "type": "string"
+    },
+    "policy_hash": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "updated_at": {
+      "type": "string"
+    },
+    "request": {
+      "$ref": "request.schema.json"
+    },
+    "intent_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "authorization_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "correction_rounds": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "policy_files": {
+      "type": "array"
+    },
+    "attempts": {
+      "type": "array"
+    },
+    "evidence": {
+      "type": "array"
+    },
+    "events": {
+      "type": "array"
+    },
+    "blockers": {
+      "type": "array"
+    },
+    "acceptances": {
+      "type": "array"
+    },
+    "policy_rules": {
+      "type": "object"
+    },
+    "classification": {
+      "type": "object"
+    },
+    "status": {
+      "enum": [
+        "ready",
+        "running",
+        "needs_input",
+        "blocked",
+        "failed",
+        "completed",
+        "cancelled"
+      ]
+    },
+    "stage": {
+      "enum": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    "active_attempt": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "unresolved_effect": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "question": {
+      "type": [
+        "object",
+        "null"
+      ]
+    }
+  }
+}

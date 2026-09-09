@@ -1,5 +1,5 @@
 ﻿[CmdletBinding()]
-param([string]$PackageRoot)
+param([string]$PackageRoot, [switch]$HostChecks)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -34,6 +34,17 @@ function Get-TreeFingerprint {
     return ($items | ConvertTo-Json -Compress)
 }
 
+function Remove-IsolatedTestTree {
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$ExpectedLeafPrefix)
+    $resolved = [IO.Path]::GetFullPath($Path).TrimEnd('\', '/')
+    $temp = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\', '/')
+    $leaf = Split-Path -Leaf $resolved
+    if (-not $resolved.StartsWith($temp + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or $leaf -notlike "$ExpectedLeafPrefix*") {
+        throw "Unsafe test cleanup target: $resolved"
+    }
+    if (Test-Path -LiteralPath $resolved) { Remove-Item -LiteralPath $resolved -Recurse -Force -ErrorAction SilentlyContinue }
+}
+
 if ([string]::IsNullOrWhiteSpace($PackageRoot)) { $PackageRoot = Split-Path -Parent $PSScriptRoot }
 $packageRoot = [System.IO.Path]::GetFullPath($PackageRoot)
 $reviewSkill = Join-Path $packageRoot 'global\skills\1c-spec-review'
@@ -42,6 +53,7 @@ $lintSpec = Join-Path $reviewSkill 'scripts\Test-1CSpec.ps1'
 $invokeReview = Join-Path $reviewSkill 'scripts\Invoke-1CSpecReview.ps1'
 $finalReview = Join-Path $reviewSkill 'scripts\Test-1CSpecFinal.ps1'
 $addMetric = Join-Path $reviewSkill 'scripts\Add-1CSpecRunMetric.ps1'
+$installMain = Join-Path $packageRoot 'scripts\Install-BSLFlow.ps1'
 $bootstrapScript = Join-Path $packageRoot 'global\skills\1c-init-project\scripts\Initialize-BSLFlowProject.ps1'
 $schemaRoot = Join-Path $packageRoot 'global\openspec\schemas\bsl-flow'
 $reviewerConfig = Join-Path $reviewSkill 'reviewer\opencode-reviewer.json'
@@ -49,7 +61,7 @@ $reviewerConfig = Join-Path $reviewSkill 'reviewer\opencode-reviewer.json'
 $requiredFiles = @(
     'LICENSE',
     'scripts\Install-BSLFlow.ps1', 'scripts\Install-BSLFlowForOpenCode.ps1',
-    'scripts\Test-BSLFlowPackage.ps1', 'scripts\Test-BSLFlowOpenCode.ps1',
+    'scripts\Test-BSLFlowPackage.ps1', 'scripts\Test-BSLFlowOpenCode.ps1', 'scripts\Build-BSLFlowPackage.ps1',
     'AGENT_REPORTS_RU.md',
     'OPENCODE_SETUP_RU.md', 'global\OPENCODE.delegation.md',
     'scripts\Install-BSLFlowForOpenCode.ps1', 'scripts\Test-BSLFlowOpenCode.ps1', 'scripts\Test-OpenCodeAdapter.ps1',
@@ -75,7 +87,7 @@ $requiredFiles = @(
     'global\skills\1c-init-project\assets\project\AGENTS.md',
     'global\skills\1c-init-project\assets\project\bsl-flow.yaml',
     'global\skills\1c-init-project\assets\project\.bsl-flow\project.yaml',
-    'README.md', 'README.ru.md', 'INSTALL.md', 'TEST_ENVIRONMENT_GUIDE_RU.md', 'VERIFICATION.md', 'VERSION', 'global\AGENTS.bootstrap.md',
+    'README.md', 'README.ru.md', 'INSTALL.md', 'TEST_ENVIRONMENT_GUIDE_RU.md', 'VERIFICATION.md', 'VERSION', 'CHANGELOG.md', 'global\AGENTS.bootstrap.md',
     'global\openspec\schemas\bsl-flow\schema.yaml', 'global\openspec\schemas\bsl-flow\templates\spec.md',
     'global\skills\1c-spec-review\SKILL.md', 'global\skills\1c-spec-review\agents\openai.yaml',
     'global\skills\1c-spec-review\reviewer\opencode-reviewer.json',
@@ -88,10 +100,29 @@ $requiredFiles = @(
     'global\skills\1c-spec-review\scripts\Invoke-1CSpecReview.ps1',
     'global\skills\1c-spec-review\scripts\Test-1CSpecFinal.ps1',
     'global\skills\1c-spec-review\scripts\Add-1CSpecRunMetric.ps1',
+    'global\skills\1c-task\SKILL.md',
+    'global\skills\1c-task\scripts\Invoke-BSLFlowTask.ps1',
+    'global\skills\1c-task\scripts\Task.Storage.ps1',
+    'global\skills\1c-task\scripts\Task.Contracts.ps1',
+    'global\skills\1c-task\scripts\Task.Gates.ps1',
+    'global\skills\1c-task\scripts\Task.Process.ps1',
+    'global\skills\1c-task\scripts\Task.Engine.ps1',
+    'global\skills\1c-task\scripts\Task.Stages.ps1',
+    'global\skills\1c-task\adapters\Codex.ps1',
+    'global\skills\1c-task\schemas\worker-result.schema.json',
+    'global\skills\1c-task\references\task-contract.md',
+    'scripts\Test-TaskStorage.ps1',
+    'scripts\Test-TaskLifecycle.ps1',
+    'scripts\Test-TaskHardening.ps1',
+    'scripts\Test-TaskResume.ps1',
+    'scripts\Test-TaskCrashRecovery.ps1',
+    'scripts\Test-SandboxedVerification.ps1',
+    'scripts\Test-ManagedHost.ps1',
     'global\skills\1c-verify\references\testing-policy.md'
 )
 foreach ($relative in $requiredFiles) { Assert-True (Test-Path -LiteralPath (Join-Path $packageRoot $relative) -PathType Leaf) "Missing package file: $relative" }
-Assert-True ((Get-Content -Raw (Join-Path $packageRoot 'VERSION')).Trim() -eq '0.6.1') 'VERSION is not 0.6.1.'
+$packageVersion = (Get-Content -Raw (Join-Path $packageRoot 'VERSION')).Trim()
+Assert-True ($packageVersion -eq '0.7.0-dev.1') 'VERSION is not 0.7.0-dev.1.'
 $publicReadme = Get-Content -Raw (Join-Path $packageRoot 'README.md')
 Assert-True ($publicReadme -match '^# BSL Flow') 'Public README does not use the BSL Flow name.'
 Assert-True ($publicReadme.Contains('[MIT License](LICENSE)')) 'Public README does not link the MIT license.'
@@ -101,16 +132,16 @@ $openCodeInstallerText = Get-Content -Raw (Join-Path $packageRoot 'scripts\Insta
 foreach ($text in @($publicReadme, $russianReadme, (Get-Content -Raw (Join-Path $packageRoot 'INSTALL.md')))) {
     Assert-True ($text.Contains('.agents\skills')) 'Public installation documentation does not name the shared skills catalog.'
 }
-Assert-True ($installScriptText.Contains("`$targetSkills = Join-Path `$userProfile '.agents\skills'")) 'Codex installer does not target the shared skills catalog.'
+Assert-True ($installScriptText.Contains("Join-Path `$userProfile '.agents\skills'")) 'Codex installer does not target the shared skills catalog.'
 Assert-True ($openCodeInstallerText.Contains("`$defaultSharedSkillsRoot=Join-Path `$userProfile '.agents\skills'")) 'OpenCode installer does not target the shared skills catalog.'
 Assert-True ($installScriptText.Contains('Remove-RetiredManagedBlock -Text $agentsText -Marker "$retiredFrameworkName bootstrap"')) 'Codex installer does not retire the old managed AGENTS block.'
-Assert-True ($installScriptText.Contains('$retiredSchema = Join-Path $localAppData ("openspec\schemas\$retiredFrameworkName")')) 'Codex installer does not retire the old OpenSpec schema.'
+Assert-True ($installScriptText.Contains('$retiredSchema = Join-Path $targetSchemaParent $retiredFrameworkName')) 'Codex installer does not retire the old OpenSpec schema beside the selected target.'
 Assert-True ($russianReadme.Contains('provider') -and $russianReadme.Contains('`BLOCKED`') -and $russianReadme.Contains('not_configured')) 'Russian README lacks the missing-test-provider contract.'
 $retiredPrefix = '1' + 'c'
 $retiredWord = 'li' + 'te'
 $forbiddenNamePattern = '(?i)' + $retiredPrefix + '[-_. ]?' + $retiredWord + '|one' + $retiredPrefix + '[-_. ]?' + $retiredWord
 $forbiddenHits = Get-ChildItem -LiteralPath $packageRoot -File -Recurse -Force |
-    Where-Object { $_.FullName -notmatch '[\\/]\.git(?:[\\/]|$)' } |
+    Where-Object { $_.FullName -notmatch '[\\/](?:\.git|\.bsl-flow|work|outputs)(?:[\\/]|$)' } |
     Select-String -Pattern $forbiddenNamePattern
 Assert-True (($forbiddenHits | Measure-Object).Count -eq 0) 'Package still contains the retired framework name.'
 $packageGit = Get-Command git -ErrorAction SilentlyContinue
@@ -123,8 +154,11 @@ foreach ($relative in $requiredFiles) {
 foreach ($suite in @('Test-ProjectUpgrade.ps1', 'Test-WorkstationSetup.ps1', 'Test-InteractiveTestPilot.ps1', 'Test-ExternalArtifactEvidence.ps1', 'Test-TestStarter.ps1', 'Test-TestEvidence.ps1', 'Test-ExtensionIdentitySafety.ps1', 'Test-AgentAudit.ps1', 'Test-OpenCodeAdapter.ps1', 'Test-ReviewReliability.ps1')) {
     & (Join-Path $packageRoot "scripts\$suite") -PackageRoot $packageRoot
 }
+foreach ($suite in @('Test-TaskStorage.ps1', 'Test-TaskLifecycle.ps1', 'Test-TaskHardening.ps1', 'Test-TaskResume.ps1', 'Test-TaskCrashRecovery.ps1')) {
+    & (Join-Path $packageRoot "scripts\$suite") -PackageRoot $packageRoot
+}
 
-foreach ($skillName in @('1c-init-project', '1c-spec', '1c-spec-review', '1c-implement', '1c-verify', '1c-debug')) {
+foreach ($skillName in @('1c-init-project', '1c-spec', '1c-spec-review', '1c-implement', '1c-verify', '1c-debug', '1c-task')) {
     $skillFile = Join-Path $packageRoot "global\skills\$skillName\SKILL.md"
     Assert-True (Test-Path -LiteralPath $skillFile -PathType Leaf) "Missing skill: $skillName"
     $skillText = Get-Content -Raw -LiteralPath $skillFile
@@ -137,17 +171,19 @@ Assert-True ($reviewerPrompt -match '(?i)untrusted data') 'Reviewer prompt lacks
 Assert-True ($reviewerPrompt.Contains('Whole-tree `**/*` globbing is denied')) 'Reviewer prompt lacks bounded project-search guidance.'
 Assert-True ($reviewerPrompt.Contains('`completeness` is a score name, not a finding category')) 'Reviewer prompt does not distinguish score and finding category.'
 
-$openSpec = Get-Command openspec -ErrorAction SilentlyContinue
-$realOpenCode = Get-Command opencode -ErrorAction SilentlyContinue
-Assert-True ([bool]$openSpec) 'OpenSpec CLI is not available.'
-Assert-True ([bool]$realOpenCode) 'OpenCode CLI is not available.'
-
-$testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('bsl-flow-v060-test-' + [guid]::NewGuid().ToString('N'))
+$testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('bsl-flow-package-test-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $testRoot | Out-Null
 $oldPath = $env:PATH
 $oldLocalAppData = $env:LOCALAPPDATA
 $oldXdgDataHome = $env:XDG_DATA_HOME
 try {
+    $schemaText = Get-Content -Raw (Join-Path $schemaRoot 'schema.yaml')
+    Assert-True ($schemaText -notmatch '(?m)^\s*-\s+id:\s*(review|tasks)\s*$') 'Review or tasks became OpenSpec workflow artifacts.'
+    if ($HostChecks) {
+    $openSpec = Get-Command openspec -ErrorAction SilentlyContinue
+    $realOpenCode = Get-Command opencode -ErrorAction SilentlyContinue
+    Assert-True ([bool]$openSpec) 'OpenSpec CLI is not available.'
+    Assert-True ([bool]$realOpenCode) 'OpenCode CLI is not available.'
     $schemaProbe = Join-Path $testRoot 'schema-probe'
     $probeSchema = Join-Path $schemaProbe 'openspec\schemas\bsl-flow'
     New-Item -ItemType Directory -Path $probeSchema -Force | Out-Null
@@ -158,9 +194,6 @@ try {
     finally { Pop-Location }
     Write-Host $schemaResult.Output
     Assert-True ($schemaResult.ExitCode -eq 0) 'Packaged OpenSpec schema validation failed.'
-    $schemaText = Get-Content -Raw (Join-Path $schemaRoot 'schema.yaml')
-    Assert-True ($schemaText -notmatch '(?m)^\s*-\s+id:\s*(review|tasks)\s*$') 'Review or tasks became OpenSpec workflow artifacts.'
-
     $isolatedLocalAppData = Join-Path $testRoot 'local-app-data'
     $isolatedSchema = Join-Path $isolatedLocalAppData 'openspec\schemas\bsl-flow'
     New-Item -ItemType Directory -Path $isolatedSchema -Force | Out-Null
@@ -176,8 +209,12 @@ try {
     try {
         $env:OPENCODE_CONFIG = $reviewerConfig
         $env:OPENCODE_DISABLE_PROJECT_CONFIG = '1'
-        $readAgent = (Invoke-NativeCommand $realOpenCode.Source @('debug', 'agent', 'bsl-flow-spec-reviewer')).Output | ConvertFrom-Json
-        $sealedAgent = (Invoke-NativeCommand $realOpenCode.Source @('debug', 'agent', 'bsl-flow-spec-reviewer-sealed')).Output | ConvertFrom-Json
+        $readAgentResult = Invoke-NativeCommand $realOpenCode.Source @('debug', 'agent', 'bsl-flow-spec-reviewer')
+        Assert-True ($readAgentResult.ExitCode -eq 0) "OpenCode read-agent host check failed: $($readAgentResult.Output)"
+        $readAgent = $readAgentResult.Output | ConvertFrom-Json
+        $sealedAgentResult = Invoke-NativeCommand $realOpenCode.Source @('debug', 'agent', 'bsl-flow-spec-reviewer-sealed')
+        Assert-True ($sealedAgentResult.ExitCode -eq 0) "OpenCode sealed-agent host check failed: $($sealedAgentResult.Output)"
+        $sealedAgent = $sealedAgentResult.Output | ConvertFrom-Json
     }
     finally {
         if ($null -eq $oldConfig) { Remove-Item Env:OPENCODE_CONFIG -ErrorAction SilentlyContinue } else { $env:OPENCODE_CONFIG = $oldConfig }
@@ -199,6 +236,56 @@ try {
     foreach ($pattern in @('**/.git/**', '**/.bsl-flow/**', '**/*.epf', '**/*.erf', '**/*.cfe', '**/*.cf', '**/*.dt', '**/*.1cd')) {
         $denyRule = @($readAgent.permission | Where-Object { $_.permission -eq 'read' -and $_.pattern -eq $pattern -and $_.action -eq 'deny' })
         Assert-True ($denyRule.Count -ge 1) "Read agent lacks deny rule: $pattern"
+    }
+    & (Join-Path $packageRoot 'scripts\Test-BSLFlowOpenCode.ps1')
+    }
+
+    $installTestRoot = Join-Path ([IO.Path]::GetTempPath()) ('bsl-flow-install-test-' + [guid]::NewGuid().ToString('N'))
+    $installCodex = Join-Path $installTestRoot 'codex'
+    $installSkills = Join-Path $installTestRoot '.agents\skills'
+    $installSchema = Join-Path $installTestRoot 'local-app-data\openspec\schemas\bsl-flow'
+    $installMetrics = Join-Path $installTestRoot 'profile\.bsl-flow\evals\spec-runs.jsonl'
+    try {
+        $escapedTargetBlocked = $false
+        try { & $installMain -CodexHome $installCodex -SharedSkillsRoot $installSkills -OpenSpecSchemaRoot $installSchema -MetricsPath (Join-Path ([IO.Path]::GetTempPath()) 'escaped-bsl-flow-metrics.jsonl') -SkipCliValidation -Confirm:$false | Out-Null }
+        catch { $escapedTargetBlocked = $_.Exception.Message -match 'escapes its isolated root' }
+        Assert-True $escapedTargetBlocked 'Main installer accepted a test target outside its isolated root.'
+        New-Item -ItemType Directory -Path (Join-Path $installSkills 'unrelated') -Force | Out-Null
+        'keep skill' | Set-Content -LiteralPath (Join-Path $installSkills 'unrelated\keep.txt') -Encoding utf8
+        & $installMain -CodexHome $installCodex -SharedSkillsRoot $installSkills -OpenSpecSchemaRoot $installSchema -MetricsPath $installMetrics -SkipCliValidation -Confirm:$false | Out-Null
+        foreach ($name in @('1c-init-project','1c-spec','1c-spec-review','1c-implement','1c-verify','1c-debug','1c-task')) {
+            Assert-True (Test-Path -LiteralPath (Join-Path $installSkills "$name\SKILL.md") -PathType Leaf) "Isolated install omitted skill: $name"
+        }
+        Assert-True (Test-Path -LiteralPath (Join-Path $installSkills 'unrelated\keep.txt') -PathType Leaf) 'Fresh install removed an unrelated skill.'
+        Assert-True (Test-Path -LiteralPath (Join-Path $installCodex 'AGENTS.md') -PathType Leaf) 'Fresh install did not create AGENTS.md.'
+        Add-Content -LiteralPath (Join-Path $installCodex 'AGENTS.md') -Value "`nkeep global rule" -Encoding utf8
+        'outdated managed skill' | Set-Content -LiteralPath (Join-Path $installSkills '1c-task\SKILL.md') -Encoding utf8
+        & $installMain -CodexHome $installCodex -SharedSkillsRoot $installSkills -OpenSpecSchemaRoot $installSchema -MetricsPath $installMetrics -SkipCliValidation -Confirm:$false | Out-Null
+        Assert-True (Test-Path -LiteralPath (Join-Path $installSkills 'unrelated\keep.txt') -PathType Leaf) 'Reinstall removed an unrelated skill.'
+        Assert-True ((Get-Content -Raw -LiteralPath (Join-Path $installCodex 'AGENTS.md')).Contains('keep global rule')) 'Reinstall removed user AGENTS content.'
+        Assert-True ((Get-FileHash -LiteralPath (Join-Path $installSkills '1c-task\SKILL.md') -Algorithm SHA256).Hash -eq (Get-FileHash -LiteralPath (Join-Path $packageRoot 'global\skills\1c-task\SKILL.md') -Algorithm SHA256).Hash) 'Main installer update did not replace the managed 1c-task skill.'
+        $beforeRollbackSkills = Get-TreeFingerprint $installSkills
+        $beforeRollbackSchema = Get-TreeFingerprint $installSchema
+        $beforeRollbackAgents = (Get-FileHash -LiteralPath (Join-Path $installCodex 'AGENTS.md') -Algorithm SHA256).Hash
+        $beforeRollbackMetrics = (Get-FileHash -LiteralPath $installMetrics -Algorithm SHA256).Hash
+        $rollbackFailed = $false
+        try { & $installMain -CodexHome $installCodex -SharedSkillsRoot $installSkills -OpenSpecSchemaRoot $installSchema -MetricsPath $installMetrics -SkipCliValidation -SimulatePostApplyFailure -Confirm:$false | Out-Null }
+        catch { $rollbackFailed = $_.Exception.Message -match 'previous installation was restored' }
+        Assert-True $rollbackFailed 'Main installer simulated failure did not report rollback.'
+        Assert-True ((Get-TreeFingerprint $installSkills) -eq $beforeRollbackSkills) 'Main installer rollback did not restore skills.'
+        Assert-True ((Get-TreeFingerprint $installSchema) -eq $beforeRollbackSchema) 'Main installer rollback did not restore schema.'
+        Assert-True ((Get-FileHash -LiteralPath (Join-Path $installCodex 'AGENTS.md') -Algorithm SHA256).Hash -eq $beforeRollbackAgents) 'Main installer rollback did not restore AGENTS.md.'
+        Assert-True ((Get-FileHash -LiteralPath $installMetrics -Algorithm SHA256).Hash -eq $beforeRollbackMetrics) 'Main installer rollback did not restore metrics.'
+        $installedTaskCli = Join-Path $installSkills '1c-task\scripts\Invoke-BSLFlowTask.ps1'
+        Assert-True (Test-Path -LiteralPath $installedTaskCli -PathType Leaf) 'Installed layout omitted the 1c-task CLI.'
+        $taskCommand = Get-Command $installedTaskCli
+        foreach ($parameter in @('Action','ProjectPath','TaskId','InputFile','AttemptId','CodexPath')) { Assert-True $taskCommand.Parameters.ContainsKey($parameter) "Installed 1c-task CLI omitted parameter: $parameter" }
+        $actionSet = @($taskCommand.Parameters.Action.Attributes | Where-Object { $_ -is [Management.Automation.ValidateSetAttribute] } | ForEach-Object ValidValues)
+        Assert-True ($actionSet.Count -eq 9) 'Installed 1c-task CLI exposes an unexpected action set.'
+        foreach ($action in @('Start','Status','Next','Run','Record','Update','Accept','Resume','Cancel')) { Assert-True ($action -in $actionSet) "Installed 1c-task CLI omitted action: $action" }
+    }
+    finally {
+        Remove-IsolatedTestTree -Path $installTestRoot -ExpectedLeafPrefix 'bsl-flow-install-test-'
     }
 
     $project = Join-Path $testRoot 'project'
@@ -376,6 +463,7 @@ using System;
 class FakeOpenCode {
   static string E(string s) { return s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "\\r").Replace("\n", "\\n"); }
   static void Main(string[] args) {
+    Console.In.ReadToEnd();
     string payload = "{\"schema_version\":1,\"reviewer_verdict\":\"REVISE\",\"summary\":\"The core behavior is clear, but one design statement needs narrowing.\",\"scores\":{\"intent_fidelity\":5,\"minimality\":3,\"completeness\":4,\"architecture_fit\":4,\"testability\":4,\"assumption_discipline\":4,\"clarity\":5},\"overengineering\":{\"items\":[{\"spec_ref\":\"Required behavior / 2\",\"item\":\"Broad restriction\",\"necessity\":\"optional\",\"evidence\":\"The task needs only one form change.\",\"simpler_direction\":\"Limit the non-goal to the affected form.\"},{\"spec_ref\":\"1C context\",\"item\":\"Unverified server method\",\"necessity\":\"unjustified\",\"evidence\":\"No exact method reference is present.\",\"simpler_direction\":\"Name the verified method or keep it an uncertainty.\"}]},\"findings\":[{\"id\":\"R-001\",\"severity\":\"high\",\"category\":\"overengineering\",\"spec_ref\":\"Required behavior / 2\",\"issue\":\"The restriction is broader than the task.\",\"evidence\":\"Original task mentions one field.\",\"suggested_direction\":\"Narrow the non-goal.\"},{\"id\":\"R-002\",\"severity\":\"medium\",\"category\":\"unsupported_assumption\",\"spec_ref\":\"1C context\",\"issue\":\"The server method is not identified.\",\"evidence\":\"No method name is supplied.\",\"suggested_direction\":\"Add evidence or state the uncertainty.\"}],\"do_not_change\":[\"Acceptance criterion directly reflects the requested user behavior.\"],\"confidence\":0.86}";
     Console.WriteLine("{\"type\":\"text\",\"part\":{\"text\":\"" + E(payload) + "\"}}");
     Console.Out.Flush();
@@ -544,15 +632,11 @@ class FakeOpenCode {
     catch { $unsafeRejected = $_.Exception.Message -match 'Unsafe reviewer permission' }
     Assert-True $unsafeRejected 'Unsafe permission was not rejected.'
 
-    Write-Host 'All BSL Flow v0.6.1 package tests passed.'
+    Write-Host "All BSL Flow v$packageVersion offline package tests passed. Host checks: $([bool]$HostChecks)."
 }
 finally {
     $env:PATH = $oldPath
     if ($null -eq $oldLocalAppData) { Remove-Item Env:LOCALAPPDATA -ErrorAction SilentlyContinue } else { $env:LOCALAPPDATA = $oldLocalAppData }
     if ($null -eq $oldXdgDataHome) { Remove-Item Env:XDG_DATA_HOME -ErrorAction SilentlyContinue } else { $env:XDG_DATA_HOME = $oldXdgDataHome }
-    $resolved = [System.IO.Path]::GetFullPath($testRoot)
-    $temp = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
-    if ($resolved.StartsWith($temp, [System.StringComparison]::OrdinalIgnoreCase) -and (Split-Path -Leaf $resolved) -like 'bsl-flow-v060-test-*') {
-        Remove-Item -LiteralPath $resolved -Recurse -Force -ErrorAction SilentlyContinue
-    }
+    Remove-IsolatedTestTree -Path $testRoot -ExpectedLeafPrefix 'bsl-flow-package-test-'
 }

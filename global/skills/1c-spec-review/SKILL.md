@@ -5,6 +5,8 @@ description: Run lint and an independent read-only OpenCode critique for an Open
 
 # 1c-spec-review
 
+For a registered managed task, the controller invokes the independent reviewer and final validator. A reconciliation worker returns its evidence-backed decisions and minimally revised text under the current stage contract; it must not launch another review loop or write controller sidecars. The assisted procedure below remains available outside managed mode.
+
 Use this skill after `1c-spec` creates a specification. It adds one independent critic pass and a deterministic final invariant check; it does not create an implementation plan or a recurring review loop.
 
 ## Routing
@@ -38,7 +40,7 @@ They are evidence, not OpenSpec schema artifacts. Do not add `tasks.md`.
 5. Run `scripts/Test-1CSpecFinal.ps1`. This is an invariant check, not a second LLM review.
 6. After final validation passes, run `scripts/Add-1CSpecRunMetric.ps1` to append the privacy-minimized cross-project record.
 
-The invocation keeps an ignored, project-local run directory under
+The invocation snapshots the exact `original-task.md`, `spec.md`, and optional `design.md` bytes and hashes before starting the provider, then rejects publication if any live input changes during the run. It keeps an ignored, project-local run directory under
 `.bsl-flow/reports/spec-review/<run-id>/`. Provider events and the raw response are
 appended while the process runs; `status.json` records the actual phase and a
 failure writes `diagnostic.json` without copying response contents into common

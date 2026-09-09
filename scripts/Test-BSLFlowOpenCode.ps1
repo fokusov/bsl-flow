@@ -68,7 +68,7 @@ $sharedSkills = [IO.Path]::GetFullPath($SharedSkillsRoot).TrimEnd('\','/')
 if ((Split-Path -Leaf $configRoot) -ine 'opencode') { throw "OpenCode config root must be a directory named 'opencode': $configRoot" }
 if (-not (Test-Path -LiteralPath $configRoot -PathType Container)) { throw "OpenCode config directory not found: $configRoot" }
 
-$skillNames = @('1c-init-project','1c-spec','1c-spec-review','1c-implement','1c-verify','1c-debug')
+$skillNames = @('1c-init-project','1c-spec','1c-spec-review','1c-implement','1c-verify','1c-debug','1c-task')
 $skillRoot = $sharedSkills
 $skillRows = @()
 foreach ($name in $skillNames) {

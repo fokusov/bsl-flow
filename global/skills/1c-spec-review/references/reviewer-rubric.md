@@ -74,5 +74,6 @@ The caller applies configured thresholds after recalculating metrics:
 - `BLOCK`: a blocker exists or the weighted score is below the configured block threshold.
 
 The deterministic gate may downgrade `PASS` but never upgrade the reviewer's `REVISE` or `BLOCK`.
+Every computed `REVISE` or `BLOCK` must have at least one evidence-bearing finding. A low score or threshold failure without a finding is an invalid review response, including when the reviewer returned raw `PASS`.
 
 The review is one pass. Final validation checks reconciliation, hashes, lint, and preserved invariants; it is not another full model review.

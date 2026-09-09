@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BSL Flow stage proposal (not an acceptance receipt)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "status", "summary", "payload_json"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "status": {"type": "string", "enum": ["completed", "needs_input", "blocked", "failed"]},
+    "summary": {"type": "string", "minLength": 1},
+    "payload_json": {"type": "string"}
+  }
+}

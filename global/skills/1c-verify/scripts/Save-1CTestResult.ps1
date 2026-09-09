@@ -118,8 +118,11 @@ $receipt = $null
 $receiptPresent = $false
 $receiptError = $null
 $junit = $null
-$junitStatus = 'not_requested'
+$junitStatus = 'missing_or_deleted'
 $junitError = $null
+$sourceManifest = $null
+$sourceManifestStatus = 'missing_or_invalid'
+$sourceManifestError = $null
 try {
     if ($ReceiptPath) {
         $receiptFull = [System.IO.Path]::GetFullPath($ReceiptPath)
@@ -156,7 +159,7 @@ try {
     $actualSkipped = if ($actual) { Get-TENumber $actual 'skipped' } else { $null }
     $checks = New-Object System.Collections.ArrayList
     [void]$checks.Add([pscustomobject]@{name='receipt'; status=if($receipt){'pass'}else{'missing'}; message=if($receiptError){$receiptError}else{'Parsed runner envelope or receipt not available.'}})
-    [void]$checks.Add([pscustomobject]@{name='junit'; status=if($junit){'pass'}else{if($junitStatus -eq 'malformed'){'malformed'}elseif($JUnitReportPath){'missing_or_deleted'}else{'not_requested'}}; message=if($junitError){$junitError}else{'Original JUnit is retained separately from a parsed receipt.'}})
+    [void]$checks.Add([pscustomobject]@{name='junit'; status=if($junit){'pass'}else{if($junitStatus -eq 'malformed'){'malformed'}else{'missing_or_deleted'}}; message=if($junitError){$junitError}else{'Original JUnit is mandatory and must be retained separately from a parsed receipt.'}})
     $countsOk = $null -ne $actual -and $actualTotal -eq $ExpectedTotal -and $actualTotal -gt 0 -and $actualPassed -eq $actualTotal -and $actualFailed -eq 0 -and $actualErrors -eq 0 -and $actualSkipped -eq 0
     [void]$checks.Add([pscustomobject]@{name='counts'; status=if($countsOk){'pass'}else{'mismatch'}; message="expected total=$ExpectedTotal; observed=$actualTotal; passed=$actualPassed; failed=$actualFailed; errors=$actualErrors; skipped=$actualSkipped"})
     $runnerSelectionOk = if ($runnerCases.Count -gt 0) { Test-TEExpectedSelection $expectedSelection $runnerCases } else { $false }
@@ -188,6 +191,21 @@ try {
     $observedSourcesNormalized = @(Get-TEStringArray $observedSources)
     $sourcesOk = $expectedSourcesNormalized.Count -gt 0 -and $observedSourcesNormalized.Count -gt 0 -and (Compare-TEValue $expectedSourcesNormalized $observedSourcesNormalized)
     [void]$checks.Add([pscustomobject]@{name='sources'; status=if($sourcesOk){'pass'}else{'missing_or_mismatch'}; expected=$expectedSourcesNormalized; observed=$observedSourcesNormalized})
+    if ($SourceManifestPath) {
+        $sourceManifestFull = [System.IO.Path]::GetFullPath($SourceManifestPath)
+        if (Test-Path -LiteralPath $sourceManifestFull -PathType Leaf) {
+            try {
+                $sourceManifest = Get-TEJsonFile $sourceManifestFull
+                $sourceManifestCheck = Test-TESourceManifest $sourceManifest $expectedSourcesNormalized
+                if ($sourceManifestCheck.valid) { $sourceManifestStatus = 'complete' }
+                else { $sourceManifestError = @($sourceManifestCheck.issues) -join '; ' }
+            }
+            catch { $sourceManifestError = $_.Exception.Message }
+        }
+        else { $sourceManifestError = "Source manifest was not found: $sourceManifestFull" }
+    }
+    else { $sourceManifestError = 'A complete source manifest is required; omission cannot yield PASS.' }
+    [void]$checks.Add([pscustomobject]@{name='source_manifest'; status=if($sourceManifestStatus -eq 'complete'){'pass'}else{'missing_or_invalid'}; message=$sourceManifestError})
     $expectedVersions = Get-TEProperty $expected @('versions','sourceVersions','source_versions')
     $observedVersions = if ($observedData) { Get-TEProperty $observedData @('versions','sourceVersions','source_versions','effective_versions','effectiveVersions') } else { $null }
     $versionsOk = $null -ne $expectedVersions -and $null -ne $observedVersions -and (Compare-TEValue $expectedVersions $observedVersions)
@@ -199,7 +217,7 @@ try {
 
     $stale = $false
     $started = if ($null -ne $RunStartedAtUtc) { ([DateTime]$RunStartedAtUtc).ToUniversalTime() } else { Get-TEUtcTimestamp (Get-TEProperty $expected @('started_at_utc','startedAtUtc')) }
-    foreach ($source in @($ReceiptPath,$JUnitReportPath)) { if ($source -and $started -and (Test-Path -LiteralPath $source -PathType Leaf)) { if ((Get-Item -LiteralPath $source).LastWriteTimeUtc.AddSeconds(2) -lt $started) { $stale = $true } } }
+    foreach ($source in @($ReceiptPath,$JUnitReportPath,$SourceManifestPath)) { if ($source -and $started -and (Test-Path -LiteralPath $source -PathType Leaf)) { if ((Get-Item -LiteralPath $source).LastWriteTimeUtc.AddSeconds(2) -lt $started) { $stale = $true } } }
     if ($ReceiptPath -and $JUnitReportPath -and (Test-Path -LiteralPath $ReceiptPath -PathType Leaf) -and (Test-Path -LiteralPath $JUnitReportPath -PathType Leaf)) {
         $receiptTime = (Get-Item -LiteralPath $ReceiptPath).LastWriteTimeUtc
         $junitTime = (Get-Item -LiteralPath $JUnitReportPath).LastWriteTimeUtc
@@ -208,7 +226,7 @@ try {
     [void]$checks.Add([pscustomobject]@{name='freshness'; status=if($null -eq $started){'missing'}elseif(-not $stale){'pass'}else{'stale'}; message='Report timestamps are compared with the declared run start.'})
     $blocked = @($checks | Where-Object status -in @('missing','missing_or_deleted','mismatch','failure_or_missing','stale')).Count -gt 0 -or $receiptError
     $freshnessEvidence = $null -ne $started
-    $evidenceBlocked = (-not $receiptPresent) -or [bool]$receiptError -or ($junitStatus -in @('missing_or_deleted','malformed')) -or [bool]$junitError -or $stale -or (-not $freshnessEvidence) -or ($null -eq $actual) -or (-not $targetOk) -or (-not $sourcesOk) -or (-not $versionsOk)
+    $evidenceBlocked = (-not $receiptPresent) -or [bool]$receiptError -or ($junitStatus -in @('missing_or_deleted','malformed')) -or [bool]$junitError -or ($sourceManifestStatus -ne 'complete') -or $stale -or (-not $freshnessEvidence) -or ($null -eq $actual) -or (-not $targetOk) -or (-not $sourcesOk) -or (-not $versionsOk)
     $resultStatus = if (-not $blocked -and -not $evidenceBlocked -and $junitStatus -ne 'missing_or_deleted') { 'PASS' } elseif ($evidenceBlocked) { 'BLOCKED' } else { 'FAIL' }
     $selectionCases = if ($runnerCases.Count -gt 0) { $runnerCases } else { $junitSelectionCases }
     if ($PostFailureState) { $failureState = $PostFailureState } else { $failureState = if($resultStatus -eq 'PASS'){'not_applicable'}else{Get-TEFailureState $receipt $receiptPresent} }
@@ -216,7 +234,7 @@ try {
         schema_version=1; kind='bsl-flow.test-attempt'; attempt_id=$RunId; recorded_at_utc=[DateTime]::UtcNow.ToString('o'); status=$resultStatus
         started_at_utc=if($started){$started.ToString('o')}else{$null}; completed_at_utc=if($ReceiptPath -and (Test-Path -LiteralPath $ReceiptPath -PathType Leaf)){(Get-Item -LiteralPath $ReceiptPath).LastWriteTimeUtc.ToString('o')}else{[DateTime]::UtcNow.ToString('o')}
         target=[ordered]@{ declared=$expectedTarget; observed=$observedTarget }
-        sources=[ordered]@{ declared=$expectedSourcesNormalized; observed=$observedSourcesNormalized; manifest_sha256=if($SourceManifestPath){Get-TESha256 $SourceManifestPath}else{$null}; manifest_unavailable_reason=if($SourceManifestPath){$null}else{'No source hash manifest supplied; versions do not prove byte identity.'} }
+        sources=[ordered]@{ declared=$expectedSourcesNormalized; observed=$observedSourcesNormalized; manifest_sha256=if($sourceManifestStatus -eq 'complete'){Get-TESha256 $SourceManifestPath}else{$null}; manifest_status=$sourceManifestStatus; manifest_unavailable_reason=if($sourceManifestStatus -eq 'complete'){$null}else{$sourceManifestError} }
         versions=[ordered]@{ declared=$expectedVersions; observed=$observedVersions }
         expected=[ordered]@{ selection=@($expectedSelection); counts=$expectedCounts; total=$ExpectedTotal }
         observed=[ordered]@{ counts=$actual; receipt_envelope=$runnerCounts; junit=$junit; selection=@(Get-TECaseNames $selectionCases) }

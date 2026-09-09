@@ -1,6 +1,8 @@
 <!-- bsl-flow bootstrap:start -->
 ## 1C project bootstrap
 
+BSL Flow defaults to assisted skills. For an explicitly requested managed task use `1c-task` and the installed task controller; one `Run` owns the stage sequence. A bootstrap sentinel does not prove host/runtime readiness. Preserve explicit user analysis-only scope. Registered tasks must consume current controller gates; neither OpenSpec apply readiness nor a worker completion authorizes implementation or acceptance. The managed Codex adapter currently supports source-only execution; unconfirmed 1C runtime gates remain BLOCKED.
+
 When working in a project that appears to be a 1C development project, check whether it is initialized for the global BSL Flow workflow before development begins.
 
 Treat a directory as a 1C project when at least one of these is true:

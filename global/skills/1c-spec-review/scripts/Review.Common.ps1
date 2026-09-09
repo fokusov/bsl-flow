@@ -5,9 +5,16 @@ function Get-BSLFlowSha256 {
     return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
 }
 
+function Get-BSLFlowBytesSha256 {
+    param([Parameter(Mandatory)][AllowEmptyCollection()][byte[]]$Bytes)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try { return ([BitConverter]::ToString($sha.ComputeHash($Bytes))).Replace('-', '').ToLowerInvariant() }
+    finally { $sha.Dispose() }
+}
+
 function Get-BSLFlowYamlValue {
     param(
-        [Parameter(Mandatory)][string]$Text,
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Text,
         [Parameter(Mandatory)][string[]]$Path,
         [string]$Default
     )
@@ -208,6 +215,60 @@ function Assert-BSLFlowReviewPayload {
         $blocking = @($Review.blocking_findings)
         foreach ($id in $blocking) { if ($id -isnot [string] -or $id -notmatch '^R-[0-9]{3,}$') { throw 'Invalid blocking_findings item.' } }
         if (@($blocking | Select-Object -Unique).Count -ne $blocking.Count) { throw 'blocking_findings must be unique.' }
+        if ($Review.verdict -ne 'PASS' -and @($Review.findings).Count -eq 0) {
+            throw 'A non-PASS review must contain at least one finding.'
+        }
+    }
+}
+
+function Assert-BSLFlowReviewReconciliationPayload {
+    param([Parameter(Mandatory)]$Reconciliation)
+
+    Assert-BSLFlowObjectProperties $Reconciliation 'reconciliation' @(
+        'schema_version', 'review_sha256', 'draft_spec_sha256', 'final_spec_sha256',
+        'draft_design_sha256', 'final_design_sha256', 'reconciled_at_utc', 'summary',
+        'decisions', 'do_not_change_checks'
+    )
+    if ((Get-BSLFlowJsonNumber $Reconciliation.schema_version 'reconciliation.schema_version' -Integer) -ne 1) {
+        throw 'reconciliation.schema_version must be 1.'
+    }
+    foreach ($name in @('review_sha256', 'draft_spec_sha256', 'final_spec_sha256')) {
+        if ($Reconciliation.$name -isnot [string] -or $Reconciliation.$name -notmatch '^[a-f0-9]{64}$') {
+            throw "Invalid reconciliation hash: $name"
+        }
+    }
+    foreach ($name in @('draft_design_sha256', 'final_design_sha256')) {
+        if ($null -ne $Reconciliation.$name -and ($Reconciliation.$name -isnot [string] -or $Reconciliation.$name -notmatch '^[a-f0-9]{64}$')) {
+            throw "Invalid reconciliation hash: $name"
+        }
+    }
+    $validDate = $false
+    if ($Reconciliation.reconciled_at_utc -is [DateTime]) {
+        $validDate = $Reconciliation.reconciled_at_utc.Kind -ne [DateTimeKind]::Unspecified
+    }
+    elseif ($Reconciliation.reconciled_at_utc -is [DateTimeOffset]) { $validDate = $true }
+    elseif ($Reconciliation.reconciled_at_utc -is [string]) {
+        $parsedDate = [DateTimeOffset]::MinValue
+        $validDate = [DateTimeOffset]::TryParse($Reconciliation.reconciled_at_utc, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::RoundtripKind, [ref]$parsedDate) -and $Reconciliation.reconciled_at_utc -match '(?:Z|[+-][0-9]{2}:[0-9]{2})$'
+    }
+    if (-not $validDate) { throw 'reconciliation.reconciled_at_utc must be an RFC 3339 date-time string with an offset.' }
+    Assert-BSLFlowText $Reconciliation.summary 'reconciliation.summary'
+    Assert-BSLFlowArray $Reconciliation.decisions 'reconciliation.decisions'
+    Assert-BSLFlowArray $Reconciliation.do_not_change_checks 'reconciliation.do_not_change_checks'
+
+    foreach ($decision in @($Reconciliation.decisions)) {
+        Assert-BSLFlowObjectProperties $decision 'reconciliation decision' @('finding_id', 'decision', 'reason', 'evidence', 'status', 'resolution', 'spec_ref_after')
+        if ($decision.finding_id -isnot [string] -or $decision.finding_id -notmatch '^R-[0-9]{3,}$') { throw 'Invalid reconciliation decision finding_id.' }
+        if ($decision.decision -notin @('accepted', 'rejected')) { throw "Invalid reconciliation decision: $($decision.finding_id)" }
+        if ($decision.status -notin @('addressed', 'not_applicable')) { throw "Invalid reconciliation status: $($decision.finding_id)" }
+        foreach ($name in @('reason', 'evidence', 'resolution', 'spec_ref_after')) {
+            Assert-BSLFlowText $decision.$name "reconciliation.decisions.$($decision.finding_id).$name"
+        }
+    }
+    foreach ($check in @($Reconciliation.do_not_change_checks)) {
+        Assert-BSLFlowObjectProperties $check 'do_not_change check' @('item', 'decision', 'reason', 'evidence')
+        foreach ($name in @('item', 'reason', 'evidence')) { Assert-BSLFlowText $check.$name "reconciliation.do_not_change_checks.$name" }
+        if ($check.decision -notin @('preserved', 'rejected')) { throw "Invalid do_not_change decision: $($check.item)" }
     }
 }
 
@@ -222,7 +283,10 @@ function Complete-BSLFlowReview {
         [Parameter(Mandatory)][double]$PassWeightedScore,
         [Parameter(Mandatory)][double]$BlockBelowWeightedScore,
         [Parameter(Mandatory)][int]$MaxOverengineeringIndexForPass,
-        [Parameter(Mandatory)][double]$MaxUnjustifiedRatioForPass
+        [Parameter(Mandatory)][double]$MaxUnjustifiedRatioForPass,
+        [string]$OriginalTaskSha256,
+        [string]$SpecSha256,
+        [AllowNull()]$DesignSha256
     )
 
     Assert-BSLFlowReviewPayload -Review $RawReview
@@ -261,6 +325,19 @@ function Complete-BSLFlowReview {
     elseif ($RawReview.reviewer_verdict -eq 'REVISE' -or $materialFindings.Count -gt 0) { $gateVerdict = 'REVISE' }
     elseif ($weighted -ge $PassWeightedScore -and $index -le $MaxOverengineeringIndexForPass -and $unjustifiedRatio -le $MaxUnjustifiedRatioForPass) { $gateVerdict = 'PASS' }
     else { $gateVerdict = 'REVISE' }
+    if ($gateVerdict -ne 'PASS' -and @($RawReview.findings).Count -eq 0) {
+        throw 'A computed non-PASS review without findings is invalid.'
+    }
+
+    if (-not $OriginalTaskSha256) { $OriginalTaskSha256 = Get-BSLFlowSha256 $OriginalTaskPath }
+    if (-not $SpecSha256) { $SpecSha256 = Get-BSLFlowSha256 $SpecPath }
+    if (-not $PSBoundParameters.ContainsKey('DesignSha256')) {
+        $DesignSha256 = if ($DesignPath -and (Test-Path -LiteralPath $DesignPath -PathType Leaf)) { Get-BSLFlowSha256 $DesignPath } else { $null }
+    }
+    foreach ($hash in @($OriginalTaskSha256, $SpecSha256)) {
+        if ($hash -notmatch '^[a-f0-9]{64}$') { throw 'Invalid captured review input hash.' }
+    }
+    if ($null -ne $DesignSha256 -and $DesignSha256 -notmatch '^[a-f0-9]{64}$') { throw 'Invalid captured design hash.' }
 
     return [ordered]@{
         schema_version = 1
@@ -289,9 +366,9 @@ function Complete-BSLFlowReview {
         confidence = [double]$RawReview.confidence
         reviewer = [ordered]@{ provider = 'opencode'; agent = $Agent; model = $Model }
         inputs = [ordered]@{
-            original_task_sha256 = Get-BSLFlowSha256 $OriginalTaskPath
-            spec_sha256 = Get-BSLFlowSha256 $SpecPath
-            design_sha256 = if ($DesignPath -and (Test-Path -LiteralPath $DesignPath -PathType Leaf)) { Get-BSLFlowSha256 $DesignPath } else { $null }
+            original_task_sha256 = $OriginalTaskSha256
+            spec_sha256 = $SpecSha256
+            design_sha256 = $DesignSha256
         }
         gate = [ordered]@{
             pass_weighted_score = $PassWeightedScore

@@ -6,6 +6,8 @@
 !.bsl-flow/evidence/.gitkeep
 .bsl-flow/local/*
 !.bsl-flow/local/.gitkeep
+.bsl-flow/tasks/
+.bsl-flow/worktrees/
 
 # Common local 1C/runtime temporary files.
 v8project.local.yaml

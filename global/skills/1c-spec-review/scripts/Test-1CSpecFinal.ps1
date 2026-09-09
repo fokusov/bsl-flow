@@ -26,14 +26,18 @@ $reconciliationHash = $null
 $finalSpecHash = $null
 $finalDesignHash = $null
 $originalTaskHash = $null
+$utf8 = [System.Text.UTF8Encoding]::new($false, $true)
 
 foreach ($required in @($reviewPath, $reconciliationPath, $specPath, $originalTaskPath)) {
     if (-not (Test-Path -LiteralPath $required -PathType Leaf)) { $errors.Add("Missing required final-validation input: $required") }
 }
 if ($errors.Count -eq 0) {
-    try { $review = Get-Content -Raw -LiteralPath $reviewPath | ConvertFrom-Json -ErrorAction Stop; Assert-BSLFlowReviewPayload $review -Completed }
+    try { $review = [System.IO.File]::ReadAllText($reviewPath, $utf8) | ConvertFrom-Json -ErrorAction Stop; Assert-BSLFlowReviewPayload $review -Completed }
     catch { $errors.Add("Invalid review.json: $($_.Exception.Message)") }
-    try { $reconciliation = Get-Content -Raw -LiteralPath $reconciliationPath | ConvertFrom-Json -ErrorAction Stop }
+    try {
+        $reconciliation = [System.IO.File]::ReadAllText($reconciliationPath, $utf8) | ConvertFrom-Json -ErrorAction Stop
+        Assert-BSLFlowReviewReconciliationPayload $reconciliation
+    }
     catch { $errors.Add("Invalid review-reconciliation.json: $($_.Exception.Message)") }
     try { $lint = & (Join-Path $PSScriptRoot 'Test-1CSpec.ps1') -ChangePath $changeRoot -NoThrow }
     catch { $errors.Add("Final spec lint could not run: $($_.Exception.Message)") }
@@ -46,15 +50,12 @@ if ($errors.Count -eq 0) {
     $finalSpecHash = Get-BSLFlowSha256 $specPath
     $finalDesignHash = if (Test-Path -LiteralPath $designPath -PathType Leaf) { Get-BSLFlowSha256 $designPath } else { $null }
     $originalTaskHash = Get-BSLFlowSha256 $originalTaskPath
-    if ($reconciliation.schema_version -ne 1) { $errors.Add('reconciliation.schema_version must be 1.') }
     if ($reconciliation.review_sha256 -ne $reviewHash) { $errors.Add('reconciliation.review_sha256 does not match review.json.') }
     if ($reconciliation.draft_spec_sha256 -ne $review.inputs.spec_sha256) { $errors.Add('reconciliation.draft_spec_sha256 does not match the reviewed draft.') }
     if ($reconciliation.final_spec_sha256 -ne $finalSpecHash) { $errors.Add('reconciliation.final_spec_sha256 does not match current spec.md.') }
     if ($reconciliation.draft_design_sha256 -ne $review.inputs.design_sha256) { $errors.Add('reconciliation.draft_design_sha256 does not match the reviewed design.') }
     if ($reconciliation.final_design_sha256 -ne $finalDesignHash) { $errors.Add('reconciliation.final_design_sha256 does not match current design.md.') }
     if ($originalTaskHash -ne $review.inputs.original_task_sha256) { $errors.Add('original-task.md changed after review.') }
-    if ([string]::IsNullOrWhiteSpace([string]$reconciliation.summary)) { $errors.Add('reconciliation.summary is required.') }
-
     $findings = @($review.findings)
     $decisions = @($reconciliation.decisions)
     $decisionIds = @($decisions | ForEach-Object { $_.finding_id })

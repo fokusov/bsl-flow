@@ -51,4 +51,5 @@ Rules:
 - Include every `do_not_change` item exactly once. Use `preserved` when it remains correct or `rejected` when it conflicts with a validated finding; either decision requires reason and evidence.
 - Hashes bind the reconciliation to the reviewed draft and final specification.
 - When `design.md` exists, use its reviewed and final SHA-256 values instead of `null`.
+- Every property shown in the contract is required. Final validation rejects malformed legacy reconciliation files and writes a fresh failed `final-validation.json`; an older PASS is never retained as current evidence.
 - If an unresolved blocker remains, do not claim final validation or begin implementation.

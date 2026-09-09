@@ -1,5 +1,16 @@
 version: 2
 
+workflow:
+  # Bootstrap selects assisted behavior and does not prove managed host/runtime readiness.
+  mode: assisted
+  entrypoint: 1c-task
+  managed:
+    readiness: not_verified_by_bootstrap
+    supported_adapters:
+      - codex
+    guarantee_scope: registered_tasks_through_confirmed_adapter_only
+    runtime: requires_explicit_authorized_route_and_target
+
 source:
   paths:
     - src
