@@ -21,8 +21,12 @@ jobs:
         with:
           persist-credentials: false
       - name: Offline package checks
-        shell: ${{ matrix.shell }}
-        run: ./scripts/Test-BSLFlowPackage.ps1 -PackageRoot .
+        shell: pwsh
+        env:
+          BSL_FLOW_TEST_SHELL: ${{ matrix.shell }}
+        run: |
+          & $env:BSL_FLOW_TEST_SHELL -NoProfile -File ./scripts/Test-BSLFlowPackage.ps1 -PackageRoot .
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
   cli:
     runs-on: windows-2025
