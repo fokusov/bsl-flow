@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.0-dev.1
+
+- Go executable with embedded versioned instructions/engine, strict task CLI, verified cache and host identity binding. Windows PowerShell/Git/model provider remain external dependencies.
+- Opt-in bounded source failure diagnosis/repair with frozen declared test inputs, exact failed evidence, fresh independent code review and verification. Defaults preserve fail-stop behavior.
+- Local supervisor for explicitly registered tasks and immutable accepted-source handoff; no implicit startup installation, push, deployment or database authority.
+- JUnit aggregate consistency and read-only diagnosis recovery checks; standalone CLI and updated package verification.
+- Documented remaining 1C runtime, test-environment, business-coverage and applied-delivery gates. This development version does not claim autonomous 1C runtime acceptance.
+- Validated a separately authorized native 1C pilot with two passing YAxUnit cases and retained original JUnit; recorded failed attempts, language-binding and internal-UUID corrections. The local pilot wrapper is not the public managed runtime adapter.
+
 ## 0.7.0-dev.1
 
 - Add the managed `1c-task` package surface and deterministic task lifecycle contracts.

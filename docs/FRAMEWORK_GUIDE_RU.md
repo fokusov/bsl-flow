@@ -1,8 +1,39 @@
 # BSL Flow: assisted и managed работа
 
-Это руководство описывает интерфейс `1c-task` в BSL Flow `0.7.0-dev.1`. Он нужен, когда одной инструкции агенту недостаточно: маршрут задачи, вопросы, проверки и приёмка должны переживать прерывания и оставаться привязанными к точным требованиям и исходникам.
+Это руководство описывает интерфейс `1c-task` в BSL Flow `0.8.0-dev.1`. Он нужен, когда одной инструкции агенту недостаточно: маршрут задачи, вопросы, проверки и приёмка должны переживать прерывания и оставаться привязанными к точным требованиям и исходникам.
 
-В этой версии managed-контур ограничен работой с исходниками. Реальные source-only пилоты на Windows прошли короткий S-маршрут и полный M-маршрут со спецификацией, внешним review, reconciliation, реализацией, code review и приёмкой без ручного переключения этапов. Managed-запуск изменений базы 1С отключён, временное ограничение Unica сохраняется. Подготовленный runtime-сценарий получает `BLOCKED`, пока нет подтверждённого и отдельно разрешённого адаптера и цели. Это не завершённый M8 и не режим полной автономности. Актуальные наблюдения и ограничения собраны в [отчёте проверки](../VERIFICATION.md).
+## Единый CLI в версии 0.8
+
+Готовый `bsl-flow.exe` содержит инструкции и controller. Go требуется только для сборки; PowerShell, Git и выбранный provider нужны для работы. Пользовательские команды:
+
+```powershell
+bsl-flow version
+bsl-flow task start --project C:\DEV\Example --input C:\Tasks\request.json
+bsl-flow task run --project C:\DEV\Example --task <uuid>
+bsl-flow task status --project C:\DEV\Example --task <uuid>
+bsl-flow task deliver --project C:\DEV\Example --task <uuid>
+bsl-flow runner run --project C:\DEV\Example --input C:\Tasks\queue.json
+```
+
+`deliver` создаёт локальную копию принятых исходников, manifest удалений, receipt и краткий отчёт. Для CFE/EPF по-прежнему нужны отдельно подтверждённые native gates. `runner run` обрабатывает только явно перечисленные зарегистрированные задачи; установка пакета не включает автозагрузку службы. По окончании заданного окна polling команду можно запустить снова. Вопрос и неопределённый результат остаются причинами остановки до соответствующего ответа/восстановления.
+
+Для разрешения автоматического исправления source-only ошибок добавь в request `max_source_repairs: 1` (максимум 3). Проверки команд должны иметь `retry_safe: true` и `protected_paths`, перечисляющие все их тестовые исходники/fixtures. После доказанного падения выполняются диагностика, исправление, независимое code review и новый verify. Старая ошибка сохраняется; пропавший отчёт или изменение тестов не превращаются в основание для повторного запуска. Без этого opt-in сохраняется прежняя остановка при ошибке.
+
+Queue JSON имеет вид:
+
+```json
+{
+  "schema_version": 1,
+  "queue_id": "58a17e56-49a5-42bf-8fbb-7c7a10cd21f8",
+  "task_ids": ["e450d763-776a-4786-8dbe-6d71a9e25fb4"],
+  "poll_seconds": 5,
+  "max_cycles": 12
+}
+```
+
+Подставь идентификаторы своих зарегистрированных задач и новый UUID очереди. `max_cycles` ограничивает число проходов очереди; исполняемая задача использует собственный timeout. Изменённый список требует нового queue ID. После перехода с script CLI на binary или обновления binary/engine существующая задача требует явного согласования новой policy: это сохраняет проверяемую связь результата с исполняемой версией.
+
+В этой версии managed-контур ограничен работой с исходниками. В 0.7 реальные source-only пилоты на Windows прошли короткий S-маршрут и полный M-маршрут со спецификацией, внешним review, reconciliation, реализацией, code review и приёмкой без ручного переключения этапов. Результаты возможностей 0.8 собраны в [отчёте проверки](../VERIFICATION.md). Managed-адаптер запуска изменений базы 1С ещё не реализован: runtime-сценарий получает `BLOCKED`. Временное ограничение durable Unica jobs сохраняется; разрешённый локальный [пилот BSLFlowPilot](PILOT_1C_0.8_RU.md) проверяет native-маршрут отдельно от controller. Это не завершённый M8 и не режим полной автономности.
 
 Точный машинный контракт запросов, обновлений, результатов и exit codes находится в [`1c-task/references/task-contract.md`](../global/skills/1c-task/references/task-contract.md). При расхождении ориентируйся на него и текущий код.
 
@@ -36,7 +67,7 @@ Deterministic gates дополняют skills и OpenSpec:
 | M, low/medium | `inspect → spec → spec_review → implement → verify → acceptance` |
 | L или high | `inspect → spec → spec_review → implement → code_review → verify → acceptance` |
 
-Для S проектная политика `review.routing.s_default: required` или `require_spec_review: true` добавляет `spec` и `spec_review`. `require_code_review: true` добавляет code review. Флаги `permissions`, `data_migration` и `data_deletion`, найденные при инспекции, повышают риск до high. Влияния на права, данные, проведение и обмен требуют integration evidence, `form_flow` требует UI evidence, а `external_artifact` — соответствующий профиль. В `0.7.0-dev.1` такие runtime-критерии останавливают managed run как `BLOCKED`.
+Для S проектная политика `review.routing.s_default: required` или `require_spec_review: true` добавляет `spec` и `spec_review`. `require_code_review: true` добавляет code review. Флаги `permissions`, `data_migration` и `data_deletion`, найденные при инспекции, повышают риск до high. Влияния на права, данные, проведение и обмен требуют integration evidence, `form_flow` требует UI evidence, а `external_artifact` — соответствующий профиль. В `0.8.0-dev.1` такие runtime-критерии останавливают managed run как `BLOCKED`.
 
 Для `analysis_only` с `analysis_goal: analysis` маршрут состоит из `inspect` и `acceptance`. Значение `specification` добавляет `spec`, а необходимость review определяется классификацией и policy.
 

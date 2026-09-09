@@ -116,13 +116,17 @@ $requiredFiles = @(
     'scripts\Test-TaskHardening.ps1',
     'scripts\Test-TaskResume.ps1',
     'scripts\Test-TaskCrashRecovery.ps1',
+    'scripts\Test-TaskRepair.ps1', 'scripts\Test-TaskDelivery.ps1', 'scripts\Test-TaskRunner.ps1',
+    'global\skills\1c-task\scripts\Task.Delivery.ps1', 'global\skills\1c-task\scripts\Task.Runner.ps1',
+    'cli\main.go', 'cli\bundle.go', 'cli\host_windows.go', 'cli\go.mod',
+    'scripts\Build-BSLFlowCli.ps1', 'scripts\Test-BSLFlowCli.ps1', 'docs\PLAN_0.8_RU.md',
     'scripts\Test-SandboxedVerification.ps1',
     'scripts\Test-ManagedHost.ps1',
     'global\skills\1c-verify\references\testing-policy.md'
 )
 foreach ($relative in $requiredFiles) { Assert-True (Test-Path -LiteralPath (Join-Path $packageRoot $relative) -PathType Leaf) "Missing package file: $relative" }
 $packageVersion = (Get-Content -Raw (Join-Path $packageRoot 'VERSION')).Trim()
-Assert-True ($packageVersion -eq '0.7.0-dev.1') 'VERSION is not 0.7.0-dev.1.'
+Assert-True ($packageVersion -eq '0.8.0-dev.1') 'VERSION is not 0.8.0-dev.1.'
 $publicReadme = Get-Content -Raw (Join-Path $packageRoot 'README.md')
 Assert-True ($publicReadme -match '^# BSL Flow') 'Public README does not use the BSL Flow name.'
 Assert-True ($publicReadme.Contains('[MIT License](LICENSE)')) 'Public README does not link the MIT license.'
@@ -141,7 +145,12 @@ $retiredPrefix = '1' + 'c'
 $retiredWord = 'li' + 'te'
 $forbiddenNamePattern = '(?i)' + $retiredPrefix + '[-_. ]?' + $retiredWord + '|one' + $retiredPrefix + '[-_. ]?' + $retiredWord
 $forbiddenHits = Get-ChildItem -LiteralPath $packageRoot -File -Recurse -Force |
-    Where-Object { $_.FullName -notmatch '[\\/](?:\.git|\.bsl-flow|work|outputs)(?:[\\/]|$)' } |
+    Where-Object {
+        $relative = $_.FullName.Substring($packageRoot.TrimEnd('\', '/').Length + 1).Replace('\', '/')
+        $_.FullName -notmatch '[\\/](?:\.git|\.bsl-flow|work|outputs)(?:[\\/]|$)' -and
+            $relative -notmatch '^\.build/' -and
+            $relative -notmatch '^cli/(?:\.cache/|bin/|internal/resources/(?:bundle\.zip|version\.txt)$)'
+    } |
     Select-String -Pattern $forbiddenNamePattern
 Assert-True (($forbiddenHits | Measure-Object).Count -eq 0) 'Package still contains the retired framework name.'
 $packageGit = Get-Command git -ErrorAction SilentlyContinue
@@ -154,7 +163,7 @@ foreach ($relative in $requiredFiles) {
 foreach ($suite in @('Test-ProjectUpgrade.ps1', 'Test-WorkstationSetup.ps1', 'Test-InteractiveTestPilot.ps1', 'Test-ExternalArtifactEvidence.ps1', 'Test-TestStarter.ps1', 'Test-TestEvidence.ps1', 'Test-ExtensionIdentitySafety.ps1', 'Test-AgentAudit.ps1', 'Test-OpenCodeAdapter.ps1', 'Test-ReviewReliability.ps1')) {
     & (Join-Path $packageRoot "scripts\$suite") -PackageRoot $packageRoot
 }
-foreach ($suite in @('Test-TaskStorage.ps1', 'Test-TaskLifecycle.ps1', 'Test-TaskHardening.ps1', 'Test-TaskResume.ps1', 'Test-TaskCrashRecovery.ps1')) {
+foreach ($suite in @('Test-TaskStorage.ps1', 'Test-TaskLifecycle.ps1', 'Test-TaskHardening.ps1', 'Test-TaskResume.ps1', 'Test-TaskCrashRecovery.ps1', 'Test-TaskRepair.ps1', 'Test-TaskDelivery.ps1', 'Test-TaskRunner.ps1')) {
     & (Join-Path $packageRoot "scripts\$suite") -PackageRoot $packageRoot
 }
 
@@ -281,8 +290,9 @@ try {
         $taskCommand = Get-Command $installedTaskCli
         foreach ($parameter in @('Action','ProjectPath','TaskId','InputFile','AttemptId','CodexPath')) { Assert-True $taskCommand.Parameters.ContainsKey($parameter) "Installed 1c-task CLI omitted parameter: $parameter" }
         $actionSet = @($taskCommand.Parameters.Action.Attributes | Where-Object { $_ -is [Management.Automation.ValidateSetAttribute] } | ForEach-Object ValidValues)
-        Assert-True ($actionSet.Count -eq 9) 'Installed 1c-task CLI exposes an unexpected action set.'
-        foreach ($action in @('Start','Status','Next','Run','Record','Update','Accept','Resume','Cancel')) { Assert-True ($action -in $actionSet) "Installed 1c-task CLI omitted action: $action" }
+        $expectedActions = @('Start','Status','Next','Run','Record','Update','Accept','Resume','Cancel','Deliver','Serve')
+        Assert-True ($actionSet.Count -eq $expectedActions.Count) 'Installed 1c-task CLI exposes an unexpected action set.'
+        foreach ($action in $expectedActions) { Assert-True ($action -in $actionSet) "Installed 1c-task CLI omitted action: $action" }
     }
     finally {
         Remove-IsolatedTestTree -Path $installTestRoot -ExpectedLeafPrefix 'bsl-flow-install-test-'

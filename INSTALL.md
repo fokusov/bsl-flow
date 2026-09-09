@@ -1,6 +1,23 @@
-# Установка BSL Flow 0.7.0-dev.1
+# Установка BSL Flow 0.8.0-dev.1
 
 Установка framework не загружает расширения в базы.
+
+## Go CLI
+
+В версии 0.8 добавлен `bsl-flow.exe` для Windows amd64. Он содержит инструкции и PowerShell controller, проверяет embedded bundle и раскрывает его в `%LOCALAPPDATA%\BSLFlow\bundles\<version>-<hash>`. Для запуска готового exe Go не нужен; сохраняются зависимости движка, перечисленные ниже. Изменённый cache блокируется вместо автоматического исполнения или перезаписи.
+
+Сборка из исходников установленным Go (проверяемая toolchain — Go 1.27.1):
+
+```powershell
+.\scripts\Build-BSLFlowCli.ps1 -Test
+.\scripts\Test-BSLFlowCli.ps1
+.\cli\bin\bsl-flow.exe version
+.\cli\bin\bsl-flow.exe help
+```
+
+Builder не скачивает Go, модули или другую toolchain. Native executable и `.sha256` выпускаются отдельно от исходного ZIP; generated Go cache/bundle/binary исключаются из ZIP. Повторяемость exe проверяется для одной toolchain и одного встроенного snapshot.
+
+Запуск задачи: `bsl-flow task start --project <root> --input <request.json>`, затем `bsl-flow task run --project <root> --task <uuid>`. Полный [контракт CLI и очереди](global/skills/1c-task/references/task-contract.md) описывает исправления, восстановление и локальную передачу результата. Установщик не регистрирует службу, расписание или автоматическую публикацию.
 
 ## Требования
 
@@ -29,7 +46,7 @@
 .\scripts\Build-BSLFlowPackage.ps1 -PackageRoot . -Test
 ```
 
-Build создаёт `outputs\BSL-Flow-0.7.0-dev.1.zip`, внешний файл `.sha256` и внутренний `package-manifest.json` с SHA-256 каждого файла. Пути архива сортируются, timestamps фиксируются; `.git`, `.bsl-flow`, `work` и `outputs` в пакет не входят. Повторная сборка тем же PowerShell runtime должна дать тот же SHA-256. `-Test` повторяет сборку, распаковывает точный ZIP во временный каталог, сверяет manifest и запускает offline package suite из распакованного artifact. Установка в глобальные каталоги при этом не выполняется.
+Build создаёт `outputs\BSL-Flow-0.8.0-dev.1.zip`, внешний файл `.sha256` и внутренний `package-manifest.json` с SHA-256 каждого файла. Пути архива сортируются, timestamps фиксируются; `.git`, `.bsl-flow`, `work` и `outputs` в пакет не входят. Повторная сборка тем же PowerShell runtime должна дать тот же SHA-256. `-Test` повторяет сборку, распаковывает точный ZIP во временный каталог, сверяет manifest и запускает offline package suite из распакованного artifact. Установка в глобальные каталоги при этом не выполняется.
 
 Build entrypoint требует PowerShell 7 и воспроизводим при фиксированной версии PowerShell/.NET. Установщики, task CLI и offline suite по-прежнему поддерживают Windows PowerShell 5.1.
 

@@ -1,5 +1,6 @@
 # Local BSL Flow state and generated delivery artifacts
 /.bsl-flow/
+/.build/
 work/
 outputs/
 *.zip

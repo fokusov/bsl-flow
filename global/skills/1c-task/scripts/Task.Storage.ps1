@@ -281,7 +281,11 @@ public static class BFNativeFile {
 }
 '@
     }
-    if (-not [BFNativeFile]::MoveFileEx($Source, $Destination, 9)) {
+    # Write-BFJson validated ordinary absolute paths. Only the native boundary
+    # needs extended paths; its temporary filename can exceed MAX_PATH.
+    $nativeSource = if ($Source.StartsWith('\\')) { '\\?\UNC\' + $Source.Substring(2) } else { '\\?\' + $Source }
+    $nativeDestination = if ($Destination.StartsWith('\\')) { '\\?\UNC\' + $Destination.Substring(2) } else { '\\?\' + $Destination }
+    if (-not [BFNativeFile]::MoveFileEx($nativeSource, $nativeDestination, 9)) {
         $errorCode = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
         throw [System.ComponentModel.Win32Exception]::new($errorCode)
     }

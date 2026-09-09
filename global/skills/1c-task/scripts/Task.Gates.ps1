@@ -62,6 +62,11 @@ function Get-BFPolicyFiles {
         $file = Assert-BFSafePath (Join-Path $ProjectPath $relative)
         $files += [ordered]@{path=$file;sha256=if (Test-Path -LiteralPath $file -PathType Leaf) { Get-BFFileHash $file } else { $null }}
     }
+    if (-not [string]::IsNullOrWhiteSpace($env:BSL_FLOW_HOST_PATH)) {
+        $hostFile=Assert-BFSafePath $env:BSL_FLOW_HOST_PATH
+        if (-not [IO.Path]::IsPathRooted($env:BSL_FLOW_HOST_PATH) -or -not (Test-Path -LiteralPath $hostFile -PathType Leaf)) { throw 'BF_BLOCKED: compiled host identity is unavailable.' }
+        $files += [ordered]@{path=$hostFile;sha256=Get-BFFileHash $hostFile}
+    }
     return $files
 }
 
@@ -95,7 +100,7 @@ function Get-BFDependencies {
     $inputs = [ordered]@{intent=$State.intent_hash;policy=$State.policy_hash}
     if ($Stage -eq 'inspect') { $inputs.baseline = $State.baseline }
     if ($Stage -ne 'inspect') { $inputs.classification = Get-BFHash $State.classification }
-    if ($Stage -in @('spec','spec_review','implement','code_review','verify','acceptance')) { $inputs.spec = Get-BFHash (Get-BFSpecInputs $State) }
+    if ($Stage -in @('spec','spec_review','implement','code_review','verify','diagnose','acceptance')) { $inputs.spec = Get-BFHash (Get-BFSpecInputs $State) }
     if($Stage -eq 'spec_review'){
         $sidecars=[ordered]@{}
         foreach($name in @('review.json','review-reconciliation.json','final-validation.json')){
@@ -104,12 +109,18 @@ function Get-BFDependencies {
         }
         $inputs.review_binding=Get-BFHash $sidecars
     }
-    if ($Stage -in @('implement','code_review','verify','acceptance')) {
+    if ($Stage -in @('implement','code_review','verify','diagnose','acceptance')) {
         if ($null -eq $Manifest) { $Manifest = Get-BFSourceManifest $State }
         $inputs.source = $Manifest.sha256
         $inputs.criteria = Get-BFHash $State.request.criteria
         $inputs.correction_round = $State.correction_rounds
+        if ((Get-BFValue $State.request 'max_source_repairs' 0) -gt 0) {
+            $inputs.repair_round=Get-BFValue (Get-BFValue $State 'repair') 'rounds' 0
+            $executables=@($State.request.criteria|Where-Object{$_.kind -in @('static','unit')}|ForEach-Object{[ordered]@{path=$_.executable;sha256=Get-BFFileHash (Assert-BFSafePath $_.executable)}})
+            $inputs.test_executables=Get-BFHash $executables
+        }
     }
+    if ($Stage -eq 'diagnose') { $inputs.failure_attempt=(Get-BFValue $State 'repair').pending_failure }
     return $inputs
 }
 
@@ -145,6 +156,12 @@ function Get-BFNext {
     if ($null -ne $State.question) { return [ordered]@{stage=$State.stage;action='needs_input';blockers=@($State.question.text)} }
     if ($State.status -eq 'failed') { return [ordered]@{stage=$State.stage;action='failed';blockers=@($State.blockers)} }
     if ($State.status -eq 'blocked') { return [ordered]@{stage=$State.stage;action='blocked';blockers=@($State.blockers)} }
+    $repair=Get-BFValue $State 'repair'
+    if ($null -ne $repair -and $null -ne $repair.pending_failure) {
+        # This helper validates the retained failed attempt, current dependencies and budget.
+        Assert-BFRepairFailure $State $repair.pending_failure
+        return [ordered]@{stage='diagnose';action='dispatch';blockers=@()}
+    }
     $manifest = if ($State.request.mode -eq 'implement') { Get-BFSourceManifest $State } else { $null }
     foreach ($stage in @(Get-BFRoute $State)) {
         if ($stage -eq 'acceptance') { return [ordered]@{stage=$stage;action='accept';blockers=@()} }
@@ -164,7 +181,7 @@ function Assert-BFVerificationCoverage {
 }
 
 function Test-BFJUnit {
-    param([string]$Path, [string[]]$ExpectedTests)
+    param([string]$Path, [string[]]$ExpectedTests, [switch]$AllowFailure)
     [void](Assert-BFSafePath $Path)
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw 'BF_BLOCKED: original JUnit report missing.' }
     $settings = New-Object System.Xml.XmlReaderSettings
@@ -176,12 +193,19 @@ function Test-BFJUnit {
     $cases = @($xml.SelectNodes('//testcase'))
     $actual = @($cases | ForEach-Object { $_.GetAttribute('name') })
     if ($cases.Count -eq 0 -or $actual.Count -ne @($actual | Select-Object -Unique).Count -or (@($actual | Sort-Object) -join "`n") -cne (@($ExpectedTests | Sort-Object) -join "`n")) { throw 'BF_BLOCKED: JUnit selection does not match exact expected test names.' }
-    if (@($xml.SelectNodes('//failure|//error')).Count -gt 0) { throw 'BF_FAIL: required tests failed.' }
     if (@($xml.SelectNodes('//skipped')).Count -gt 0) { throw 'BF_BLOCKED: required tests were skipped.' }
+    $failed=@($xml.SelectNodes('//failure|//error')).Count -gt 0
     foreach ($suite in @($xml.SelectNodes('//testsuite|//testsuites'))) {
-        foreach ($name in @('failures','errors','skipped','disabled')) { if ($suite.HasAttribute($name) -and $suite.GetAttribute($name) -ne '0') { throw "BF_BLOCKED: JUnit $name aggregate is not zero." } }
+        foreach ($name in @('tests','failures','errors','skipped','disabled')) {
+            if(-not $suite.HasAttribute($name)){continue}
+            $value=$suite.GetAttribute($name)
+            if($value -cnotmatch '^(0|[1-9][0-9]*)$'){throw "BF_BLOCKED: invalid JUnit $name aggregate."}
+            $observed=switch($name){'tests'{@($suite.SelectNodes('.//testcase')).Count} 'failures'{@($suite.SelectNodes('.//testcase[failure]')).Count} 'errors'{@($suite.SelectNodes('.//testcase[error]')).Count} default{0}}
+            if($value -cne [string]$observed){throw "BF_BLOCKED: inconsistent JUnit $name aggregate."}
+        }
     }
-    return [ordered]@{tests=$actual;sha256=Get-BFFileHash $Path}
+    if($failed -and -not $AllowFailure){throw 'BF_FAIL: required tests failed.'}
+    return [ordered]@{tests=$actual;sha256=Get-BFFileHash $Path;outcome=if($failed){'FAIL'}else{'PASS'}}
 }
 
 function Assert-BFCodeReview {

@@ -1,4 +1,4 @@
-﻿[CmdletBinding()]param([string]$PackageRoot)
+[CmdletBinding()]param([string]$PackageRoot)
 Set-StrictMode -Version Latest;$ErrorActionPreference='Stop'
 function Assert-U([bool]$Condition,[string]$Message){if(-not$Condition){throw $Message}}
 if(-not$PackageRoot){$PackageRoot=Split-Path -Parent $PSScriptRoot}
@@ -58,7 +58,7 @@ secret-folder/
  $agentsAfter=Get-Content -LiteralPath (Join-Path $root 'AGENTS.md') -Raw
  Assert-U ($agentsAfter.Contains('# Local project instructions') -and $agentsAfter.Contains('local model-routing policy')) 'Local AGENTS.md instructions were overwritten.'
  Assert-U (([regex]::Matches($agentsAfter,'(?m)^<!-- bsl-flow managed:start -->[ \t]*\r?$').Count-eq1) -and $agentsAfter.Contains('`1c-task`') -and $agentsAfter.Contains('does not prove host isolation')) 'Managed AGENTS.md block was not added exactly once with readiness limits.'
- Assert-U ((Get-Content -LiteralPath (Join-Path $root '.bsl-flow\project.yaml') -Raw)-match 'framework_version: "0.7.0-dev.1"') 'Sentinel version was not updated last.'
+ Assert-U ((Get-Content -LiteralPath (Join-Path $root '.bsl-flow\project.yaml') -Raw)-match 'framework_version: "0.8.0-dev.1"') 'Sentinel version was not updated last.'
  $ignoreAfter=Get-Content -LiteralPath (Join-Path $root '.gitignore') -Raw
  Assert-U ($ignoreAfter.Contains('.bsl-flow/local/*') -and $ignoreAfter.Contains('.bsl-flow/tasks/') -and $ignoreAfter.Contains('.bsl-flow/worktrees/')) 'Standalone upgrade did not migrate managed Git exclusions.'
  Assert-U ((Get-Content -LiteralPath (Join-Path $root '.gitignore') -Raw) -match '(?m)^secret-folder/\s*$') 'Standalone upgrade corrupted a user ignore rule after the managed block.'
@@ -98,9 +98,9 @@ secret-folder/
 
  $newer=Join-Path $root 'newer';New-Item -ItemType Directory -Path (Join-Path $newer '.bsl-flow') -Force|Out-Null
  "version: 2"|Set-Content -LiteralPath (Join-Path $newer 'bsl-flow.yaml') -Encoding UTF8
- "framework: bsl-flow`nframework_version: `"0.7.0`""|Set-Content -LiteralPath (Join-Path $newer '.bsl-flow\project.yaml') -Encoding UTF8
+ "framework: bsl-flow`nframework_version: `"0.8.0`""|Set-Content -LiteralPath (Join-Path $newer '.bsl-flow\project.yaml') -Encoding UTF8
  $newerBlocked=$false
  try{&$script -ProjectPath $newer|Out-Null}catch{$newerBlocked=$_.Exception.Message-match'newer than installed framework'}
- Assert-U $newerBlocked 'Stable 0.7.0 project was not recognized as newer than 0.7.0-dev.1.'
+ Assert-U $newerBlocked 'Stable 0.8.0 project was not recognized as newer than 0.8.0-dev.1.'
  Write-Host 'Project upgrade contracts passed.'
 }finally{if(Test-Path $root){Remove-Item -LiteralPath $root -Recurse -Force}}

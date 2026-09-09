@@ -23,7 +23,9 @@ function Save-BFTask {
 
 function Get-BFIntentHash {
     param($Request)
-    return Get-BFHash ([ordered]@{prompt=$Request.prompt;analysis_goal=$Request.analysis_goal;criteria=$Request.criteria;complexity=$Request.complexity;risk=$Request.risk;impact_flags=$Request.impact_flags;source_paths=@(Get-BFValue $Request 'source_paths' @('.'))})
+    $intent=[ordered]@{prompt=$Request.prompt;analysis_goal=$Request.analysis_goal;criteria=$Request.criteria;complexity=$Request.complexity;risk=$Request.risk;impact_flags=$Request.impact_flags;source_paths=@(Get-BFValue $Request 'source_paths' @('.'))}
+    if ((Get-BFValue $Request 'max_source_repairs' 0) -gt 0) { $intent.max_source_repairs=$Request.max_source_repairs }
+    return Get-BFHash $intent
 }
 
 function Get-BFProjectRules {
@@ -82,6 +84,7 @@ function Start-BFTask {
             policy_hash=Get-BFHash $policyFiles;policy_files=$policyFiles;policy_rules=Get-BFProjectRules $project
             classification=[ordered]@{complexity=$Request.complexity;risk=$Request.risk;impact_flags=@($Request.impact_flags);rationale='Initial trusted task classification; inspect can only strengthen it.'}
             status='ready';stage='inspect';active_attempt=$null;unresolved_effect=$null;attempts=@();evidence=@();events=@();question=$null;blockers=@();acceptances=@();created_at=$now;updated_at=$now;correction_rounds=0
+            repair=[ordered]@{rounds=0;pending_failure=$null;last_source_sha256=$null;diagnosis_attempt=$null}
         }
         [void](Invoke-BFGit $project @('worktree','add','--detach',$worker,$baseline))
         Write-BFJson -Path (Join-Path $directory 'inputs/initial-request.json') -Value $Request
@@ -120,6 +123,7 @@ function Update-BFTask {
                 $state.classification.impact_flags=@($state.classification.impact_flags | Where-Object { $_ -ne 'ambiguous_business_rule' })
                 $state.request.impact_flags=@($state.request.impact_flags | Where-Object { $_ -ne 'ambiguous_business_rule' })
                 $state.intent_revision++
+                if($null -ne (Get-BFValue $state 'repair')){$state.repair.pending_failure=$null;$state.repair.diagnosis_attempt=$null;$state.repair.last_source_sha256=$null}
             }
             'scope_change' {
                 $request=Get-BFValue $Event 'request'; Assert-BFRequest $request
@@ -129,6 +133,7 @@ function Update-BFTask {
                 $state.policy_files=@(Get-BFPolicyFiles $state.project_path); $state.policy_hash=Get-BFHash $state.policy_files
                 $state.policy_rules=Get-BFProjectRules $state.project_path
                 $state.correction_rounds=0
+                if($null -ne (Get-BFValue $state 'repair')){$state.repair=[ordered]@{rounds=0;pending_failure=$null;last_source_sha256=$null;diagnosis_attempt=$null}}
             }
             'recovery' {
                 $wasCancelled=$state.status -eq 'cancelled'
@@ -186,6 +191,7 @@ function New-BFAttempt {
         if ($next.action -ne 'dispatch') { throw "BF_CONFLICT: cannot dispatch: $($next.action)." }
         if (@($state.attempts).Count -ge (Get-BFValue $state.request 'max_attempts' 16)) { throw 'BF_BLOCKED: finite task attempt limit reached.' }
         if ($next.stage -in @('implement','code_review','verify')) { Assert-BFVerificationCoverage $state }
+        if((Get-BFValue (Get-BFValue $state 'repair') 'rounds' 0) -gt 0){Assert-BFProtectedTests $state}
         $id=[guid]::NewGuid().ToString()
         $attemptPath=Join-Path $directory ('attempts/'+$id)
         $manifest=Get-BFSourceManifest $state
@@ -215,8 +221,9 @@ function Record-BFAttempt {
         Assert-BFFields $result @('schema_version','task_id','attempt_id','stage','outcome','summary','dependencies','raw_hashes','proposal','side_effects') @() 'attempt_result'
         if ($result.schema_version -ne 1 -or $result.task_id -ne $TaskId -or $result.attempt_id -ne $AttemptId) { throw 'BF_CONFLICT: adapter result identity mismatch.' }
         $start=Read-BFJson (Join-Path $attemptDir 'start.json')
-        if ($result.stage -ne $start.stage -or $result.outcome -notin @('PASS','FAIL','BLOCKED','NEEDS_INPUT','REVISE')) { throw 'BF_INVALID: invalid attempt result.' }
+        if ($result.stage -ne $start.stage -or $result.outcome -notin @('PASS','FAIL','BLOCKED','NEEDS_INPUT','REVISE','REPAIR')) { throw 'BF_INVALID: invalid attempt result.' }
         if ($result.outcome -eq 'REVISE' -and ($result.stage -ne 'code_review' -or $state.correction_rounds -ge 1)) { throw 'BF_INVALID: correction limit or stage conflict.' }
+        if ($result.outcome -eq 'REPAIR' -and ($result.stage -ne 'diagnose' -or $result.side_effects -ne 'none')) { throw 'BF_INVALID: repair must come from a read-only diagnosis.' }
         foreach ($raw in $result.raw_hashes) {
             $safe=Assert-BFSafePath $raw.path
             if (-not $safe.StartsWith($attemptDir+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)) { throw 'BF_INVALID: raw evidence escaped its registered attempt.' }
@@ -231,12 +238,17 @@ function Record-BFAttempt {
         }
         if ($state.active_attempt -ne $AttemptId) { throw 'BF_CONFLICT: attempt is no longer active.' }
         if ($start.intent_revision -ne $state.intent_revision) { throw 'BF_CONFLICT: task intent changed during execution.' }
-        if ($result.outcome -eq 'PASS') {
+        if ($result.outcome -in @('PASS','REPAIR')) {
             Assert-BFPolicyFresh $state
             if ($result.stage -eq 'inspect') { Set-BFClassification $state $result.proposal }
             $current=Get-BFDependencies $state $result.stage $null
             # Inspect computes a classification; other stages must bind to current bytes.
             if ((Get-BFHash $current) -ne (Get-BFHash $result.dependencies)) { throw 'BF_BLOCKED: adapter result is stale.' }
+        }
+        if ($result.outcome -eq 'REPAIR') {
+            Assert-BFRepairFailure $state $state.repair.pending_failure
+            Assert-BFDiagnosis $state $result.proposal
+            if ($result.proposal.category -ne 'implementation') { throw 'BF_INVALID: only an implementation diagnosis may start a repair.' }
         }
         $state.evidence+=,[ordered]@{stage=$result.stage;attempt_id=$AttemptId;outcome=$result.outcome;dependencies=$result.dependencies;raw_hashes=@($result.raw_hashes);result_sha256=$resultHash;summary=$result.summary}
         $state.active_attempt=$null
@@ -245,8 +257,22 @@ function Record-BFAttempt {
             switch ($result.outcome) {
                 'PASS' { $state.status='ready'; $state.blockers=@() }
                 'NEEDS_INPUT' { $state.status='needs_input'; $state.question=[ordered]@{question_id=[guid]::NewGuid().ToString();text=$result.summary;intent_revision=$state.intent_revision};$state.blockers=@($result.summary) }
-                'FAIL' { $state.status='failed';$state.blockers=@($result.summary) }
+                'FAIL' {
+                    $state.status='failed';$state.blockers=@($result.summary)
+                    if ($result.stage -eq 'verify' -and $result.side_effects -eq 'none' -and (Get-BFValue $result.proposal 'repair_eligible' $false)) {
+                        if ($null -eq (Get-BFValue $state 'repair')) { $state | Add-Member -NotePropertyName repair -NotePropertyValue ([ordered]@{rounds=0;pending_failure=$null;last_source_sha256=$null;diagnosis_attempt=$null}) }
+                        $limit=Get-BFValue $state.request 'max_source_repairs' 0
+                        if ($state.repair.rounds -lt $limit -and $state.repair.last_source_sha256 -ne $result.dependencies.source) {
+                            $state.repair.pending_failure=$AttemptId;$state.status='ready';$state.blockers=@()
+                        }
+                    }
+                }
                 'REVISE' { $state.correction_rounds++;$state.status='ready';$state.blockers=@() }
+                'REPAIR' {
+                    $state.repair.rounds++;$state.repair.last_source_sha256=$result.dependencies.source
+                    $state.repair.pending_failure=$null;$state.repair.diagnosis_attempt=$AttemptId
+                    $state.status='ready';$state.blockers=@()
+                }
                 default { $state.status='blocked';$state.blockers=@($result.summary) }
             }
         }
@@ -314,9 +340,10 @@ function Resume-BFAttempt {
         if ($null -ne $process -and $process.StartTime.ToUniversalTime().ToString('o') -eq $identity.start_time_utc) { throw 'BF_BLOCKED: exact owned process is still running; wait for its durable result, do not dispatch a second worker.' }
     }
     $worker=Join-Path $directory 'raw/worker'
-    if($start.stage -in @('inspect','spec','code_review') -and (Test-Path -LiteralPath (Join-Path $worker 'host-result.json')) -and (Test-Path -LiteralPath (Join-Path $worker 'exit.json')) -and (Test-Path -LiteralPath (Join-Path $worker 'model-result.json'))){
+    if($start.stage -in @('inspect','spec','code_review','diagnose') -and (Test-Path -LiteralPath (Join-Path $worker 'host-result.json')) -and (Test-Path -LiteralPath (Join-Path $worker 'exit.json')) -and (Test-Path -LiteralPath (Join-Path $worker 'model-result.json'))){
         $exit=Read-BFJson (Join-Path $worker 'exit.json');$hostResult=Read-BFJson (Join-Path $worker 'host-result.json')
         if($exit.exit_code -eq 0 -and $null -eq $exit.stop_reason -and $hostResult.session_id){
+            if($start.stage -eq 'diagnose'){Assert-BFRepairFailure $state $state.repair.pending_failure}
             if((Get-BFSourceManifest $state).sha256 -ne $start.source_manifest.sha256){throw 'BF_BLOCKED: source changed after the saved read-only worker; inspect the exact diff.'}
             $result=Read-BFJson (Join-Path $worker 'model-result.json')
             Assert-BFFields $result @('schema_version','status','summary','payload_json') @() 'recovered_worker'

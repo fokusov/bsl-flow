@@ -1,4 +1,40 @@
-# Проверка BSL Flow 0.7.0-dev.1
+# Проверка BSL Flow 0.8.0-dev.1
+
+Дата: 2026-09-09. Основа: `0.7.0-dev.1`, commit `0480cdf`; ветка `codex/managed-sdlc`.
+
+В поставке добавлены Go CLI со встроенным пакетом, ограниченная диагностика и исправление source-only ошибок, локальная очередь и выдача принятых исходников. Машина состояний остаётся в PowerShell. Готовый exe не требует Go, но требует Windows PowerShell, Git и настроенные model hosts; полная автономная разработка 1С пока не подтверждена.
+
+## Проверки текущей версии
+
+| Проверка | Наблюдение и граница |
+| --- | --- |
+| Go host | Go 1.27.1 windows/amd64: unit tests и две одинаковые последовательные сборки. Native smoke: 22 проверки, включая строгие аргументы, Unicode, cache tampering, регистрацию/status/cancel, blocked delivery и cancelled-only queue. Финальный exe SHA-256: `e3bca602f41427e6f3a164c4274dc1478cd0d0721268b9c67eb98204e7367b99`; embedded bundle: `37aba72b584870e6cd79960b9d2d452a3f519a15504a470da904028e415a59b3`, 71 файл. |
+| Source repair | 36 проверок PASS в PS5.1/7: оригинальная ошибка, бюджет, отсутствие прогресса, бизнес-вопрос, изменение/подмена тестов, malformed JUnit, cached diagnose recovery и продолжение после уточнения. |
+| Queue | 16 проверок PASS в PS5.1/7: две выбранные задачи, restart, отсутствие повтора неизменного controller error, восстановление незавершённого dispatch marker, явный blocker после обрыва изменяющего этапа и при пропавшем acceptance. |
+| Delivery | 10 проверок PASS в PS5.1/7: точные принятые файлы/удаления, идемпотентность, source drift, семантические изменения receipt, изменение его raw bytes и copy hash. |
+| Полная offline suite | PASS в PS5.1.26100.9168 и PS7.6.5 из неизменяемой копии source ZIP. Также прошли 127 reliability checks, storage, lifecycle 51, hardening 19, resume 16, crash recovery 17, установка/rollback, bootstrap, upgrade, lint/review и test-evidence contracts. Model calls в этих проверках: 0. Предварительные неуспешные прогоны сохранены отдельно и не считаются PASS. |
+| Реальный Codex repair | PASS: `FAIL → diagnose → implement → code_review → verify → acceptance`. Синтетический fixture: начальная неверная реализация создана тестовым helper, FAIL получен настоящим file verifier. Диагностика, исправление и независимое review выполнены реальными workers. Это не 1С runtime. |
+| CI | Добавлен Windows workflow для PS5.1/7 и Go. Удалённый запуск GitHub Actions пока не подтверждён. |
+| 1С native-пилот | PASS для двух unit-сценариев `BFP_ТестыПилота` в БП `3.0.191.38`, FILE `bp1`, платформа `8.3.27.2074`, YAxUnit `25.12`. После исправления привязки языка и конфликта шаблонных UUID Build04 завершил load/update с exit 0; Test03 реально выполнил 2 теста, passed=2, failed/errors/skipped=0. Оригинальный JUnit сохранён, SHA-256 `7aead1b4a8065ddb750235b88442b1a36e1a24086dadcc7a0c9691b3246899c3`. Две предыдущие попытки с 0 тестов сохранились как BLOCKED; current PASS выведен из истории 3 попыток. |
+| Managed 1С runtime | Не реализован. Native-пилот — отдельный локальный маршрут, не публичный adapter. Структурная проверка CFE: 14 PASS; BSL diagnostics сохраняет 3 unresolved calls к отсутствующим в fixture исходникам YAxUnit. Recovery после прерывания записи, бизнес-покрытие и сквозная runtime-приёмка controller не подтверждены. |
+
+Локальные полные логи и результаты хранятся в ignored `outputs/verification-0.8/`; native smoke сохраняет собственный fixture в `work/cli-smoke-*`. Они не входят в публичный ZIP и не подменяются кратким статусом субагента.
+
+Native-пилот завершён `2026-09-09T16:15:16.0953782Z`: `bp1-native-test-20260909-03`, source manifest `461b1f5c4ea8bd42af2187b205c3f2ad989665407ebe7018492696d062877861`. Перед тестом COM inventory подтвердил прежний instance UUID пилота, новый native hash и неизменность семи свойств остальных девяти расширений. Журнал регистрации выявил причину нулевого discovery: конфликт внутренних идентификаторов `BSLFlowPilot`; замена девяти шаблонных UUID позволила обнаружить и выполнить оба теста без изменения режимов безопасности. Native request/result, steps, исходный JUnit и их неизменяемые копии проверены отдельно от нормализованного receipt. Этот результат относится к локальному wrapper и выбранной чистой функции; не закрывает managed adapter, проведение, обмен, UI, recovery после прерывания записи или развёртывание.
+
+Финальные полные receipts: `verified-fixed-ps7.json` и `verified-fixed-ps51.json`. После фиксации тестовой копии в package test уточнено только исключение generated Go cache/binary и Unica cache из текстового поиска. Обновлённая часть вместе с installation/review continuation повторно прошла в обеих оболочках (`package-final-continuation-ps7.log`, `package-final-continuation-ps51.log`). Все 70 файлов `global/` и исходники Go CLI сопоставляются по SHA-256 с проверенной копией перед выдачей; сборка exe из распакованного source ZIP совпала с локальной сборкой.
+
+Первый реальный diagnosis выявил неоднозначность инструкции: модель правильно нашла ошибку, но вернула status `failed` вместо завершённой диагностики. Контроллер остановился, не выдал PASS и не начал исправление. Инструкция уточнена: `completed` описывает завершение диагноза, категория определяет следующий переход. Первый отказ сохранён, повторный пилот использует новую задачу.
+
+Успешная задача: `20127fda-99ab-43f6-917e-ac2f66e1203d`, revision 16, receipt SHA-256 `453dc3922ff87cdbeae19802db195408c4605195050b6a5dbd93f9222e6586ae`. Fixture: `work/live-repair-pilot-5d5826becede45758a0e7a9fbc6e8162`. Реальных model turns: 3; requested `gpt-6-astra` medium для diagnosis/implement, high для review. Host не сообщил observed model/effort, они сохранены как null. Локальный source handoff этой задачи также проверен. После этого пилота изменена только передача длинного пути в native atomic replace; переходы и контракты repair не менялись, платные model turns повторно не выполнялись. Один такой fixture не измеряет качество реальных 1С задач, экономию или стоимость всей разработки. Более ранний успешный пилот `bb747156-362e-4e4c-b291-a2be792faf94` также выдал проверенный source handoff; его receipt сохранён отдельно.
+
+Регрессия обнаружила и устранила отдельный PowerShell-дефект: общий helper перечислял элементы одноэлементного массива, поэтому валидные `protected_paths`, `arguments` и `expected_tests` могли превратиться в скаляр при проверке типа. Исправлена локальная валидация через прямое чтение свойства, без смены семантики общего helper. Независимо проверены 27 сочетаний Hashtable/OrderedDictionary/PSCustomObject и пустых/одноэлементных/скалярных полей на каждой из двух оболочек.
+
+Полный прогон выявил ограничение Win32 `MoveFileEx` в PS7: временный файл при атомарной замене snapshot имел путь 270 символов. В native-вызов теперь передаётся внутренний extended path; входная проверка по-прежнему запрещает device paths. Регрессия с путями 232/270 и обычный storage suite прошли в PS5.1/7; независимое review правки завершено без замечаний. Сетевой UNC runtime отдельно не проверялся. В тесте установки обновлён ожидаемый список команд с учётом `Deliver` и `Serve`.
+
+План и фактические границы развития: [PLAN_0.8_RU.md](docs/PLAN_0.8_RU.md). Подготовка отдельного 1С-пилота: [PILOT_1C_0.8_RU.md](docs/PILOT_1C_0.8_RU.md). Source-only PASS не закрывает runtime, бизнес-покрытие или публикацию в среду.
+
+# История: проверка BSL Flow 0.7.0-dev.1
 
 Дата: 2026-09-09. Основа: `0.6.1`, commit `198da1c`; реализация в ветке `codex/managed-sdlc`.
 
