@@ -5,6 +5,8 @@ description: Verify a 1C change with proportionate unit, integration and Vanessa
 
 # 1c-verify
 
+For a registered managed task, the controller selects and runs declared checks through its confirmed adapter. These evidence rules still apply. Never import a model's PASS or an assisted receipt as managed acceptance without the exact task/attempt/source binding. Unavailable 1C runtime capability remains BLOCKED. Outside managed mode, use the assisted procedure below.
+
 Verification is evidence-driven, not style-driven. Prefer a separate Codex subagent or context for L/high-risk tasks.
 
 ## Inputs

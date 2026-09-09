@@ -78,6 +78,48 @@ function Compare-TEValue {
     return ((ConvertTo-TECanonicalJson $Expected) -eq (ConvertTo-TECanonicalJson $Observed))
 }
 
+function Test-TEHasProperty {
+    param([object]$Object, [Parameter(Mandatory)][string]$Name)
+    return ($null -ne $Object -and $null -ne $Object.PSObject.Properties[$Name])
+}
+
+function Test-TESourceManifest {
+    param(
+        [Parameter(Mandatory)][object]$Manifest,
+        [Parameter(Mandatory)][string[]]$ExpectedSources
+    )
+    $issues = @()
+    $schemaVersion = Get-TEProperty $Manifest @('schema_version')
+    if ($schemaVersion -ne 1) { $issues += 'schema_version must be 1.' }
+    if ([string](Get-TEProperty $Manifest @('kind')) -ne 'bsl-flow.source-manifest') { $issues += 'kind must be bsl-flow.source-manifest.' }
+    if ((ConvertTo-TEBoolean (Get-TEProperty $Manifest @('complete'))) -ne $true) { $issues += 'complete must be the JSON boolean true.' }
+
+    $manifestSources = @(Get-TEStringArray (Get-TEProperty $Manifest @('sources','source_set','sourceSet')))
+    if ($manifestSources.Count -eq 0 -or -not (Compare-TEValue $ExpectedSources $manifestSources)) { $issues += 'sources must exactly match the declared source-set.' }
+
+    $coverage = Get-TEProperty $Manifest @('coverage')
+    foreach ($name in @('tracked','untracked','deleted','generated_exclusions')) {
+        if ($null -eq $coverage -or (ConvertTo-TEBoolean (Get-TEProperty $coverage @($name))) -ne $true) { $issues += "coverage.$name must be the JSON boolean true." }
+    }
+    $generatedExclusionsProperty = if ($null -ne $Manifest) { $Manifest.PSObject.Properties['generated_exclusions'] } else { $null }
+    if ($null -eq $generatedExclusionsProperty -or $generatedExclusionsProperty.Value -isnot [System.Array]) { $issues += 'generated_exclusions must be explicitly declared as an array, even when empty.' }
+
+    $files = @(Get-TEArray (Get-TEProperty $Manifest @('files')))
+    if ($files.Count -eq 0) { $issues += 'files must contain at least one source entry.' }
+    $seenPaths = @{}
+    foreach ($file in $files) {
+        $path = [string](Get-TEProperty $file @('path'))
+        $state = [string](Get-TEProperty $file @('state'))
+        $sha256 = [string](Get-TEProperty $file @('sha256'))
+        if ([string]::IsNullOrWhiteSpace($path)) { $issues += 'Every source entry must have a path.' }
+        elseif ($seenPaths.ContainsKey($path)) { $issues += "Duplicate source path: $path" }
+        else { $seenPaths[$path] = $true }
+        if ($state -notin @('tracked','untracked','deleted')) { $issues += "Invalid source state for ${path}: $state" }
+        if ($sha256 -notmatch '^[0-9a-fA-F]{64}$') { $issues += "Missing or invalid SHA-256 for source path: $path" }
+    }
+    [pscustomobject]@{ valid=($issues.Count -eq 0); issues=@($issues); sources=@($manifestSources); files_count=$files.Count }
+}
+
 function Get-TEStringArray {
     param([object]$Value)
     $result = @()

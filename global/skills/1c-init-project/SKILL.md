@@ -5,6 +5,8 @@ description: Initialize a confirmed 1C project and inspect first-use test toolin
 
 # 1c-init-project
 
+Bootstrap retains assisted mode by default. Installing/upgrading the managed entrypoint does not start a task or prove runtime readiness. Initialize before registering a managed task; do not bootstrap inside its worker worktree or change controller policy during an active attempt.
+
 Use this skill before development when a confirmed 1C project lacks one or more bootstrap components. It also applies when the user explicitly asks to initialize an empty directory as a 1C/BSL Flow project.
 
 ## Safety boundary

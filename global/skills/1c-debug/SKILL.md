@@ -5,6 +5,8 @@ description: Diagnose a 1C runtime error, wrong behavior, failing test, or regre
 
 # 1c-debug
 
+If this investigation belongs to a registered managed task, preserve its task ID and current stage. Return findings or the pending question to the controller; use a trusted `Update` for a changed requirement. Do not restart the task or replay an uncertain write. Independent investigations retain the assisted workflow below.
+
 ## Workflow
 
 1. Define the smallest reliable reproduction and capture expected/actual behavior, platform and configuration version, client type, input/data state, and relevant error or log output.

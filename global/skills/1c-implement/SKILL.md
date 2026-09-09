@@ -5,6 +5,8 @@ description: Implement a specified 1C change with the smallest safe diff while p
 
 # 1c-implement
 
+For a registered managed task, implement only after the controller dispatches this stage, within its worker worktree and current authorization. Return changed paths and a factual result; the controller owns review, test dispatch and acceptance. Do not update task state or run a second workflow loop. Outside managed mode, use the assisted procedure below.
+
 ## Inputs
 
 Read project `AGENTS.md`, `bsl-flow.yaml` when present, active `spec.md` for M/L, `design.md` only when it exists, review reconciliation/final validation when required, and the relevant source and tests.

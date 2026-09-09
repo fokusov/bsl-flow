@@ -15,6 +15,14 @@
 
 Adjust these values to the real project. Do not treat placeholders as confirmed environment facts.
 
+<!-- bsl-flow managed:start -->
+## BSL Flow task workflow
+
+- The default project mode is `assisted`; use the installed `1c-task` entrypoint for a registered managed task.
+- Managed guarantees apply only through a confirmed supported adapter. Project bootstrap does not prove host isolation, model availability, 1C runtime readiness, or permission for a database operation.
+- Preserve the established project and global model-routing instructions. BSL Flow configuration does not replace them.
+<!-- bsl-flow managed:end -->
+
 ## Development rules
 
 - Follow the global BSL Flow workflow and its managed project files.

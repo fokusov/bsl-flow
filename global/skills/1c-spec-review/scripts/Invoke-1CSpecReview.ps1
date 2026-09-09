@@ -17,13 +17,14 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Review.Common.ps1')
 
-function Get-BoundedUtf8Text {
+function Get-BoundedUtf8Snapshot {
     param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][int]$MaxBytes)
     $bytes = [System.IO.File]::ReadAllBytes($Path)
     if ($bytes.Length -gt $MaxBytes) { throw "Review input exceeds $MaxBytes bytes: $Path" }
     $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
-    try { return $utf8.GetString($bytes) }
+    try { $text = $utf8.GetString($bytes) }
     catch { throw "Review input is not valid UTF-8: $Path" }
+    return [pscustomobject]@{ Bytes = $bytes; Text = $text; Sha256 = Get-BSLFlowBytesSha256 $bytes }
 }
 
 function Get-SpecClassification {
@@ -138,26 +139,49 @@ else {
     $providerPath = $opencode.Source
 }
 
+$capturedInputs = [ordered]@{
+    original_task = Get-BoundedUtf8Snapshot -Path $originalTaskPath -MaxBytes $maxInputBytes
+    spec = Get-BoundedUtf8Snapshot -Path $specPath -MaxBytes $maxInputBytes
+    design = if (Test-Path -LiteralPath $designPath -PathType Leaf) { Get-BoundedUtf8Snapshot -Path $designPath -MaxBytes $maxInputBytes } else { $null }
+}
+
+# Create the durable attempt before the provider is started. Exact sent input
+# bytes and their hashes remain available even when parsing or validation fails.
+$runId = ([DateTime]::UtcNow.ToString('yyyyMMddTHHmmssfffZ') + '-' + [guid]::NewGuid().ToString('N'))
+$artifactRoot = Join-Path $projectRoot '.bsl-flow\reports\spec-review'
+$runRoot = Join-Path $artifactRoot $runId
+$snapshotRoot = Join-Path $runRoot 'inputs'
+New-Item -ItemType Directory -Path $snapshotRoot -Force | Out-Null
+$snapshotRows = [System.Collections.Generic.List[object]]::new()
+foreach ($name in @('original_task', 'spec', 'design')) {
+    $snapshot = $capturedInputs[$name]
+    if ($null -eq $snapshot) {
+        $snapshotRows.Add([ordered]@{ name = $name; present = $false; size_bytes = 0; sha256 = $null; snapshot_path = $null })
+        continue
+    }
+    $snapshotPath = Join-Path $snapshotRoot ($name + '.md')
+    [System.IO.File]::WriteAllBytes($snapshotPath, $snapshot.Bytes)
+    $snapshotRows.Add([ordered]@{ name = $name; present = $true; size_bytes = $snapshot.Bytes.Length; sha256 = $snapshot.Sha256; snapshot_path = $snapshotPath })
+}
+$inputSnapshotPath = Join-Path $runRoot 'input-snapshot.json'
+Write-BSLFlowJsonAtomic -Value ([ordered]@{ schema_version = 1; captured_at_utc = [DateTime]::UtcNow.ToString('o'); inputs = @($snapshotRows) }) -Path $inputSnapshotPath
+
 $blocks = [System.Collections.Generic.List[string]]::new()
 foreach ($entry in @(
-    @{ Label = 'ORIGINAL TASK'; Path = $originalTaskPath; Trusted = $false },
-    @{ Label = 'DRAFT SPEC'; Path = $specPath; Trusted = $false },
-    @{ Label = 'TECHNICAL DESIGN'; Path = $designPath; Trusted = $false },
-    @{ Label = 'REVIEW RUBRIC'; Path = $rubricPath; Trusted = $true }
+    @{ Label = 'ORIGINAL TASK'; Snapshot = $capturedInputs.original_task; Trusted = $false },
+    @{ Label = 'DRAFT SPEC'; Snapshot = $capturedInputs.spec; Trusted = $false },
+    @{ Label = 'TECHNICAL DESIGN'; Snapshot = $capturedInputs.design; Trusted = $false },
+    @{ Label = 'REVIEW RUBRIC'; Snapshot = (Get-BoundedUtf8Snapshot -Path $rubricPath -MaxBytes $maxInputBytes); Trusted = $true }
 )) {
-    if (-not (Test-Path -LiteralPath $entry.Path -PathType Leaf)) { continue }
+    if ($null -eq $entry.Snapshot) { continue }
     $kind = if ($entry.Trusted) { 'TRUSTED REVIEW POLICY' } else { 'UNTRUSTED DATA' }
-    $content = Get-BoundedUtf8Text -Path $entry.Path -MaxBytes $maxInputBytes
+    $content = $entry.Snapshot.Text
     $blocks.Add("<<<BEGIN ${kind}: $($entry.Label)>>>`n$content`n<<<END ${kind}: $($entry.Label)>>>")
 }
 $contextEnvelope = $blocks -join "`n`n"
 
 # Provider output is sensitive and is retained only under the project's ignored
 # local reports directory. It is never copied to review.json, metrics, or errors.
-$runId = ([DateTime]::UtcNow.ToString('yyyyMMddTHHmmssfffZ') + '-' + [guid]::NewGuid().ToString('N'))
-$artifactRoot = Join-Path $projectRoot '.bsl-flow\reports\spec-review'
-$runRoot = Join-Path $artifactRoot $runId
-New-Item -ItemType Directory -Path $runRoot -Force | Out-Null
 $eventsPath = Join-Path $runRoot 'events.jsonl'
 $rawResponsePath = Join-Path $runRoot 'raw-response.txt'
 $stderrPath = Join-Path $runRoot 'provider-stderr.log'
@@ -168,7 +192,7 @@ $status = [ordered]@{
     schema_version = 1; run_id = $runId; state = 'running'; phase = 'preflight'
     started_at_utc = $startedAt; updated_at_utc = $startedAt
     events_path = $eventsPath; raw_response_path = $rawResponsePath; stderr_path = $stderrPath
-    diagnostic_path = $diagnosticPath; review_path = $reviewPath
+    diagnostic_path = $diagnosticPath; review_path = $reviewPath; input_snapshot_path = $inputSnapshotPath
 }
 function Update-ReviewStatus {
     param([Parameter(Mandatory)][string]$Phase, [string]$State = 'running', [string]$Message, [int]$ExitCode = -1)
@@ -218,6 +242,8 @@ try {
     $startInfo.RedirectStandardInput = $true
     $startInfo.RedirectStandardOutput = $true
     $startInfo.RedirectStandardError = $true
+    $startInfo.StandardOutputEncoding = $writerEncoding
+    $startInfo.StandardErrorEncoding = $writerEncoding
     $arguments = @('run', '--pure', '--agent', $agent, '--model', $Model, '--variant', $Variant, '--format', 'json', '--dir', $projectRoot, 'Review the delimited specification context from stdin. Return only the contracted JSON object.')
     # ProcessStartInfo.ArgumentList is unavailable on .NET Framework / Windows
     # PowerShell 5.1. Quote each token for the native Windows command line.
@@ -233,14 +259,25 @@ try {
     $process.StartInfo = $startInfo
     if (-not $process.Start()) { throw 'OpenCode process could not be started.' }
     Update-ReviewStatus -Phase 'streaming'
-    $inputTask = $process.StandardInput.WriteAsync($contextEnvelope)
+    # StandardInput.Encoding follows the active console code page in Windows
+    # PowerShell 5.1. Write the captured envelope as exact UTF-8 bytes instead.
+    $inputBytes = $writerEncoding.GetBytes($contextEnvelope)
+    $inputTask = $process.StandardInput.BaseStream.WriteAsync($inputBytes, 0, $inputBytes.Length)
     $stdinClosed = $false
     $stdoutDone = $false; $stderrDone = $false
     $stdoutRead = $process.StandardOutput.ReadLineAsync()
     $stderrRead = $process.StandardError.ReadLineAsync()
     $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
     while (-not $process.HasExited -and [DateTime]::UtcNow -lt $deadline) {
-        if (-not $stdinClosed -and $inputTask.IsCompleted) { $process.StandardInput.Close(); $stdinClosed = $true }
+        if (-not $stdinClosed -and $inputTask.IsCompleted) {
+            try { [void]$inputTask.GetAwaiter().GetResult() }
+            catch {
+                $failurePhase = 'input'
+                $failureMessage = "OpenCode stdin write failed: $($_.Exception.Message)"
+            }
+            $process.StandardInput.Close(); $stdinClosed = $true
+            if ($failureMessage) { break }
+        }
         while (-not $stdoutDone -and $stdoutRead.IsCompleted) {
             $line = $stdoutRead.Result
             if ($null -eq $line) { $stdoutDone = $true } else { Write-ProviderLine -Line ([string]$line) -Stream stdout; $stdoutRead = $process.StandardOutput.ReadLineAsync() }
@@ -256,7 +293,17 @@ try {
         }
         Start-Sleep -Milliseconds 50
     }
-    if (-not $stdinClosed) { try { $process.StandardInput.Close() } catch {} }
+    if (-not $stdinClosed) {
+        if ($inputTask.IsCompleted) {
+            try { [void]$inputTask.GetAwaiter().GetResult() }
+            catch {
+                $failurePhase = 'input'
+                $failureMessage = "OpenCode stdin write failed: $($_.Exception.Message)"
+            }
+        }
+        try { $process.StandardInput.Close() } catch {}
+        $stdinClosed = $true
+    }
     if (-not $process.HasExited -and -not $failureMessage) {
         $failurePhase = 'timeout'
         $failureMessage = "OpenCode review exceeded timeout of $TimeoutSeconds seconds."
@@ -303,11 +350,32 @@ try {
     if ($failureMessage) { throw $failureMessage }
     $failurePhase = 'parsing'
     Update-ReviewStatus -Phase 'parsing' -ExitCode $exitCode
-    $events = @(Get-Content -LiteralPath $eventsPath)
+    $eventWriter.Flush()
+    $eventWriter.Dispose()
+    $events = @([System.IO.File]::ReadAllLines($eventsPath, $writerEncoding))
     $rawReview = Get-BSLFlowJsonFromOpenCodeEvents -Lines $events
     $failurePhase = 'validating'
     Update-ReviewStatus -Phase 'validating' -ExitCode $exitCode
-    $review = Complete-BSLFlowReview -RawReview $rawReview -OriginalTaskPath $originalTaskPath -SpecPath $specPath -DesignPath $designPath -Agent $agent -Model $Model -PassWeightedScore $passScore -BlockBelowWeightedScore $blockScore -MaxOverengineeringIndexForPass $maxIndex -MaxUnjustifiedRatioForPass $maxRatio
+    $completionParameters = @{
+        RawReview = $rawReview; OriginalTaskPath = $originalTaskPath; SpecPath = $specPath; DesignPath = $designPath
+        Agent = $agent; Model = $Model; PassWeightedScore = $passScore; BlockBelowWeightedScore = $blockScore
+        MaxOverengineeringIndexForPass = $maxIndex; MaxUnjustifiedRatioForPass = $maxRatio
+        OriginalTaskSha256 = $capturedInputs.original_task.Sha256; SpecSha256 = $capturedInputs.spec.Sha256
+    }
+    if ($null -ne $capturedInputs.design) { $completionParameters.DesignSha256 = $capturedInputs.design.Sha256 }
+    $review = Complete-BSLFlowReview @completionParameters
+    $failurePhase = 'freshness'
+    Update-ReviewStatus -Phase 'freshness' -ExitCode $exitCode
+    foreach ($entry in @(
+        @{ Name = 'original-task.md'; Path = $originalTaskPath; Snapshot = $capturedInputs.original_task },
+        @{ Name = 'spec.md'; Path = $specPath; Snapshot = $capturedInputs.spec },
+        @{ Name = 'design.md'; Path = $designPath; Snapshot = $capturedInputs.design }
+    )) {
+        $isPresent = Test-Path -LiteralPath $entry.Path -PathType Leaf
+        $snapshotWasPresent = $null -ne $entry.Snapshot
+        if ($snapshotWasPresent -ne $isPresent) { throw "Review input changed during provider execution: $($entry.Name)" }
+        if ($isPresent -and (Get-BSLFlowSha256 $entry.Path) -ne $entry.Snapshot.Sha256) { throw "Review input changed during provider execution: $($entry.Name)" }
+    }
     $failurePhase = 'publishing'
     Update-ReviewStatus -Phase 'publishing' -ExitCode $exitCode
     Write-BSLFlowJsonAtomic -Value $review -Path $reviewPath
@@ -323,7 +391,7 @@ catch {
         failed_at_utc = [DateTime]::UtcNow.ToString('o'); message = $failureMessage
         exit_code = if ($exitCode -ge 0) { $exitCode } else { $null }
         events_path = $eventsPath; raw_response_path = $rawResponsePath; stderr_path = $stderrPath
-        review_published = $published; output_drained = (-not $state.DrainIncomplete)
+        input_snapshot_path = $inputSnapshotPath; review_published = $published; output_drained = (-not $state.DrainIncomplete)
     }
     Write-BSLFlowJsonAtomic -Value $diagnostic -Path $diagnosticPath
     throw $failureMessage

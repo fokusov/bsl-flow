@@ -1,0 +1,143 @@
+Set-StrictMode -Version Latest
+
+function Assert-BFFields {
+    param($Value, [string[]]$Required, [string[]]$Optional = @(), [string]$Name = 'object')
+    if ($null -eq $Value -or ($Value -isnot [System.Collections.IDictionary] -and $Value -isnot [pscustomobject])) { throw "BF_INVALID: $Name must be an object." }
+    $keys = if ($Value -is [System.Collections.IDictionary]) { @($Value.Keys) } else { @($Value.PSObject.Properties.Name) }
+    foreach ($key in $Required) { if ($key -cnotin $keys) { throw "BF_INVALID: $Name.$key is required." } }
+    foreach ($key in $keys) { if ($key -cnotin ($Required + $Optional)) { throw "BF_INVALID: unknown field $Name.$key." } }
+}
+
+function Get-BFValue {
+    param($Value, [string]$Name, $Default = $null)
+    if ($Value -is [System.Collections.IDictionary]) { if ($Value.Contains($Name)) { return $Value[$Name] } }
+    elseif ($null -ne $Value -and $null -ne $Value.PSObject.Properties[$Name]) { return $Value.$Name }
+    return $Default
+}
+
+function Assert-BFText {
+    param($Value, [string]$Name, [int]$Limit = 262144)
+    if ($Value -isnot [string] -or [string]::IsNullOrWhiteSpace($Value) -or $Value.Length -gt $Limit) { throw "BF_INVALID: invalid $Name." }
+}
+
+function Assert-BFUuid {
+    param([string]$Value)
+    if ($Value -cnotmatch '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') { throw 'BF_INVALID: identity must be a canonical lower-case UUID.' }
+}
+
+function Assert-BFRelativePath {
+    param([string]$Value)
+    if ([string]::IsNullOrWhiteSpace($Value) -or [IO.Path]::IsPathRooted($Value) -or $Value -match '[:*?"<>|\x00-\x1f]' -or $Value -match '(^|[\\/])\.\.([\\/]|$)') { throw "BF_INVALID: unsafe relative path: $Value" }
+}
+
+function Assert-BFProvenance {
+    param($Value)
+    Assert-BFFields $Value @('source', 'reference', 'text') @() 'provenance'
+    if ($Value.source -ne 'user') { throw 'BF_INVALID: only a trusted operator can relay user input; worker output is not authorization.' }
+    Assert-BFText $Value.reference 'provenance.reference' 2048
+    Assert-BFText $Value.text 'provenance.text'
+}
+
+function Assert-BFCriteria {
+    param($Criteria)
+    if ($Criteria -isnot [array]) { throw 'BF_INVALID: criteria must be an array.' }
+    $ids = @()
+    foreach ($criterion in $Criteria) {
+        Assert-BFFields $criterion @('id', 'observation', 'kind') @('path', 'contains', 'executable', 'arguments', 'report', 'expected_tests', 'target', 'profile') 'criterion'
+        if ($criterion.id -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$' -or $criterion.id -in $ids) { throw 'BF_INVALID: criterion ids must be safe and unique.' }
+        $ids += $criterion.id
+        Assert-BFText $criterion.observation 'criterion.observation'
+        if ($criterion.kind -notin @('file_assertion', 'static', 'unit', 'integration', 'ui', 'external_artifact')) { throw 'BF_INVALID: unsupported criterion kind.' }
+        if ($criterion.kind -eq 'file_assertion') {
+            Assert-BFRelativePath (Get-BFValue $criterion 'path')
+            Assert-BFText (Get-BFValue $criterion 'contains') 'criterion.contains'
+        } elseif ($criterion.kind -ne 'external_artifact') {
+            Assert-BFText (Get-BFValue $criterion 'executable') 'criterion.executable'
+            if (-not [IO.Path]::IsPathRooted($criterion.executable)) { throw 'BF_INVALID: test executable must be absolute.' }
+            if ((Get-BFValue $criterion 'arguments') -isnot [array]) { throw 'BF_INVALID: test arguments must be an array.' }
+            foreach ($arg in $criterion.arguments) { if ($arg -isnot [string] -or $arg -match '[\x00\r\n]') { throw 'BF_INVALID: test arguments must be single-line strings.' } }
+            Assert-BFRelativePath (Get-BFValue $criterion 'report')
+            if ($criterion.report -notmatch '^\.bsl-flow-worker[/\\]') { throw 'BF_INVALID: raw test reports belong under .bsl-flow-worker/ in the worktree.' }
+            if ((Get-BFValue $criterion 'expected_tests') -isnot [array] -or @($criterion.expected_tests).Count -eq 0) { throw 'BF_INVALID: exact expected test names are required.' }
+            if ($criterion.kind -in @('integration','ui')) { Assert-BFText (Get-BFValue $criterion 'target') 'criterion.target' }
+        }
+    }
+}
+
+function Assert-BFRequest {
+    param($Request)
+    Assert-BFFields $Request @('schema_version','request_id','prompt','mode','analysis_goal','complexity','risk','impact_flags','criteria','provenance','models') @('source_paths','require_spec_review','require_code_review','max_attempts','timeout_seconds') 'request'
+    if ($Request.schema_version -ne 1) { throw 'BF_INVALID: unsupported request schema_version.' }
+    Assert-BFUuid $Request.request_id
+    Assert-BFText $Request.prompt 'prompt'
+    Assert-BFProvenance $Request.provenance
+    if ($Request.mode -notin @('analysis_only','implement') -or $Request.analysis_goal -notin @('analysis','specification')) { throw 'BF_INVALID: unsupported task mode or analysis goal.' }
+    if ($Request.complexity -notin @('S','M','L') -or $Request.risk -notin @('low','medium','high')) { throw 'BF_INVALID: unsupported classification.' }
+    Assert-BFImpactFlags $Request.impact_flags
+    Assert-BFCriteria $Request.criteria
+    if ($Request.mode -eq 'implement' -and @($Request.criteria).Count -eq 0) { throw 'BF_INVALID: implementation requires observable acceptance criteria before dispatch.' }
+    Assert-BFFields $Request.models @('worker','worker_effort','reviewer','reviewer_effort') @() 'models'
+    foreach ($field in @('worker','reviewer')) { if ($Request.models.$field -notmatch '^[A-Za-z0-9._:-]+$') { throw "BF_INVALID: invalid model $field." } }
+    foreach ($field in @('worker_effort','reviewer_effort')) { if ($Request.models.$field -notin @('low','medium','high','xhigh')) { throw "BF_INVALID: invalid effort $field." } }
+    foreach ($flag in @('require_spec_review','require_code_review')) { if ($null -ne (Get-BFValue $Request $flag) -and (Get-BFValue $Request $flag) -isnot [bool]) { throw "BF_INVALID: $flag must be boolean." } }
+    foreach ($path in @(Get-BFValue $Request 'source_paths' @('.'))) { Assert-BFRelativePath $path }
+    $max = Get-BFValue $Request 'max_attempts' 16
+    $timeout = Get-BFValue $Request 'timeout_seconds' 1800
+    if ($max -isnot [int] -and $max -isnot [long]) { throw 'BF_INVALID: max_attempts must be an integer.' }
+    if ($timeout -isnot [int] -and $timeout -isnot [long]) { throw 'BF_INVALID: timeout_seconds must be an integer.' }
+    if ($max -lt 1 -or $max -gt 64 -or $timeout -lt 1 -or $timeout -gt 14400) { throw 'BF_INVALID: execution limits out of range.' }
+}
+
+function Assert-BFImpactFlags {
+    param($Flags)
+    if ($Flags -isnot [array]) { throw 'BF_INVALID: impact_flags must be an array.' }
+    foreach ($flag in $Flags) { if ($flag -notin @('permissions','data_migration','data_deletion','posting','data_exchange','form_flow','external_artifact','ambiguous_business_rule')) { throw "BF_INVALID: unknown impact flag $flag." } }
+}
+
+function Get-BFRoute {
+    param($State)
+    $request = $State.request
+    $classification = $State.classification
+    $high = $classification.risk -eq 'high' -or $classification.complexity -eq 'L'
+    $spec = $high -or $classification.complexity -eq 'M' -or $classification.risk -eq 'medium' -or ($request.mode -eq 'analysis_only' -and $request.analysis_goal -eq 'specification')
+    $review = $high -or $classification.complexity -eq 'M' -or (Get-BFValue $request 'require_spec_review' $false)
+    $rules=Get-BFValue $State 'policy_rules'
+    if ($null -ne $rules -and $classification.complexity -eq 'S' -and $rules.s_review_required) { $review=$true }
+    if ($review) { $spec = $true }
+    $route = @('inspect')
+    if ($request.mode -eq 'implement' -or $request.analysis_goal -eq 'specification') {
+        if ($spec) { $route += 'spec' }
+        if ($review) { $route += 'spec_review' }
+    }
+    if ($request.mode -eq 'implement') {
+        $route += 'implement'
+        if ($high -or (Get-BFValue $request 'require_code_review' $false)) { $route += 'code_review' }
+        $route += 'verify'
+    }
+    return @($route + 'acceptance')
+}
+
+function Assert-BFState {
+    param($State)
+    Assert-BFFields $State @('schema_version','task_id','revision','previous_sha256','project_path','worker_path','baseline','request','request_hash','intent_revision','authorization_revision','intent_hash','policy_hash','policy_files','policy_rules','classification','status','stage','active_attempt','unresolved_effect','attempts','evidence','events','question','blockers','acceptances','created_at','updated_at','correction_rounds') @() 'state'
+    if ($State.schema_version -ne 1) { throw 'BF_BLOCKED: unsupported state schema.' }
+    Assert-BFUuid $State.task_id
+    Assert-BFRequest $State.request
+    if ($State.request.request_id -ne $State.task_id) { throw 'BF_BLOCKED: request/task identity mismatch.' }
+    if ($State.status -notin @('ready','running','needs_input','blocked','failed','completed','cancelled')) { throw 'BF_BLOCKED: invalid state status.' }
+    if ($State.stage -notin @('inspect','spec','spec_review','implement','code_review','verify','acceptance')) { throw 'BF_BLOCKED: invalid state stage.' }
+    foreach ($field in @('attempts','evidence','events','blockers','acceptances','policy_files')) { if ($State.$field -isnot [array]) { throw "BF_BLOCKED: $field must be an array." } }
+}
+
+function New-BFEnvelope {
+    param($State, [string]$NextAction = '', [string[]]$Blockers = @(), [string]$NextStage = '')
+    $effectiveStatus=$State.status
+    $acceptance=$null
+    if($State.status -eq 'completed'){
+        if($NextAction -eq 'accept' -and @($State.acceptances).Count){
+            $candidate=$State.acceptances[-1]
+            if((Test-Path -LiteralPath $candidate.path -PathType Leaf) -and (Get-BFHash (Read-BFJson $candidate.path)) -eq $candidate.sha256){$acceptance=$candidate}else{$effectiveStatus='ready'}
+        }else{$effectiveStatus='ready'}
+    }
+    return [ordered]@{ schema_version=1; task_id=$State.task_id; revision=$State.revision; status=$effectiveStatus; stage=$State.stage; next_stage=$NextStage; next_action=$NextAction; blockers=@($Blockers); evidence_refs=@($State.evidence | ForEach-Object { $_.attempt_id }); worker_path=$State.worker_path; acceptance=$acceptance; unresolved_effect=$State.unresolved_effect }
+}

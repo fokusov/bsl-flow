@@ -1,6 +1,6 @@
 # BSL Flow
 
-**Lightweight AI-assisted engineering workflow for BSL development.**
+**A lightweight engineering workflow and task controller for BSL development.**
 
 BSL Flow is a public workflow project for AI coding agents working with BSL and 1C:Enterprise projects. It focuses on the minimum engineering process needed to get reliable results without turning every change into a heavyweight software-development ceremony.
 
@@ -26,9 +26,9 @@ BSL Flow is designed around a few constraints:
 - **Independent spec review** to catch scope drift, unsupported assumptions and overengineering.
 - **Evidence-driven verification** instead of "the code looks correct".
 - **BSL / 1C-specific engineering context**: metadata objects, managed forms, client/server boundaries, registers, document posting, integration contracts and test databases.
-- **Agent-native orchestration**: Codex or another coding agent remains the orchestrator; BSL Flow does not try to replace it.
+- **Two execution modes**: existing skills support assisted work; `1c-task` gives a deterministic controller ownership of registered managed tasks and their evidence gates.
 
-## Planned workflow
+## Risk-based workflow
 
 ```text
 S / low-risk
@@ -53,7 +53,11 @@ The framework is intended to work with tools such as:
 
 ## Current release
 
-The repository contains **BSL Flow v0.6.1**, including six agent skills, the OpenSpec schema, independent specification review, test-environment guidance, durable verification evidence and standalone installers for Codex and OpenCode. The patch release also preserves bounded interactive YAxUnit/Vanessa pilots as immutable setup history and refreshes provider state without misclassifying UI observation as unattended evidence.
+The working version is **BSL Flow 0.7.0-dev.1**: seven skills, including the new `1c-task` controller, immutable task history, risk-based stage routing, isolated Codex workers, source/evidence freshness checks and explicit recovery. The six assisted skills and the separate OpenCode specification reviewer remain available.
+
+This is a development release. Managed 1C runtime execution is blocked until its exact adapter, target and required evidence are verified and authorized. Source-only checks do not establish full 1C readiness. See [verification boundaries](VERIFICATION.md).
+
+Read the [framework guide](docs/FRAMEWORK_GUIDE_RU.md), [architecture decisions](docs/ARCHITECTURE_RU.md), and [task CLI contract](global/skills/1c-task/references/task-contract.md). The guide explains the benefit, supported workflows, commands, recovery and limitations.
 
 The bounded interactive YAxUnit and Vanessa engine pilots passed on the explicitly authorized FILE demo base. Unattended execution, fresh durable reports and Vanessa TestClient readiness remain separate evidence gates; see [verification boundaries](VERIFICATION.md).
 
@@ -98,6 +102,7 @@ On a machine without these tools, BSL Flow still installs, but tests that requir
 - `global/skills/` — installable agent skills;
 - `global/openspec/` — the OpenSpec schema and templates;
 - `scripts/` — installers and offline regression checks;
+- `docs/` — framework guide, architecture decisions, and observed managed-host contract;
 - [OPENCODE_SETUP_RU.md](OPENCODE_SETUP_RU.md) — standalone OpenCode setup;
 - [TEST_ENVIRONMENT_GUIDE_RU.md](TEST_ENVIRONMENT_GUIDE_RU.md) — persistent YAxUnit/Vanessa test environment;
 - [VERIFICATION.md](VERIFICATION.md) — proven and blocked evidence boundaries.

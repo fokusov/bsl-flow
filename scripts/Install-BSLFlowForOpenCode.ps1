@@ -10,9 +10,9 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$frameworkVersion = '0.6.1'
+$frameworkVersion = $null
 $retiredFrameworkName='1'+'c-'+'lite'
-$skillNames = @('1c-init-project','1c-spec','1c-spec-review','1c-implement','1c-verify','1c-debug')
+$skillNames = @('1c-init-project','1c-spec','1c-spec-review','1c-implement','1c-verify','1c-debug','1c-task')
 
 function Assert-TestMode {
     param([Parameter(Mandatory)][string]$ConfigRoot)
@@ -146,6 +146,8 @@ function Test-ReviewerConfig {
 }
 
 $packageRoot=Split-Path -Parent $PSScriptRoot
+$frameworkVersion=(Get-Content -Raw -LiteralPath (Join-Path $packageRoot 'VERSION')).Trim()
+if($frameworkVersion-notmatch'^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$'){throw "Invalid package VERSION: $frameworkVersion"}
 $sourceSkills=Join-Path $packageRoot 'global\skills';$sourceBootstrap=Join-Path $packageRoot 'global\AGENTS.bootstrap.md';$sourceDelegation=Join-Path $packageRoot 'global\OPENCODE.delegation.md';$diagnostic=Join-Path $PSScriptRoot 'Test-BSLFlowOpenCode.ps1'
 $userProfile=[Environment]::GetFolderPath('UserProfile')
 if([string]::IsNullOrWhiteSpace($OpenCodeConfigRoot)){$OpenCodeConfigRoot=Join-Path $userProfile '.config\opencode'}

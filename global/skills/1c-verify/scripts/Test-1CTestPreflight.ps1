@@ -131,17 +131,30 @@ try {
     $versionsOk = $null -ne $expectedVersions -and $null -ne $observedVersions -and (Compare-TEValue $expectedVersions $observedVersions)
     Add-TECheck $checks 'versions' $versionsOk 'Declared source/extension versions are matched with observed evidence.'
 
-    $noBuild = Find-TEPath $request @('noBuild','no_build','test.noBuild','test.no_build')
-    $strictNoBuild = ConvertTo-TEBoolean $noBuild
-    $noBuildDeclarationValid = $null -ne $strictNoBuild
-    if ($null -eq $strictNoBuild) { $strictNoBuild = $true }
     $steps = @(Get-TEArray (Find-TEPath $observed @('steps','data.steps')))
-    $buildSteps = @($steps | Where-Object { [string](Get-TEProperty $_ @('name','operation')) -eq 'build' })
-    $buildSkipped = @($buildSteps | Where-Object { [string](Get-TEProperty $_ @('status','state')) -eq 'skipped' -and ([string](Get-TEProperty $_ @('message','reason')) -match '(?i)no.?build|build.*skip') }).Count -gt 0
-    $observedNoBuild = ConvertTo-TEBoolean (Find-TEPath $effectiveObserved @('noBuild','no_build'))
-    $noBuildOk = (-not $strictNoBuild) -or $buildSkipped -or ($observedNoBuild -eq $true -and $buildSteps.Count -gt 0)
-    Add-TECheck $checks 'no_build_declaration' $noBuildDeclarationValid 'noBuild must be a JSON boolean, never a truthy string.'
-    Add-TECheck $checks 'no_build' $noBuildOk 'A test-module filter alone does not prove that main build/load was skipped.'
+    foreach ($operation in @('build','load')) {
+        $flagName = if ($operation -eq 'build') { 'noBuild' } else { 'noLoad' }
+        $flagAliases = if ($operation -eq 'build') { @('noBuild','no_build','test.noBuild','test.no_build') } else { @('noLoad','no_load','test.noLoad','test.no_load') }
+        $effectiveAliases = if ($operation -eq 'build') { @('noBuild','no_build') } else { @('noLoad','no_load') }
+        $declaredRaw = Find-TEPath $request $flagAliases
+        $effectiveRaw = Find-TEPath $effectiveObserved $effectiveAliases
+        $declaredFlag = ConvertTo-TEBoolean $declaredRaw
+        $effectiveFlag = ConvertTo-TEBoolean $effectiveRaw
+        $declarationRequired = ($operation -eq 'build') -or ($null -ne $declaredRaw)
+        $declarationValid = (-not $declarationRequired) -or ($null -ne $declaredFlag)
+        Add-TECheck $checks ("no_{0}_declaration" -f $operation) $declarationValid "$flagName must be a JSON boolean when required or declared."
+
+        $effectiveValid = ($null -eq $effectiveRaw) -or ($null -ne $effectiveFlag)
+        $flagsAgree = $effectiveValid -and ($null -eq $declaredFlag -or $null -eq $effectiveFlag -or $declaredFlag -eq $effectiveFlag)
+        $operationSteps = @($steps | Where-Object { [string](Get-TEProperty $_ @('name','operation')) -ieq $operation })
+        $skipRequired = ($declaredFlag -eq $true) -or ($effectiveFlag -eq $true)
+        $explicitSkippedSteps = @($operationSteps | Where-Object {
+            [string](Get-TEProperty $_ @('status','state')) -ieq 'skipped' -and
+            ([string](Get-TEProperty $_ @('message','reason')) -match ("(?i)no.?{0}|{0}.*skip" -f $operation))
+        })
+        $stepsAgree = (-not $skipRequired) -or ($operationSteps.Count -gt 0 -and $explicitSkippedSteps.Count -eq $operationSteps.Count)
+        Add-TECheck $checks ("no_{0}" -f $operation) ($flagsAgree -and $stepsAgree) "Effective $flagName and every observed $operation step must agree; missing, executed, mixed, or unknown required steps block preflight."
+    }
 
     $expectedReportPath = Find-TEPath $request @('reportPath','report_path','durableReportPath','durable_report_path')
     $observedReportPath = Find-TEPath $effectiveObserved @('reportPath','report_path','durableReportPath','durable_report_path')

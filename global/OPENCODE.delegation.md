@@ -1,6 +1,8 @@
 <!-- bsl-flow opencode:start -->
 ## OpenCode delegation boundary
 
+OpenCode remains an assisted host in this release. Installing the shared `1c-task` skill does not make OpenCode a verified managed dispatcher. Managed execution uses the separately verified Codex adapter. Preserve the existing OpenCode specification reviewer and its configured model.
+
 When BSL Flow is used directly from OpenCode, preserve the effective global and project OpenCode agent configuration. The framework installs workflow skills but does not choose or rewrite primary-agent, subagent, provider, model, variant, or reasoning settings.
 
 Use only subagents actually exposed by the current OpenCode configuration and route work by their declared descriptions and permissions. The primary agent owns requirements, integration and final acceptance. Delegate only bounded independent work; use a read-only agent for independent implementation review. Do not invent an agent name or claim heterogeneous model routing when the effective configuration does not prove it.

@@ -1,8 +1,29 @@
 ﻿[CmdletBinding(SupportsShouldProcess)]
-param()
+param(
+    [string]$CodexHome,
+    [string]$SharedSkillsRoot,
+    [string]$OpenSpecSchemaRoot,
+    [string]$MetricsPath,
+    [switch]$SkipCliValidation,
+    [switch]$SimulatePostApplyFailure
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+function Assert-TestTargets {
+    param([Parameter(Mandatory)][string]$CodexRoot, [Parameter(Mandatory)][string[]]$Targets)
+    $temp = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\', '/')
+    $resolvedCodex = [IO.Path]::GetFullPath($CodexRoot).TrimEnd('\', '/')
+    if (-not $resolvedCodex.StartsWith($temp + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Test-only targets must be below the system temporary directory.' }
+    $relative = $resolvedCodex.Substring($temp.Length + 1)
+    if ($relative -notmatch '^bsl-flow-install-test-[^\\/]+[\\/]codex$') { throw 'Test-only CodexHome must be <temp>/bsl-flow-install-test-*/codex.' }
+    $testRoot = [IO.Path]::GetFullPath((Split-Path -Parent $resolvedCodex)).TrimEnd('\', '/')
+    foreach ($target in $Targets) {
+        $resolved = [IO.Path]::GetFullPath($target).TrimEnd('\', '/')
+        if (-not $resolved.StartsWith($testRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw "Test target escapes its isolated root: $resolved" }
+    }
+}
 
 function Invoke-NativeCommand {
     param(
@@ -50,7 +71,7 @@ function Assert-RealDirectoryTree {
 
 function Remove-RetiredManagedBlock {
     param(
-        [Parameter(Mandatory)][string]$Text,
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Text,
         [Parameter(Mandatory)][string]$Marker
     )
 
@@ -134,19 +155,27 @@ $sourceSkills = Join-Path $globalRoot 'skills'
 $sourceSchema = Join-Path $globalRoot 'openspec\schemas\bsl-flow'
 $sourceAgentsBlock = Join-Path $globalRoot 'AGENTS.bootstrap.md'
 $sourceReviewerConfig = Join-Path $sourceSkills '1c-spec-review\reviewer\opencode-reviewer.json'
+$frameworkVersion = (Get-Content -Raw -LiteralPath (Join-Path $packageRoot 'VERSION')).Trim()
+if ($frameworkVersion -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$') { throw "Invalid package VERSION: $frameworkVersion" }
 
 $userProfile = [Environment]::GetFolderPath('UserProfile')
 $retiredFrameworkName = '1' + 'c-' + 'lite'
-$codexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $userProfile '.codex' }
+$defaultCodexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $userProfile '.codex' }
+$codexHome = if ($CodexHome) { [IO.Path]::GetFullPath($CodexHome) } else { [IO.Path]::GetFullPath($defaultCodexHome) }
 $localAppData = [Environment]::GetFolderPath('LocalApplicationData')
-$targetSkills = Join-Path $userProfile '.agents\skills'
+$targetSkills = if ($SharedSkillsRoot) { [IO.Path]::GetFullPath($SharedSkillsRoot) } else { Join-Path $userProfile '.agents\skills' }
 $legacyCodexSkills = Join-Path $codexHome 'skills'
-$targetSchema = Join-Path $localAppData 'openspec\schemas\bsl-flow'
-$retiredSchema = Join-Path $localAppData ("openspec\schemas\$retiredFrameworkName")
+$targetSchema = if ($OpenSpecSchemaRoot) { [IO.Path]::GetFullPath($OpenSpecSchemaRoot) } else { Join-Path $localAppData 'openspec\schemas\bsl-flow' }
 $targetSchemaParent = Split-Path -Parent $targetSchema
+$retiredSchema = Join-Path $targetSchemaParent $retiredFrameworkName
 $targetAgents = Join-Path $codexHome 'AGENTS.md'
-$metricsPath = Join-Path $userProfile '.bsl-flow\evals\spec-runs.jsonl'
-$backupRoot = Join-Path $codexHome ('.backups\bsl-flow-v0.6.1-' + (Get-Date -Format 'yyyyMMdd-HHmmssfff'))
+$metricsPath = if ($MetricsPath) { [IO.Path]::GetFullPath($MetricsPath) } else { Join-Path $userProfile '.bsl-flow\evals\spec-runs.jsonl' }
+$backupRoot = Join-Path $codexHome ('.backups\bsl-flow-v' + $frameworkVersion + '-' + (Get-Date -Format 'yyyyMMdd-HHmmssfff'))
+$customTargets = $PSBoundParameters.ContainsKey('CodexHome') -or $PSBoundParameters.ContainsKey('SharedSkillsRoot') -or $PSBoundParameters.ContainsKey('OpenSpecSchemaRoot') -or $PSBoundParameters.ContainsKey('MetricsPath')
+if ($customTargets -or $SkipCliValidation -or $SimulatePostApplyFailure) {
+    if (-not $customTargets) { throw 'Test-only switches require explicit isolated target roots.' }
+    Assert-TestTargets -CodexRoot $codexHome -Targets @($targetSkills, $targetSchema, $metricsPath)
+}
 
 foreach ($requiredPath in @($sourceSkills, $sourceSchema, $sourceAgentsBlock, $sourceReviewerConfig)) {
     if (-not (Test-Path -LiteralPath $requiredPath)) {
@@ -154,20 +183,16 @@ foreach ($requiredPath in @($sourceSkills, $sourceSchema, $sourceAgentsBlock, $s
     }
 }
 
-$gitCommand = Get-Command git -ErrorAction SilentlyContinue
-$openSpecCommand = Get-Command openspec -ErrorAction SilentlyContinue
-$openCodeCommand = Get-Command opencode -ErrorAction SilentlyContinue
-if (-not $gitCommand) {
-    throw 'Git is required but was not found in PATH.'
-}
-if (-not $openSpecCommand) {
-    throw 'OpenSpec CLI is required but was not found in PATH.'
-}
-if (-not $openCodeCommand) {
-    throw 'OpenCode CLI is required but was not found in PATH.'
+$openSpecCommand = $null
+$openCodeCommand = $null
+if (-not $SkipCliValidation) {
+    $openSpecCommand = Get-Command openspec -ErrorAction SilentlyContinue
+    $openCodeCommand = Get-Command opencode -ErrorAction SilentlyContinue
+    if (-not $openSpecCommand) { throw 'OpenSpec CLI is required but was not found in PATH.' }
+    if (-not $openCodeCommand) { throw 'OpenCode CLI is required but was not found in PATH.' }
 }
 
-$skillNames = @('1c-init-project', '1c-spec', '1c-spec-review', '1c-implement', '1c-verify', '1c-debug')
+$skillNames = @('1c-init-project', '1c-spec', '1c-spec-review', '1c-implement', '1c-verify', '1c-debug', '1c-task')
 foreach ($skillName in $skillNames) {
     if (-not (Test-Path -LiteralPath (Join-Path $sourceSkills "$skillName\SKILL.md") -PathType Leaf)) {
         throw "Package skill is incomplete: $skillName"
@@ -186,8 +211,10 @@ if ($WhatIfPreference) {
     return
 }
 
-Test-PackagedSchema -OpenSpecCommand $openSpecCommand.Source -SchemaSource $sourceSchema
-Test-ReviewerConfig -OpenCodeCommand $openCodeCommand.Source -ReviewerConfig $sourceReviewerConfig
+if (-not $SkipCliValidation) {
+    Test-PackagedSchema -OpenSpecCommand $openSpecCommand.Source -SchemaSource $sourceSchema
+    Test-ReviewerConfig -OpenCodeCommand $openCodeCommand.Source -ReviewerConfig $sourceReviewerConfig
+}
 
 foreach ($requiredContainer in @($codexHome, $targetSkills, $targetSchemaParent)) {
     if (Test-Path -LiteralPath $requiredContainer -PathType Leaf) {
@@ -226,7 +253,7 @@ foreach ($skillName in $skillNames) {
     $legacyCodexSkillCopies[$skillName] = Test-Path -LiteralPath (Join-Path $legacyCodexSkills $skillName) -PathType Container
 }
 
-if (-not $PSCmdlet.ShouldProcess($codexHome, 'Install BSL Flow v0.6.1 with backup and rollback')) {
+if (-not $PSCmdlet.ShouldProcess($codexHome, "Install BSL Flow v$frameworkVersion with backup and rollback")) {
     return
 }
 
@@ -306,9 +333,12 @@ try {
     }
     Set-Content -LiteralPath $targetAgents -Value $updatedAgents -Encoding utf8
 
-    $whichOutput = Invoke-NativeCommand -Command $openSpecCommand.Source -Arguments @('schema', 'which', 'bsl-flow')
-    $validateOutput = Invoke-NativeCommand -Command $openSpecCommand.Source -Arguments @('schema', 'validate', 'bsl-flow', '--json')
-    Test-ReviewerConfig -OpenCodeCommand $openCodeCommand.Source -ReviewerConfig (Join-Path $targetSkills '1c-spec-review\reviewer\opencode-reviewer.json')
+    if ($SimulatePostApplyFailure) { throw 'Simulated post-apply failure.' }
+    if (-not $SkipCliValidation) {
+        $whichOutput = Invoke-NativeCommand -Command $openSpecCommand.Source -Arguments @('schema', 'which', 'bsl-flow')
+        $validateOutput = Invoke-NativeCommand -Command $openSpecCommand.Source -Arguments @('schema', 'validate', 'bsl-flow', '--json')
+        Test-ReviewerConfig -OpenCodeCommand $openCodeCommand.Source -ReviewerConfig (Join-Path $targetSkills '1c-spec-review\reviewer\opencode-reviewer.json')
+    }
     if (-not $hadMetrics) {
         New-Item -ItemType Directory -Path (Split-Path -Parent $metricsPath) -Force | Out-Null
         New-Item -ItemType File -Path $metricsPath | Out-Null
@@ -366,11 +396,10 @@ catch {
     throw "bsl-flow installation failed; the previous installation was restored. Error: $($installationError.Exception.Message). Backup: $backupRoot"
 }
 
-Write-Host 'BSL Flow v0.6.1 installed.'
+Write-Host "BSL Flow v$frameworkVersion installed."
 Write-Host "Codex home: $codexHome"
 Write-Host "Shared skills: $targetSkills"
 Write-Host "Backup: $backupRoot"
-Write-Host $whichOutput
-Write-Host $validateOutput
+if (-not $SkipCliValidation) { Write-Host $whichOutput; Write-Host $validateOutput }
 Write-Host "Cross-project metrics: $metricsPath"
 Write-Host 'Restart Codex before using the new global skills.'

@@ -5,6 +5,8 @@ description: Prepare a concise behavior-oriented specification for a medium, lar
 
 # 1c-spec
 
+For a registered managed task, follow the current `1c-task` stage contract. Return the specification to the controller; it writes, lints and binds the artifact. Do not independently advance stages or treat OpenSpec readiness as implementation authorization. Outside managed mode, use the assisted procedure below.
+
 ## Purpose
 
 Prepare the minimum planning artifact needed for a 1C development task. This skill is not an architecture generator or project manager. Its primary job is to remove ambiguity and define observable behavior.

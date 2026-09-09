@@ -1,4 +1,4 @@
-# Установка BSL Flow v0.6.1
+# Установка BSL Flow 0.7.0-dev.1
 
 Установка framework не загружает расширения в базы.
 
@@ -12,6 +12,26 @@
 - OpenCode с подключённым provider для reviewer-модели.
 
 Для полного регрессионного набора пакета дополнительно нужен .NET SDK 5 или новее: тесты компилируют маленький имитатор reviewer и не обращаются к платной модели. Для повседневной работы skills SDK не нужен. Проверки запускай через `scripts/Test-BSLFlowPackage.ps1`; они не запускают 1С и не заменяют приёмку в тестовой базе.
+
+По умолчанию package suite работает offline: использует fake OpenCode provider, не проверяет реальные credentials/model catalog и не делает model calls. Проверки установленного OpenCode, доступных models и effective environment включаются отдельно:
+
+```powershell
+.\scripts\Test-BSLFlowPackage.ps1 -PackageRoot .
+.\scripts\Test-BSLFlowPackage.ps1 -PackageRoot . -HostChecks
+```
+
+`-HostChecks` читает текущую host-конфигурацию и завершается с явной причиной, если CLI, установленная skill, provider или model недоступны. Он также не выполняет платный model call и не запускает 1С.
+
+## Воспроизводимая сборка пакета
+
+```powershell
+.\scripts\Build-BSLFlowPackage.ps1 -PackageRoot .
+.\scripts\Build-BSLFlowPackage.ps1 -PackageRoot . -Test
+```
+
+Build создаёт `outputs\BSL-Flow-0.7.0-dev.1.zip`, внешний файл `.sha256` и внутренний `package-manifest.json` с SHA-256 каждого файла. Пути архива сортируются, timestamps фиксируются; `.git`, `.bsl-flow`, `work` и `outputs` в пакет не входят. Повторная сборка тем же PowerShell runtime должна дать тот же SHA-256. `-Test` повторяет сборку, распаковывает точный ZIP во временный каталог, сверяет manifest и запускает offline package suite из распакованного artifact. Установка в глобальные каталоги при этом не выполняется.
+
+Build entrypoint требует PowerShell 7 и воспроизводим при фиксированной версии PowerShell/.NET. Установщики, task CLI и offline suite по-прежнему поддерживают Windows PowerShell 5.1.
 
 Базовая проверенная комбинация: OpenSpec `1.11.0` и OpenCode `1.18.23`. Результаты текущей сборки — в [VERIFICATION.md](VERIFICATION.md).
 
@@ -47,7 +67,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 - проверит packaged OpenSpec schema;
 - проверит эффективные права bounded read/file listing и sealed agents через `opencode debug agent`, включая запрет unrestricted grep;
-- установит единственную копию шести skills в общий `%USERPROFILE%\.agents\skills` и после backup удалит управляемые дубликаты из `%CODEX_HOME%\skills`;
+- установит единственную копию семи skills в общий `%USERPROFILE%\.agents\skills` и после backup удалит управляемые дубликаты из `%CODEX_HOME%\skills`;
 - установит глобальную schema `bsl-flow`;
 - заменит старый managed bootstrap-блок новым bsl-flow-блоком и удалит после backup старую OpenSpec schema;
 - создаст backup и выполнит rollback при ошибке;
