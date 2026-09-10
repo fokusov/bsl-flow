@@ -1,12 +1,13 @@
 #Requires -Version 7.0
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidateSet('Start','Status','Next','Run','Record','Update','Accept','Resume','Cancel','Deliver','Serve')][string]$Action,
+    [Parameter(Mandatory)][ValidateSet('Start','Status','Next','Run','Record','Update','Accept','Resume','Cancel','Deliver','Serve','Publish','PublishResume')][string]$Action,
     [Parameter(Mandatory)][string]$ProjectPath,
     [string]$TaskId,
     [string]$InputFile,
     [string]$AttemptId,
-    [string]$CodexPath
+    [string]$CodexPath,
+    [ValidateSet('stdin')][string]$RuntimeAuth
 )
 
 Set-StrictMode -Version Latest
@@ -15,13 +16,35 @@ if (-not [string]::IsNullOrWhiteSpace($env:BSL_FLOW_HOST_PATH)) {
     [Console]::OutputEncoding=New-Object Text.UTF8Encoding($false)
     $OutputEncoding=[Console]::OutputEncoding
 }
-foreach($module in @('Task.Storage.ps1','Task.Contracts.ps1','Task.Gates.ps1','Task.Process.ps1','Task.Engine.ps1','Task.Stages.ps1','Task.Delivery.ps1','Task.Runner.ps1')){ . (Join-Path $PSScriptRoot $module) }
+foreach($module in @('Task.Storage.ps1','Task.Contracts.ps1','Task.Gates.ps1','Task.Process.ps1','Task.Engine.ps1','Task.Stages.ps1','Task.Delivery.ps1','Task.Runner.ps1','Task.PublicationGit.ps1','Task.Publication.ps1')){ . (Join-Path $PSScriptRoot $module) }
 . (Join-Path (Split-Path $PSScriptRoot -Parent) 'adapters/Codex.ps1')
 
 $code=0;$state=$null;$delivery=$null
 try {
+    if($RuntimeAuth){
+        if($Action -notin @('Run','Resume','Update','Serve')){throw 'BF_INVALID: runtime auth is only valid for execution or recovery.'}
+        if(-not [Console]::IsInputRedirected){throw 'BF_INVALID: runtime auth requires a private redirected stdin pipe.'}
+        [Console]::InputEncoding=[Text.UTF8Encoding]::new($false)
+        $authLine=[Console]::In.ReadLine()
+        if($null -eq $authLine -or $authLine.Length -gt 16384){throw 'BF_INVALID: missing or oversized runtime auth input.'}
+        try{$auth=ConvertFrom-Json -InputObject $authLine -ErrorAction Stop}catch{throw 'BF_INVALID: malformed runtime auth input.'}
+        Assert-BFFields $auth @('username','password') @() 'runtime_auth'
+        Assert-BFText $auth.username 'runtime_auth.username' 1024
+        if($auth.password -isnot [string] -or $auth.password.Length -gt 8192){throw 'BF_INVALID: invalid runtime auth password.'}
+        $secure=[Security.SecureString]::new()
+        foreach($character in $auth.password.ToCharArray()){$secure.AppendChar($character)}
+        $secure.MakeReadOnly()
+        $script:BFNativeCredential=[pscredential]::new($auth.username,$secure)
+        $authLine=$null;$auth=$null
+    }
     $ProjectPath=Assert-BFSafePath $ProjectPath
-    if($Action -eq 'Serve'){
+    if($Action -in @('Publish','PublishResume')){
+        Assert-BFUuid $TaskId
+        if(-not $InputFile){throw 'BF_INVALID: publication requires a separate trusted -InputFile.'}
+        $envelope=Publish-BFTask -ProjectPath $ProjectPath -TaskId $TaskId -Input (Read-BFJson $InputFile) -ResumeOnly ($Action -eq 'PublishResume')
+        $reason=@($envelope.blockers) -join '; '
+        $code=if($envelope.status -eq 'published'){0}elseif($reason.StartsWith('BF_INVALID:')){2}elseif($reason.StartsWith('BF_CONFLICT:')){3}else{11}
+    } elseif($Action -eq 'Serve'){
         if(-not $InputFile){throw 'BF_INVALID: Serve requires -InputFile with a trusted queue.'}
         if($TaskId){throw 'BF_INVALID: Serve accepts task IDs only in the queue input.'}
         $snapshot=Invoke-BFTaskQueue -ProjectPath $ProjectPath -Input (Read-BFJson $InputFile) -CodexPath $CodexPath
@@ -45,7 +68,7 @@ try {
             default{$state=Read-BFTask $ProjectPath $TaskId}
         }
     }
-    if($Action -ne 'Serve'){
+    if($Action -notin @('Serve','Publish','PublishResume')){
         $next=Get-BFNext $state
         $envelope=New-BFEnvelope $state $next.action @($next.blockers) $next.stage
         if($null -ne $delivery){$envelope.delivery=$delivery}
@@ -61,4 +84,7 @@ try {
     if($Action -in @('Status','Next') -and $code -eq 11){$code=0}
 }
 Write-Output ($envelope|ConvertTo-Json -Depth 64 -Compress)
+if($null -ne (Get-Variable BFNativeCredential -Scope Script -ErrorAction SilentlyContinue)){
+    if($null -ne $script:BFNativeCredential){$script:BFNativeCredential.Password.Dispose();$script:BFNativeCredential=$null}
+}
 exit $code

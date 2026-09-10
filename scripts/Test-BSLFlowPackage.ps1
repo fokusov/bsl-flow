@@ -1,4 +1,4 @@
-﻿#Requires -Version 7.0
+#Requires -Version 7.0
 [CmdletBinding()]
 param([string]$PackageRoot, [switch]$HostChecks)
 
@@ -124,7 +124,13 @@ $requiredFiles = @(
     'scripts\Test-TaskHardening.ps1',
     'scripts\Test-TaskResume.ps1',
     'scripts\Test-TaskCrashRecovery.ps1',
-    'scripts\Test-TaskRepair.ps1', 'scripts\Test-TaskDelivery.ps1', 'scripts\Test-TaskRunner.ps1',
+    'scripts\Test-TaskRepair.ps1', 'scripts\Test-TaskDelivery.ps1', 'scripts\Test-TaskRunner.ps1', 'scripts\Test-RunnerRecovery.ps1', 'scripts\Test-TaskRuntime.ps1', 'scripts\Test-NativeController.ps1', 'scripts\Test-NativeRecovery.ps1', 'scripts\Test-NativeReuse.ps1',
+    'global\skills\1c-task\scripts\Task.Runtime.ps1', 'global\skills\1c-task\scripts\Task.NativeReuse.ps1', 'global\skills\1c-task\scripts\Read-NativeInventory.ps1',
+    'global\skills\1c-task\scripts\Task.Coverage.ps1', 'scripts\Test-RequirementCoverage.ps1', 'scripts\Test-CoverageController.ps1',
+    'global\skills\1c-task\scripts\Task.Publication.ps1', 'global\skills\1c-task\scripts\Task.PublicationGit.ps1',
+    'global\skills\1c-task\schemas\publication.schema.json', 'scripts\Test-TaskPublication.ps1', 'scripts\Test-PublicationGit.ps1',
+    'docs\NATIVE_RUNTIME_RU.md', 'docs\REQUIREMENT_COVERAGE_RU.md', 'docs\PUBLICATION_RU.md', 'docs\SDLC_COMPLETION_RU.md',
+    'docs\NATIVE_RUNTIME_RU.md', 'docs\REQUIREMENT_COVERAGE_RU.md', 'docs\SDLC_COMPLETION_RU.md',
     'global\skills\1c-task\scripts\Task.Delivery.ps1', 'global\skills\1c-task\scripts\Task.Runner.ps1',
     'cli\main.go', 'cli\bundle.go', 'cli\host_windows.go', 'cli\go.mod',
     'scripts\Build-BSLFlowCli.ps1', 'scripts\Test-BSLFlowCli.ps1', 'docs\PLAN_0.8_RU.md',
@@ -134,7 +140,7 @@ $requiredFiles = @(
 )
 foreach ($relative in $requiredFiles) { Assert-True (Test-Path -LiteralPath (Join-Path $packageRoot $relative) -PathType Leaf) "Missing package file: $relative" }
 $packageVersion = (Get-Content -Raw (Join-Path $packageRoot 'VERSION')).Trim()
-Assert-True ($packageVersion -eq '0.8.0-dev.1') 'VERSION is not 0.8.0-dev.1.'
+Assert-True ($packageVersion -eq '0.8.0-dev.2') 'VERSION is not 0.8.0-dev.2.'
 $publicReadme = Get-Content -Raw (Join-Path $packageRoot 'README.md')
 Assert-True ($publicReadme -match '^# BSL Flow') 'Public README does not use the BSL Flow name.'
 Assert-True ($publicReadme.Contains('[MIT License](LICENSE)')) 'Public README does not link the MIT license.'
@@ -171,7 +177,7 @@ foreach ($relative in $requiredFiles) {
 foreach ($suite in @('Test-ProjectUpgrade.ps1', 'Test-WorkstationSetup.ps1', 'Test-InteractiveTestPilot.ps1', 'Test-ExternalArtifactEvidence.ps1', 'Test-TestStarter.ps1', 'Test-TestEvidence.ps1', 'Test-ExtensionIdentitySafety.ps1', 'Test-AgentAudit.ps1', 'Test-OpenCodeAdapter.ps1', 'Test-ReviewReliability.ps1')) {
     & (Join-Path $packageRoot "scripts\$suite") -PackageRoot $packageRoot
 }
-foreach ($suite in @('Test-TaskStorage.ps1', 'Test-TaskLifecycle.ps1', 'Test-TaskHardening.ps1', 'Test-TaskResume.ps1', 'Test-TaskCrashRecovery.ps1', 'Test-TaskRepair.ps1', 'Test-TaskDelivery.ps1', 'Test-TaskRunner.ps1')) {
+foreach ($suite in @('Test-TaskStorage.ps1', 'Test-TaskLifecycle.ps1', 'Test-TaskHardening.ps1', 'Test-TaskResume.ps1', 'Test-TaskCrashRecovery.ps1', 'Test-TaskRepair.ps1', 'Test-TaskDelivery.ps1', 'Test-TaskRunner.ps1', 'Test-RunnerRecovery.ps1', 'Test-TaskRuntime.ps1', 'Test-NativeController.ps1', 'Test-NativeRecovery.ps1', 'Test-NativeReuse.ps1', 'Test-RequirementCoverage.ps1', 'Test-CoverageController.ps1', 'Test-PublicationGit.ps1', 'Test-TaskPublication.ps1')) {
     & (Join-Path $packageRoot "scripts\$suite") -PackageRoot $packageRoot
 }
 
@@ -297,9 +303,9 @@ try {
         $installedTaskCli = Join-Path $installSkills '1c-task\scripts\Invoke-BSLFlowTask.ps1'
         Assert-True (Test-Path -LiteralPath $installedTaskCli -PathType Leaf) 'Installed layout omitted the 1c-task CLI.'
         $taskCommand = Get-Command $installedTaskCli
-        foreach ($parameter in @('Action','ProjectPath','TaskId','InputFile','AttemptId','CodexPath')) { Assert-True $taskCommand.Parameters.ContainsKey($parameter) "Installed 1c-task CLI omitted parameter: $parameter" }
+        foreach ($parameter in @('Action','ProjectPath','TaskId','InputFile','AttemptId','CodexPath','RuntimeAuth')) { Assert-True $taskCommand.Parameters.ContainsKey($parameter) "Installed 1c-task CLI omitted parameter: $parameter" }
         $actionSet = @($taskCommand.Parameters.Action.Attributes | Where-Object { $_ -is [Management.Automation.ValidateSetAttribute] } | ForEach-Object ValidValues)
-        $expectedActions = @('Start','Status','Next','Run','Record','Update','Accept','Resume','Cancel','Deliver','Serve')
+        $expectedActions = @('Start','Status','Next','Run','Record','Update','Accept','Resume','Cancel','Deliver','Serve','Publish','PublishResume')
         Assert-True ($actionSet.Count -eq $expectedActions.Count) 'Installed 1c-task CLI exposes an unexpected action set.'
         foreach ($action in $expectedActions) { Assert-True ($action -in $actionSet) "Installed 1c-task CLI omitted action: $action" }
     }

@@ -8,7 +8,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$targetVersion = '0.8.0-dev.1'
+$targetVersion = '0.8.0-dev.2'
 
 function Get-AbsolutePath([string]$Path, [string]$Name) {
     if ($Path -notmatch '^(?:[A-Za-z]:[\\/]|[\\/]{2}[^\\/]+[\\/][^\\/]+(?:[\\/]|$))') { throw "$Name must be an absolute filesystem path." }

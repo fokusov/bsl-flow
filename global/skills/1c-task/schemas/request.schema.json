@@ -130,6 +130,21 @@
           "profile": {
             "type": "object"
           },
+          "native_1c": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["source_root", "extension", "module", "platform_version", "executable_sha256", "authorized_operations", "authorization_reference"],
+            "properties": {
+              "source_root": {"type": "string", "minLength": 1},
+              "extension": {"type": "string", "minLength": 1},
+              "module": {"type": "string", "minLength": 1},
+              "platform_version": {"type": "string", "pattern": "^8\\.3\\.[0-9]+\\.[0-9]+$"},
+              "executable_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "authorized_operations": {"type": "array", "minItems": 2, "maxItems": 4, "uniqueItems": true, "items": {"enum": ["inventory", "load", "update", "test"]}},
+              "reuse_load_attempt": {"type": "string", "format": "uuid"},
+              "authorization_reference": {"type": "string", "minLength": 1}
+            }
+          },
           "retry_safe": {
             "type": "boolean"
           },
@@ -201,6 +216,20 @@
         "type": "string"
       },
       "minItems": 1
+    },
+    "requirements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "text", "criterion_ids"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"},
+          "text": {"type": "string", "minLength": 1},
+          "criterion_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}}
+        }
+      }
     },
     "require_spec_review": {
       "type": "boolean"
