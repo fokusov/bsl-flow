@@ -47,6 +47,9 @@ function Invoke-BFProcess {
     $info.Arguments=(@($Arguments | ForEach-Object { ConvertTo-BFNativeArgument $_ }) -join ' ')
     $info.UseShellExecute=$false; $info.CreateNoWindow=$true
     $info.RedirectStandardOutput=$true; $info.RedirectStandardError=$true; $info.RedirectStandardInput=$true
+    $inputEncoding=New-Object Text.UTF8Encoding($false)
+    $usesProcessInputEncoding=$null -ne $info.PSObject.Properties['StandardInputEncoding']
+    if($usesProcessInputEncoding){$info.StandardInputEncoding=$inputEncoding}
     $info.StandardOutputEncoding=New-Object Text.UTF8Encoding($false)
     $info.StandardErrorEncoding=New-Object Text.UTF8Encoding($false)
     $process=New-Object System.Diagnostics.Process; $process.StartInfo=$info
@@ -54,7 +57,16 @@ function Invoke-BFProcess {
     $stderrFile=[IO.File]::Open((Join-Path $OutputDirectory 'stderr.txt'),[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::Read)
     $reason=$null
     try {
-        [void]$process.Start()
+        $previousConsoleInputEncoding=$null;$restoreConsoleInputEncoding=$false
+        try {
+            # .NET Framework's ProcessStartInfo has no public StandardInputEncoding.
+            # Process.Start captures Console.InputEncoding for its StreamWriter, so
+            # provide no-BOM UTF-8 only while that writer is created.
+            if(-not$usesProcessInputEncoding){$previousConsoleInputEncoding=[Console]::InputEncoding;[Console]::InputEncoding=$inputEncoding;$restoreConsoleInputEncoding=$true}
+            [void]$process.Start()
+        } finally {
+            if($restoreConsoleInputEncoding){[Console]::InputEncoding=$previousConsoleInputEncoding}
+        }
         Write-BFJson -Path (Join-Path $OutputDirectory 'process.json') -Value ([ordered]@{pid=$process.Id;start_time_utc=$process.StartTime.ToUniversalTime().ToString('o');executable=$Executable;arguments_sha256=Get-BFHash $Arguments})
         $outTask=$process.StandardOutput.BaseStream.CopyToAsync($stdoutFile)
         $errTask=$process.StandardError.BaseStream.CopyToAsync($stderrFile)

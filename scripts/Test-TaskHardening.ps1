@@ -80,7 +80,18 @@ try{
     # Native stdin bytes are UTF-8 in both host PowerShell versions.
     $unicode=([string]([char[]]@(0x0422,0x0435,0x0441,0x0442)))+' '+[char]::ConvertFromUtf32(0x1F600)
     $readBytes='$s=[Console]::OpenStandardInput();$m=New-Object IO.MemoryStream;$s.CopyTo($m);[Console]::Out.Write([Convert]::ToBase64String($m.ToArray()))'
-    $out=Join-Path $testRoot 'unicode-stdin';$unicodeResult=Invoke-BFProcess $shell @('-NoProfile','-Command',$readBytes) $testRoot $unicode $out 10 {$false}
+    $savedConsoleInputEncoding=[Console]::InputEncoding;$forcedBomEncoding=New-Object Text.UTF8Encoding($true);$forcedBomCodePage=$forcedBomEncoding.CodePage;$forcedBomPreamble=[Convert]::ToBase64String($forcedBomEncoding.GetPreamble())
+    try {
+        # Reproduce the UTF-8 system-locale default that gives PS5's hidden
+        # StreamWriter a BOM preamble, without changing the machine locale.
+        [Console]::InputEncoding=$forcedBomEncoding
+        $out=Join-Path $testRoot 'unicode-stdin';$unicodeResult=Invoke-BFProcess $shell @('-NoProfile','-Command',$readBytes) $testRoot $unicode $out 10 {$false}
+        Assert-H ([Console]::InputEncoding.CodePage-eq$forcedBomCodePage-and[Convert]::ToBase64String([Console]::InputEncoding.GetPreamble())-ceq$forcedBomPreamble) 'Native process setup did not restore Console.InputEncoding after start.'
+        $failedStartOutput=Join-Path $testRoot 'unicode-stdin-failed-start'
+        $failedStart=Failure-H {Invoke-BFProcess $shell @('-NoProfile','-Command',$readBytes) $shell $unicode $failedStartOutput 10 {$false}}
+        Assert-H ($failedStart-ne'') 'Invalid working directory did not fail process start.'
+        Assert-H ([Console]::InputEncoding.CodePage-eq$forcedBomCodePage-and[Convert]::ToBase64String([Console]::InputEncoding.GetPreamble())-ceq$forcedBomPreamble) 'Native process setup did not restore Console.InputEncoding after failed start.'
+    } finally {[Console]::InputEncoding=$savedConsoleInputEncoding}
     $expected=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($unicode));$observed=[IO.File]::ReadAllText($unicodeResult.stdout)
     Assert-H ($unicodeResult.exit_code-eq0-and$null-eq$unicodeResult.stop_reason-and$observed-ceq$expected) 'Native stdin bytes were not exact UTF-8.'
 

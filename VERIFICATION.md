@@ -1,6 +1,6 @@
 # Проверка BSL Flow 0.8.0-dev.1
 
-Дата: 2026-09-09. Основа: `0.7.0-dev.1`, commit `0480cdf`; ветка `codex/managed-sdlc`.
+Дата: 2026-09-10. Основа: `0.7.0-dev.1`, commit `0480cdf`; ветка `codex/managed-sdlc`.
 
 В поставке добавлены Go CLI со встроенным пакетом, ограниченная диагностика и исправление source-only ошибок, локальная очередь и выдача принятых исходников. Машина состояний остаётся в PowerShell. Готовый exe не требует Go, но требует Windows PowerShell, Git и настроенные model hosts; полная автономная разработка 1С пока не подтверждена.
 
@@ -8,13 +8,14 @@
 
 | Проверка | Наблюдение и граница |
 | --- | --- |
-| Go host | Go 1.27.1 windows/amd64: unit tests и две одинаковые последовательные сборки. Native smoke: 22 проверки, включая строгие аргументы, Unicode, cache tampering, регистрацию/status/cancel, blocked delivery и cancelled-only queue. Финальный exe SHA-256: `e3bca602f41427e6f3a164c4274dc1478cd0d0721268b9c67eb98204e7367b99`; embedded bundle: `37aba72b584870e6cd79960b9d2d452a3f519a15504a470da904028e415a59b3`, 71 файл. |
+| Go host | Go 1.27.1 windows/amd64: unit tests и две одинаковые последовательные сборки. Native smoke: 22 проверки, включая строгие аргументы, Unicode, cache tampering, регистрацию/status/cancel, blocked delivery и cancelled-only queue. Финальный exe SHA-256: `7fc00f2f88ec229784a56ff5120d6d10d4c5fc8506dd5b0ab28fecab950f9931`; embedded bundle: `59919ca41a592bb09e203cb4b3c2e87305f60e395f2bfd5bfdf539b3719f8af6`, 71 файл. |
+| CI regression от 10 сентября | Hardening: 22 PASS в PS5.1/7, включая принудительный UTF-8 BOM в кодировке родителя, точные stdin bytes и восстановление кодировки после успешного/неудачного запуска процесса. Отсутствующий OpenSpec обнаруживается до suites; bootstrap с изолированной схемой прошёл. |
 | Source repair | 36 проверок PASS в PS5.1/7: оригинальная ошибка, бюджет, отсутствие прогресса, бизнес-вопрос, изменение/подмена тестов, malformed JUnit, cached diagnose recovery и продолжение после уточнения. |
 | Queue | 16 проверок PASS в PS5.1/7: две выбранные задачи, restart, отсутствие повтора неизменного controller error, восстановление незавершённого dispatch marker, явный blocker после обрыва изменяющего этапа и при пропавшем acceptance. |
 | Delivery | 10 проверок PASS в PS5.1/7: точные принятые файлы/удаления, идемпотентность, source drift, семантические изменения receipt, изменение его raw bytes и copy hash. |
 | Полная offline suite | PASS в PS5.1.26100.9168 и PS7.6.5 из неизменяемой копии source ZIP. Также прошли 127 reliability checks, storage, lifecycle 51, hardening 19, resume 16, crash recovery 17, установка/rollback, bootstrap, upgrade, lint/review и test-evidence contracts. Model calls в этих проверках: 0. Предварительные неуспешные прогоны сохранены отдельно и не считаются PASS. |
 | Реальный Codex repair | PASS: `FAIL → diagnose → implement → code_review → verify → acceptance`. Синтетический fixture: начальная неверная реализация создана тестовым helper, FAIL получен настоящим file verifier. Диагностика, исправление и независимое review выполнены реальными workers. Это не 1С runtime. |
-| CI | Добавлен Windows workflow для PS5.1/7 и Go. Первый remote run отклонён до jobs: `matrix` недоступен в `shell` шага. Исправлено: фиксированный outer `pwsh` запускает выбранную оболочку через matrix env и передаёт её exit code. Полная удалённая проверка после исправления ещё не подтверждена; локальные suite PASS приведены отдельно. |
+| CI | Windows workflow для PS5.1/7 и Go. Первый запуск отклонён из-за `matrix` в `shell`; исправлен явный launcher. Следующий запуск выявил отсутствие OpenSpec и BOM в stdin на PS5.1. CI теперь устанавливает OpenSpec 1.11.0; suite использует собственную временную схему, а process launcher задаёт UTF-8 без BOM и восстанавливает кодировку родителя. Состояние удалённых прогонов — в [GitHub Actions](https://github.com/fokusov/bsl-flow/actions/workflows/offline.yml); локальные результаты не подменяют их статус. |
 | 1С native-пилот | PASS для двух unit-сценариев `BFP_ТестыПилота` в БП `3.0.191.38`, FILE `bp1`, платформа `8.3.27.2074`, YAxUnit `25.12`. После исправления привязки языка и конфликта шаблонных UUID Build04 завершил load/update с exit 0; Test03 реально выполнил 2 теста, passed=2, failed/errors/skipped=0. Оригинальный JUnit сохранён, SHA-256 `7aead1b4a8065ddb750235b88442b1a36e1a24086dadcc7a0c9691b3246899c3`. Две предыдущие попытки с 0 тестов сохранились как BLOCKED; current PASS выведен из истории 3 попыток. |
 | Managed 1С runtime | Не реализован. Native-пилот — отдельный локальный маршрут, не публичный adapter. Структурная проверка CFE: 14 PASS; BSL diagnostics сохраняет 3 unresolved calls к отсутствующим в fixture исходникам YAxUnit. Recovery после прерывания записи, бизнес-покрытие и сквозная runtime-приёмка controller не подтверждены. |
 
@@ -22,7 +23,7 @@
 
 Native-пилот завершён `2026-09-09T16:15:16.0953782Z`: `bp1-native-test-20260909-03`, source manifest `461b1f5c4ea8bd42af2187b205c3f2ad989665407ebe7018492696d062877861`. Перед тестом COM inventory подтвердил прежний instance UUID пилота, новый native hash и неизменность семи свойств остальных девяти расширений. Журнал регистрации выявил причину нулевого discovery: конфликт внутренних идентификаторов `BSLFlowPilot`; замена девяти шаблонных UUID позволила обнаружить и выполнить оба теста без изменения режимов безопасности. Native request/result, steps, исходный JUnit и их неизменяемые копии проверены отдельно от нормализованного receipt. Этот результат относится к локальному wrapper и выбранной чистой функции; не закрывает managed adapter, проведение, обмен, UI, recovery после прерывания записи или развёртывание.
 
-Финальные полные receipts: `verified-fixed-ps7.json` и `verified-fixed-ps51.json`. После фиксации тестовой копии в package test уточнено только исключение generated Go cache/binary и Unica cache из текстового поиска. Обновлённая часть вместе с installation/review continuation повторно прошла в обеих оболочках (`package-final-continuation-ps7.log`, `package-final-continuation-ps51.log`). Все 70 файлов `global/` и исходники Go CLI сопоставляются по SHA-256 с проверенной копией перед выдачей; сборка exe из распакованного source ZIP совпала с локальной сборкой.
+Полные receipts исходной поставки от 9 сентября: `verified-fixed-ps7.json` и `verified-fixed-ps51.json`. После фиксации тестовой копии в package test уточнено только исключение generated Go cache/binary и Unica cache из текстового поиска. Обновлённая часть вместе с installation/review continuation повторно прошла в обеих оболочках (`package-final-continuation-ps7.log`, `package-final-continuation-ps51.log`). При выдаче 9 сентября все 70 файлов `global/` и исходники Go CLI были сопоставлены по SHA-256 с проверенной копией; сборка exe из распакованного source ZIP совпала с локальной сборкой. Исправление CI от 10 сентября меняет `Task.Process.ps1`; новый Go host прошёл unit tests, воспроизводимую сборку и 22 native smoke checks. Предыдущие полные receipts сохранены как история и не выданы за повторный прогон изменённого controller.
 
 Первый реальный diagnosis выявил неоднозначность инструкции: модель правильно нашла ошибку, но вернула status `failed` вместо завершённой диагностики. Контроллер остановился, не выдал PASS и не начал исправление. Инструкция уточнена: `completed` описывает завершение диагноза, категория определяет следующий переход. Первый отказ сохранён, повторный пилот использует новую задачу.
 
@@ -36,7 +37,7 @@ Native-пилот завершён `2026-09-09T16:15:16.0953782Z`: `bp1-native-t
 
 # История: проверка BSL Flow 0.7.0-dev.1
 
-Дата: 2026-09-09. Основа: `0.6.1`, commit `198da1c`; реализация в ветке `codex/managed-sdlc`.
+Дата: 2026-09-10. Основа: `0.6.1`, commit `198da1c`; реализация в ветке `codex/managed-sdlc`.
 
 Реализован управляемый контур задач для исходников: сохранённые требования, вычисляемый маршрут, изолированный worker, независимое review, привязка evidence к текущим входам, восстановление и acceptance receipt. Реальные source-only запуски прошли короткий S-маршрут и полный `inspect → spec → spec_review → implement → code_review → verify → acceptance` без ручного переключения этапов. Это development-поставка: весь план M0–M8 ещё не принят, managed 1С runtime отключён.
 

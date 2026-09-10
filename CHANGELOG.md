@@ -2,6 +2,7 @@
 
 ## 0.8.0-dev.1
 
+- Fix Windows CI dependencies with pinned OpenSpec and an isolated package schema; prevent UTF-8 BOM insertion into native stdin on Windows PowerShell 5.1, with encoding-restoration regression checks.
 - Go executable with embedded versioned instructions/engine, strict task CLI, verified cache and host identity binding. Windows PowerShell/Git/model provider remain external dependencies.
 - Opt-in bounded source failure diagnosis/repair with frozen declared test inputs, exact failed evidence, fresh independent code review and verification. Defaults preserve fail-stop behavior.
 - Local supervisor for explicitly registered tasks and immutable accepted-source handoff; no implicit startup installation, push, deployment or database authority.

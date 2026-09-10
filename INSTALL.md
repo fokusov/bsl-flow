@@ -52,6 +52,8 @@ Build entrypoint требует PowerShell 7 и воспроизводим пр�
 
 Базовая проверенная комбинация: OpenSpec `1.11.0` и OpenCode `1.18.23`. Результаты текущей сборки — в [VERIFICATION.md](VERIFICATION.md).
 
+Offline package suite требует Git и OpenSpec CLI в `PATH`: bootstrap-проверки вызывают настоящий OpenSpec даже без `-HostChecks`. CI устанавливает OpenSpec `1.11.0` до тестов; suite подготавливает схему из проверяемого пакета во временном каталоге и не зависит от её глобальной установки. Сами offline-проверки не вызывают модели или базу 1С; OpenCode требуется для дополнительных `-HostChecks`.
+
 ```powershell
 git --version
 node --version

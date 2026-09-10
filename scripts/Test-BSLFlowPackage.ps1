@@ -47,6 +47,7 @@ function Remove-IsolatedTestTree {
 
 if ([string]::IsNullOrWhiteSpace($PackageRoot)) { $PackageRoot = Split-Path -Parent $PSScriptRoot }
 $packageRoot = [System.IO.Path]::GetFullPath($PackageRoot)
+Assert-True ([bool](Get-Command openspec -ErrorAction SilentlyContinue)) 'OpenSpec CLI is required for offline bootstrap tests; install @fission-ai/openspec@1.11.0 before running this suite.'
 $reviewSkill = Join-Path $packageRoot 'global\skills\1c-spec-review'
 $commonScript = Join-Path $reviewSkill 'scripts\Review.Common.ps1'
 $lintSpec = Join-Path $reviewSkill 'scripts\Test-1CSpec.ps1'
@@ -188,8 +189,18 @@ $oldXdgDataHome = $env:XDG_DATA_HOME
 try {
     $schemaText = Get-Content -Raw (Join-Path $schemaRoot 'schema.yaml')
     Assert-True ($schemaText -notmatch '(?m)^\s*-\s+id:\s*(review|tasks)\s*$') 'Review or tasks became OpenSpec workflow artifacts.'
-    if ($HostChecks) {
     $openSpec = Get-Command openspec -ErrorAction SilentlyContinue
+    # Bootstrap must resolve this package's schema without a workstation installation.
+    $isolatedLocalAppData = Join-Path $testRoot 'local-app-data'
+    $isolatedSchema = Join-Path $isolatedLocalAppData 'openspec\schemas\bsl-flow'
+    New-Item -ItemType Directory -Path $isolatedSchema -Force | Out-Null
+    Copy-Item -Path (Join-Path $schemaRoot '*') -Destination $isolatedSchema -Recurse -Force
+    $env:LOCALAPPDATA = $isolatedLocalAppData
+    $env:XDG_DATA_HOME = $isolatedLocalAppData
+    $isolatedWhich = Invoke-NativeCommand $openSpec.Source @('schema', 'which', 'bsl-flow')
+    Assert-True ($isolatedWhich.ExitCode -eq 0) 'OpenSpec did not resolve the isolated BSL Flow schema.'
+    Assert-True ($isolatedWhich.Output.Contains($isolatedSchema)) 'OpenSpec schema resolution escaped the isolated test directory.'
+    if ($HostChecks) {
     $realOpenCode = Get-Command opencode -ErrorAction SilentlyContinue
     Assert-True ([bool]$openSpec) 'OpenSpec CLI is not available.'
     Assert-True ([bool]$realOpenCode) 'OpenCode CLI is not available.'
@@ -203,15 +214,6 @@ try {
     finally { Pop-Location }
     Write-Host $schemaResult.Output
     Assert-True ($schemaResult.ExitCode -eq 0) 'Packaged OpenSpec schema validation failed.'
-    $isolatedLocalAppData = Join-Path $testRoot 'local-app-data'
-    $isolatedSchema = Join-Path $isolatedLocalAppData 'openspec\schemas\bsl-flow'
-    New-Item -ItemType Directory -Path $isolatedSchema -Force | Out-Null
-    Copy-Item -Path (Join-Path $schemaRoot '*') -Destination $isolatedSchema -Recurse -Force
-    $env:LOCALAPPDATA = $isolatedLocalAppData
-    $env:XDG_DATA_HOME = $isolatedLocalAppData
-    $isolatedWhich = Invoke-NativeCommand $openSpec.Source @('schema', 'which', 'bsl-flow')
-    Assert-True ($isolatedWhich.ExitCode -eq 0) 'OpenSpec did not resolve the isolated BSL Flow schema.'
-    Assert-True ($isolatedWhich.Output.Contains($isolatedSchema)) 'OpenSpec schema resolution escaped the isolated test directory.'
 
     $oldConfig = $env:OPENCODE_CONFIG
     $oldDisableProject = $env:OPENCODE_DISABLE_PROJECT_CONFIG

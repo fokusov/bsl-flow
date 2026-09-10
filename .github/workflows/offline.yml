@@ -20,6 +20,15 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - name: Install pinned OpenSpec test dependency
+        shell: pwsh
+        run: |
+          node --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm.cmd install --global @fission-ai/openspec@1.11.0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          openspec.cmd --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Offline package checks
         shell: pwsh
         env:
