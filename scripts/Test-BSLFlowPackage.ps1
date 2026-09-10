@@ -431,9 +431,13 @@ secret-folder/
     $descriptiveVerificationLint = Invoke-SpecLintFixture -Name 'descriptive-verification' -SpecText $descriptiveVerificationSpec
     Assert-True ($descriptiveVerificationLint.passed -eq $true) 'Complete descriptive non-checklist verification did not pass lint.'
 
-    $missingWhenSpec = $validSpec.Replace('  WHEN пользователь выбирает объект' + "`n", '')
-    $missingWhenLint = Invoke-SpecLintFixture -Name 'missing-when' -SpecText $missingWhenSpec
-    Assert-True ($missingWhenLint.passed -eq $false) 'GIVEN/THEN acceptance criterion without WHEN passed lint.'
+    foreach ($lineEnding in @("`n", "`r`n")) {
+        $lineEndingSpec = $validSpec.Replace("`r`n", "`n").Replace("`n", $lineEnding)
+        $missingWhenSpec = [regex]::Replace($lineEndingSpec, '(?m)^  WHEN пользователь выбирает объект\r?\n', '')
+        Assert-True ($missingWhenSpec -notmatch '\bWHEN\b') 'Missing-WHEN fixture still contains its WHEN clause.'
+        $missingWhenLint = Invoke-SpecLintFixture -Name ('missing-when-' + $lineEnding.Length) -SpecText $missingWhenSpec
+        Assert-True ($missingWhenLint.passed -eq $false) 'GIVEN/THEN acceptance criterion without WHEN passed lint.'
+    }
     $missingThenSpec = $validSpec.Replace('  THEN поле получает это значение.', '')
     $missingThenLint = Invoke-SpecLintFixture -Name 'missing-then' -SpecText $missingThenSpec
     Assert-True ($missingThenLint.passed -eq $false) 'GIVEN/WHEN acceptance criterion without THEN passed lint.'
