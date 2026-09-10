@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 Set-StrictMode -Version Latest
 
 # The caller dot-sources the authoritative controller modules first.  This
@@ -61,7 +62,7 @@ function Get-BFRunnerSnapshot {
     Assert-BFFields $snapshot @('schema_version','queue_id','queue_sha256','cycle','cursor','tasks','event_keys','updated_at') @() 'runner_snapshot'
     if ($snapshot.schema_version -ne 1 -or $snapshot.queue_id -ne $Queue.queue_id -or $snapshot.queue_sha256 -ne $QueueHash) { throw 'BF_CONFLICT: queue_id belongs to a different immutable queue input.' }
     # JSON is read as PSCustomObject; make this dynamically keyed map writable
-    # on both Windows PowerShell 5.1 and PowerShell 7.
+    # without enumerating singleton arrays.
     if ($snapshot.tasks -isnot [System.Collections.IDictionary]) {
         $tasks=[ordered]@{}
         foreach($property in @($snapshot.tasks.PSObject.Properties)){$tasks[$property.Name]=$property.Value}

@@ -1,4 +1,5 @@
-﻿[CmdletBinding()]
+﻿#Requires -Version 7.0
+[CmdletBinding()]
 param(
     [string]$YaxunitDirectory = 'C:\YAxUnit',
     [string]$VanessaDirectory = 'C:\vanessa-automation',

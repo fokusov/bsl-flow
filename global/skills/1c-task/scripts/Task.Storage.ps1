@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 Set-StrictMode -Version Latest
 
 $script:BFJsonMaximumBytes = 16MB

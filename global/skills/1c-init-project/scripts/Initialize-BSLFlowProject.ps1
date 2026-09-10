@@ -1,4 +1,5 @@
-﻿[CmdletBinding()]
+﻿#Requires -Version 7.0
+[CmdletBinding()]
 param(
     [Parameter(Position = 0)]
     [string]$ProjectPath = (Get-Location).Path,

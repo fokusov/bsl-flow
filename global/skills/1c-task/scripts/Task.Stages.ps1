@@ -1,4 +1,5 @@
-﻿Set-StrictMode -Version Latest
+#Requires -Version 7.0
+Set-StrictMode -Version Latest
 
 function Read-BFPayload {
     param($Result,[string]$Directory)
@@ -72,7 +73,7 @@ function Invoke-BFSpecReviewStage {
     $change=Get-BFChangePath $State
     $reviewScripts=Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) '1c-spec-review/scripts'
     # This is installed trusted code. The existing reviewer is read-only and retains project model routing.
-    $shell=Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
+    $shell=Join-Path $PSHOME 'pwsh.exe'
     $arguments=@('-NoProfile','-File',(Join-Path $reviewScripts 'Invoke-1CSpecReview.ps1'),'-ProjectPath',$State.project_path,'-ChangeName',('bsl-flow-'+$State.task_id),'-Complexity',$State.classification.complexity,'-Risk',$State.classification.risk,'-ForceReview','-ForceReplaceReview')
     $reviewProcess=Invoke-BFProcess $shell $arguments $State.project_path '' (Join-Path $Directory 'critic') ([int](Get-BFValue $State.request 'timeout_seconds' 1800)) $Cancelled
     if($reviewProcess.exit_code -ne 0 -or $reviewProcess.stop_reason){throw 'BF_BLOCKED: independent specification review did not finish.'}

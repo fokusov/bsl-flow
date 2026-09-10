@@ -1,4 +1,5 @@
-﻿[CmdletBinding()]
+﻿#Requires -Version 7.0
+[CmdletBinding()]
 param(
     [string]$ProjectRoot = (Get-Location).Path,
     [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string[]]$SourceRoots,

@@ -1,4 +1,5 @@
-﻿[CmdletBinding()]
+﻿#Requires -Version 7.0
+[CmdletBinding()]
 param([string]$PackageRoot, [switch]$HostChecks)
 
 Set-StrictMode -Version Latest
@@ -47,6 +48,12 @@ function Remove-IsolatedTestTree {
 
 if ([string]::IsNullOrWhiteSpace($PackageRoot)) { $PackageRoot = Split-Path -Parent $PSScriptRoot }
 $packageRoot = [System.IO.Path]::GetFullPath($PackageRoot)
+foreach ($scriptFile in Get-ChildItem -LiteralPath (Join-Path $packageRoot 'scripts'), (Join-Path $packageRoot 'global') -Filter '*.ps1' -File -Recurse) {
+    $scriptTokens = $null; $scriptErrors = $null
+    $scriptAst = [Management.Automation.Language.Parser]::ParseFile($scriptFile.FullName, [ref]$scriptTokens, [ref]$scriptErrors)
+    Assert-True ($scriptErrors.Count -eq 0) "PowerShell syntax errors in $($scriptFile.FullName)."
+    Assert-True ($null -ne $scriptAst.ScriptRequirements -and $scriptAst.ScriptRequirements.RequiredPSVersion -ge [version]'7.0') "PowerShell 7 requirement is missing: $($scriptFile.FullName)."
+}
 Assert-True ([bool](Get-Command openspec -ErrorAction SilentlyContinue)) 'OpenSpec CLI is required for offline bootstrap tests; install @fission-ai/openspec@1.11.0 before running this suite.'
 $reviewSkill = Join-Path $packageRoot 'global\skills\1c-spec-review'
 $commonScript = Join-Path $reviewSkill 'scripts\Review.Common.ps1'

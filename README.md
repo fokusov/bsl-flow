@@ -55,13 +55,13 @@ The framework is intended to work with tools such as:
 
 The working version is **BSL Flow 0.8.0-dev.1**: seven skills, including the new `1c-task` controller, immutable task history, risk-based stage routing, isolated Codex workers, source/evidence freshness checks and explicit recovery. The six assisted skills and the separate OpenCode specification reviewer remain available.
 
-Version 0.8 adds a Go executable with embedded instructions/engine, opt-in bounded source repair with protected test inputs, a local supervisor for registered tasks, and immutable accepted-source handoff. The executable uses the same authoritative PowerShell controller. See the [0.8 implementation and acceptance plan](docs/PLAN_0.8_RU.md) and [installation guide](INSTALL.md) for the remaining 1C runtime gates.
+Version 0.8 adds a Go executable with embedded instructions/engine, opt-in bounded source repair with protected test inputs, a local supervisor for registered tasks, and immutable accepted-source handoff. The executable uses the same authoritative PowerShell 7 controller, resolved from the standard machine installation `C:\Program Files\PowerShell\7\pwsh.exe`; Windows PowerShell 5.1 fallback is not supported. See the [0.8 implementation and acceptance plan](docs/PLAN_0.8_RU.md) and [installation guide](INSTALL.md) for the remaining 1C runtime gates.
 
 This is a development release. The managed 1C runtime adapter is not implemented. A separately authorized native pilot runs outside the public controller; its results do not establish full autonomous 1C readiness. See [verification boundaries](VERIFICATION.md).
 
 Read the [framework guide](docs/FRAMEWORK_GUIDE_RU.md), [architecture decisions](docs/ARCHITECTURE_RU.md), and [task CLI contract](global/skills/1c-task/references/task-contract.md). The guide explains the benefit, supported workflows, commands, recovery and limitations.
 
-The offline package suite passed in PowerShell 5.1 and 7, and a real Codex pilot repaired a source error and reached acceptance. Earlier interactive YAxUnit and Vanessa engine pilots remain historical evidence; current native pilot results and remaining runtime gates are recorded in [verification boundaries](VERIFICATION.md). The temporary restriction on durable Unica jobs remains in force.
+The offline package suite has historical validation in PowerShell 5.1 and 7; the supported runtime for 0.8.0-dev.1 is PowerShell 7 only. A real Codex pilot repaired a source error and reached acceptance. Earlier interactive YAxUnit and Vanessa engine pilots remain historical evidence; current native pilot results and remaining runtime gates are recorded in [verification boundaries](VERIFICATION.md). The temporary restriction on durable Unica jobs remains in force.
 
 ## Install
 

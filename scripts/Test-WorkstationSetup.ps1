@@ -1,4 +1,5 @@
-﻿[CmdletBinding()]param([string]$PackageRoot)
+﻿#Requires -Version 7.0
+[CmdletBinding()]param([string]$PackageRoot)
 Set-StrictMode -Version Latest;$ErrorActionPreference='Stop'
 function Assert-W([bool]$Condition,[string]$Message){if(-not$Condition){throw $Message}}
 if(-not$PackageRoot){$PackageRoot=Split-Path -Parent $PSScriptRoot}

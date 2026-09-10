@@ -73,7 +73,8 @@ $status=Invoke-Cli @('task','status','--project',$project,'--task',$task)
 Assert-Cli ($status.code -eq 0 -and ($status.stdout|ConvertFrom-Json).task_id -eq $task) 'native status'
 $bundleRoot=Join-Path $cache ('BSLFlow\bundles\'+$identity.version+'-'+$identity.bundle_sha256)
 $entry=Join-Path $bundleRoot 'global\skills\1c-task\scripts\Invoke-BSLFlowTask.ps1'
-$shell=Join-Path ([Environment]::GetFolderPath('System')) 'WindowsPowerShell\v1.0\powershell.exe'
+$shell=Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'PowerShell\7\pwsh.exe'
+Assert-Cli (Test-Path -LiteralPath $shell -PathType Leaf) 'PowerShell 7 native smoke child is installed.'
 $direct=Invoke-CliProcess $shell @('-NoProfile','-NonInteractive','-File',$entry,'-Action','Status','-ProjectPath',$project,'-TaskId',$task)
 Assert-Cli ($direct.code -eq $status.code -and $direct.stdout.Trim() -eq $status.stdout.Trim()) 'direct embedded engine status parity'
 $receipt=Get-ChildItem -LiteralPath (Join-Path $project ('.bsl-flow\tasks\'+$task+'\revisions')) -Filter '*.json' | Sort-Object Name | Select-Object -Last 1

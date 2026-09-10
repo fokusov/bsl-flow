@@ -1,4 +1,5 @@
-﻿[CmdletBinding()]
+﻿#Requires -Version 7.0
+[CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)] [string]$SessionPath,
     [Parameter(Mandatory = $true)] [string]$ExpectedSessionId,

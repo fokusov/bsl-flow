@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 [CmdletBinding()]param([string]$PackageRoot,[string]$CodexPath,[Parameter(Mandatory)][string]$OutputRoot)
 Set-StrictMode -Version Latest;$ErrorActionPreference='Stop'
 if(-not $PackageRoot){$PackageRoot=Split-Path $PSScriptRoot -Parent}
@@ -25,7 +26,7 @@ if(-not $OmitReport){
 [IO.File]::WriteAllText((Join-Path $project 'check.ps1'),$check,$utf8)
 [void](Invoke-BFGit $project @('add','.'));[void](Invoke-BFGit $project @('-c','user.name=BSL Flow Test','-c','user.email=test@example.invalid','commit','-m','Sandbox test fixture'))
 $sentinel=Join-Path $OutputRoot 'controller-sentinel.txt';[IO.File]::WriteAllText($sentinel,'controller',$utf8)
-$shell=Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
+$shell=Join-Path $PSHOME 'pwsh.exe'
 $request=[pscustomobject]@{schema_version=1;request_id=[guid]::NewGuid().ToString();prompt='Check the existing greeting.';mode='implement';analysis_goal='analysis';complexity='S';risk='low';impact_flags=@();criteria=@([pscustomobject]@{id='sandbox';kind='unit';observation='Exact greeting and denied controller write.';executable=$shell;arguments=@('-NoProfile','-File','check.ps1','-Report','.bsl-flow-worker/result.xml','-Sentinel',$sentinel);report='.bsl-flow-worker/result.xml';expected_tests=@('source','controller-write-denied')});provenance=[pscustomobject]@{source='user';reference='framework-source-test-isolation';text='Verify framework test sandbox without database operations.'};models=[pscustomobject]@{worker='gpt-6-astra';worker_effort='medium';reviewer='gpt-6-astra';reviewer_effort='high'}}
 $task=Start-BFTask $project $request;$CodexPath=Resolve-BFCodex $CodexPath
 $capabilities=Test-BFCodexCapability $task $CodexPath (Join-Path $OutputRoot 'capabilities')

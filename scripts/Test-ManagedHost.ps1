@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 [CmdletBinding()]
 param([string]$PackageRoot,[string]$Model='gpt-6-astra',[string]$CodexPath,[string]$OutputRoot,[switch]$FullReview)
 Set-StrictMode -Version Latest

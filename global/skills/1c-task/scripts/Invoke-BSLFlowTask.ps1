@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][ValidateSet('Start','Status','Next','Run','Record','Update','Accept','Resume','Cancel','Deliver','Serve')][string]$Action,

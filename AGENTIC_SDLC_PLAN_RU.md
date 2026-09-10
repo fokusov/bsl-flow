@@ -64,7 +64,7 @@
 
 ### 4.1. Размещение и совместимость
 
-Предпочтительное размещение: новая устанавливаемая skill `global/skills/1c-task/`, содержащая entrypoint, общее ядро, JSON schemas, host adapters и короткие references. Язык ядра — PowerShell, совместимый с 5.1 и 7; не вводить новый runtime без подтверждённого препятствия.
+Предпочтительное размещение: новая устанавливаемая skill `global/skills/1c-task/`, содержащая entrypoint, общее ядро, JSON schemas, host adapters и короткие references. Язык ядра — PowerShell 7; стандартный runtime — `C:\Program Files\PowerShell\7\pwsh.exe`, без fallback на Windows PowerShell 5.1. Не вводить новый runtime без подтверждённого препятствия. Упоминания совместимости с PS5 в ранних материалах относятся к историческому baseline.
 
 Существующие helpers остаются вызываемыми отдельно. Контроллер оборачивает их и добавляет task/attempt identity, обязательность evidence и свежесть входов. Не копировать Review.Common или TestEvidence.Common целиком в новое ядро. Общие функции извлекать только при реальном использовании несколькими модулями.
 

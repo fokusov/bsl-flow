@@ -4,7 +4,7 @@
 
 ## Go CLI
 
-В версии 0.8 добавлен `bsl-flow.exe` для Windows amd64. Он содержит инструкции и PowerShell controller, проверяет embedded bundle и раскрывает его в `%LOCALAPPDATA%\BSLFlow\bundles\<version>-<hash>`. Для запуска готового exe Go не нужен; сохраняются зависимости движка, перечисленные ниже. Изменённый cache блокируется вместо автоматического исполнения или перезаписи.
+В версии 0.8 добавлен `bsl-flow.exe` для Windows amd64. Он содержит инструкции и PowerShell 7 controller, проверяет embedded bundle и раскрывает его в `%LOCALAPPDATA%\BSLFlow\bundles\<version>-<hash>`. Для запуска готового exe Go не нужен; сохраняются зависимости движка, перечисленные ниже. Изменённый cache блокируется вместо автоматического исполнения или перезаписи.
 
 Сборка из исходников установленным Go (проверяемая toolchain — Go 1.27.1):
 
@@ -21,7 +21,7 @@ Builder не скачивает Go, модули или другую toolchain. 
 
 ## Требования
 
-- Windows PowerShell 5.1 или PowerShell 7;
+- PowerShell 7 с машинной установкой `C:\Program Files\PowerShell\7\pwsh.exe`;
 - Git;
 - Node.js 20.19 или новее;
 - OpenSpec CLI;
@@ -48,7 +48,7 @@ Builder не скачивает Go, модули или другую toolchain. 
 
 Build создаёт `outputs\BSL-Flow-0.8.0-dev.1.zip`, внешний файл `.sha256` и внутренний `package-manifest.json` с SHA-256 каждого файла. Пути архива сортируются, timestamps фиксируются; `.git`, `.bsl-flow`, `work` и `outputs` в пакет не входят. Повторная сборка тем же PowerShell runtime должна дать тот же SHA-256. `-Test` повторяет сборку, распаковывает точный ZIP во временный каталог, сверяет manifest и запускает offline package suite из распакованного artifact. Установка в глобальные каталоги при этом не выполняется.
 
-Build entrypoint требует PowerShell 7 и воспроизводим при фиксированной версии PowerShell/.NET. Установщики, task CLI и offline suite по-прежнему поддерживают Windows PowerShell 5.1.
+Build entrypoint, установщик, task CLI и offline suite требуют PowerShell 7. Используется стандартная машинная установка `C:\Program Files\PowerShell\7\pwsh.exe`; fallback на Windows PowerShell 5.1 не предусмотрен.
 
 Базовая проверенная комбинация: OpenSpec `1.11.0` и OpenCode `1.18.23`. Результаты текущей сборки — в [VERIFICATION.md](VERIFICATION.md).
 

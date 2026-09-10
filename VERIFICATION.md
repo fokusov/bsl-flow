@@ -4,7 +4,17 @@
 
 В поставке добавлены Go CLI со встроенным пакетом, ограниченная диагностика и исправление source-only ошибок, локальная очередь и выдача принятых исходников. Машина состояний остаётся в PowerShell. Готовый exe не требует Go, но требует Windows PowerShell, Git и настроенные model hosts; полная автономная разработка 1С пока не подтверждена.
 
-## Проверки текущей версии
+## Текущий runtime: PowerShell 7
+
+По решению пользователя от 10 сентября поддержка Windows PowerShell 5.1 удалена. Все поставляемые PowerShell-скрипты требуют версию 7.0 или новее; controller и sandbox-проверки запускают дочерний `pwsh.exe` из `$PSHOME`, Go CLI использует стандартную machine-установку PowerShell 7 без fallback на PATH или PS5.1. CI проверяет один PowerShell 7 engine и Go CLI.
+
+Удалены ветки совместимости для stdin encoding, ручного argv quoting и завершения дерева процессов через `taskkill`. Сохранены точные UTF-8 данные, ограниченные таймауты, проверка identity процессов и durable-state invariants. Записи ниже относятся к предыдущим исходникам и не подменяют результаты проверки миграции. Текущий удалённый статус — в [GitHub Actions](https://github.com/fokusov/bsl-flow/actions/workflows/offline.yml).
+
+Проверки миграции в PowerShell 7.6.5: 58/58 script guards и parsing PASS; запуск установщика через PS5.1 отклонён до выполнения. Hardening 24 PASS (включая literal argv, Unicode, пустые аргументы, NUL rejection), review reliability 127 PASS. Настоящий Codex sandbox прошёл 5 проверок: свежий точный JUnit, неизменность исходников, запрет записи в controller, сохранение предыдущего отчёта и BLOCKED при отсутствии нового. В этом sandbox-пилоте model calls=0, runtime 1С не запускался.
+
+Go 1.27.1: unit tests и повторная идентичная сборка PASS; native CLI smoke 23 PASS. Новый exe SHA-256: `9c71190da34081d80d07ae01c63cc7428dda4ff791ee0549965d9dacaf97fb48`; embedded bundle SHA-256: `21ebe121f0f169d6f11a14f47192100c48a75d534bbe7709d5fdc08199aca114`. Логи миграции: `outputs/verification-0.8/ps7-only-*.log`; независимый review перехода завершён без замечаний. Полный CI подтверждается отдельно по завершённому run для соответствующего commit.
+
+## Проверки до перехода на PowerShell 7 only (история)
 
 | Проверка | Наблюдение и граница |
 | --- | --- |

@@ -1,4 +1,5 @@
-﻿[CmdletBinding(SupportsShouldProcess)]
+﻿#Requires -Version 7.0
+[CmdletBinding(SupportsShouldProcess)]
 param(
     [string]$OpenCodeConfigRoot,
     [string]$OpenCodePath,

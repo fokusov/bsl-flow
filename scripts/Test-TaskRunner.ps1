@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 [CmdletBinding()]
 param([string]$PackageRoot,[string]$RunnerPath,[switch]$KeepFixture)
 Set-StrictMode -Version Latest

@@ -117,7 +117,7 @@ func run(args []string, out, errOut io.Writer) int {
 		return hostError(out, 2, in.options["--task"], err)
 	}
 	if in.command == "help" {
-		fmt.Fprintln(out, "bsl-flow version\nbsl-flow help\nbsl-flow task <start|status|next|run|update|resume|cancel|record|accept|deliver> --project <path> [--task <uuid>] [--input <json>] [--attempt <uuid>] [--codex <exe>]\nbsl-flow runner run --project <path> --input <json> [--codex <exe>]\nTask start/update require --input; all task actions except start require --task; record requires --attempt; --codex is for task run/resume and runner run. UUIDs must be lowercase.\nRequires Windows PowerShell 5.1, Git and the configured worker provider. Ctrl+C is not rollback; inspect the exact task and use task cancel/resume.")
+		fmt.Fprintln(out, "bsl-flow version\nbsl-flow help\nbsl-flow task <start|status|next|run|update|resume|cancel|record|accept|deliver> --project <path> [--task <uuid>] [--input <json>] [--attempt <uuid>] [--codex <exe>]\nbsl-flow runner run --project <path> --input <json> [--codex <exe>]\nTask start/update require --input; all task actions except start require --task; record requires --attempt; --codex is for task run/resume and runner run. UUIDs must be lowercase.\nRequires PowerShell 7, Git and the configured worker provider. Ctrl+C is not rollback; inspect the exact task and use task cancel/resume.")
 		return 0
 	}
 	data, err := resources.ReadFile("internal/resources/bundle.zip")

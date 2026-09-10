@@ -2,7 +2,7 @@
 
 This Go executable embeds the versioned `global/` bundle and calls its existing
 PowerShell controller. It does not implement a second task state machine.
-Windows PowerShell 5.1, Git and the configured Codex/OpenCode executables remain
+PowerShell 7, Git and the configured Codex/OpenCode executables remain
 external runtime dependencies. No dependency or toolchain is downloaded by the build.
 
 Build from the repository root with Go 1.22 or newer and PowerShell 7:
@@ -41,7 +41,10 @@ and the full inventory is checked again on every task invocation. Modified,
 missing, additional files and directories block execution; the host does not
 silently repair a modified cache. A crashed unpublished extraction is never run.
 
-The host obtains the system PowerShell directory from Windows, invokes the fixed
+The host obtains Program Files from the Windows Shell standard-folder API and
+requires the machine installation `PowerShell\7\pwsh.exe` beneath it. It does not
+search PATH or fall back to Windows PowerShell 5.1; portable and per-user installs
+are not selected. The host invokes the fixed
 embedded `Invoke-BSLFlowTask.ps1` using `-File`, and supplies its own absolute path
 as `BSL_FLOW_HOST_PATH`. The controller includes that executable in policy identity
 and enables UTF-8 output for the host. The user-supplied identity environment value

@@ -83,13 +83,38 @@ func lockCache(full string) (func(), error) {
 }
 
 func systemPowerShell() (string, error) {
-	proc := syscall.NewLazyDLL("kernel32.dll").NewProc("GetSystemDirectoryW")
-	buf := make([]uint16, 32768)
-	n, _, err := proc.Call(uintptr(unsafe.Pointer(&buf[0])), uintptr(len(buf)))
-	if n == 0 || n >= uintptr(len(buf)) {
-		return "", fmt.Errorf("GetSystemDirectoryW failed: %w", err)
+	programFiles, err := knownProgramFiles()
+	if err != nil {
+		return "", err
 	}
-	shell := filepath.Join(syscall.UTF16ToString(buf[:n]), "WindowsPowerShell", "v1.0", "powershell.exe")
+	return powerShell7At(programFiles)
+}
+
+func knownProgramFiles() (string, error) {
+	// CSIDL_PROGRAM_FILES through the Windows Shell standard-folder API, rather than a
+	// caller-controlled environment variable or the current directory.
+	buf := make([]uint16, 32768)
+	proc := syscall.NewLazyDLL("shell32.dll").NewProc("SHGetFolderPathW")
+	result, _, callErr := proc.Call(0, 0x0026, 0, 0, uintptr(unsafe.Pointer(&buf[0])))
+	if result != 0 {
+		return "", fmt.Errorf("PowerShell 7 is required but Windows Program Files could not be resolved (HRESULT 0x%x): %w", result, callErr)
+	}
+	path := syscall.UTF16ToString(buf)
+	if path == "" {
+		return "", fmt.Errorf("PowerShell 7 is required but Windows Program Files returned an empty path")
+	}
+	return path, nil
+}
+
+func powerShell7At(programFiles string) (string, error) {
+	shell := filepath.Join(programFiles, "PowerShell", "7", "pwsh.exe")
+	info, err := os.Stat(shell)
+	if err != nil {
+		return "", fmt.Errorf("PowerShell 7 is required at %s; install PowerShell 7: %w", shell, err)
+	}
+	if !info.Mode().IsRegular() {
+		return "", fmt.Errorf("PowerShell 7 is required at %s; pwsh.exe is not a regular file", shell)
+	}
 	if err := checkPath(shell); err != nil {
 		return "", err
 	}

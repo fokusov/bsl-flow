@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 [CmdletBinding()]
 param([string]$PackageRoot)
 Set-StrictMode -Version Latest

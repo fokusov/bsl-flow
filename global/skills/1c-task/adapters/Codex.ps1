@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 Set-StrictMode -Version Latest
 
 function Get-BFPermissionProfile {
@@ -36,7 +37,7 @@ function Test-BFCodexCapability {
     $quotePath = { param($p) "'" + $p.Replace("'","''") + "'" }
     $script='$ErrorActionPreference="Stop"; $a="denied"; $b="denied"; try {Set-Content -LiteralPath ' + (& $quotePath $allowed) + ' -Value "probe" -ErrorAction Stop; $a="allowed"} catch [System.UnauthorizedAccessException] {}; try {Set-Content -LiteralPath ' + (& $quotePath $sentinel) + ' -Value "tampered" -ErrorAction Stop; $b="allowed"} catch [System.UnauthorizedAccessException] {}; Write-Output ($a+":"+$b)'
     $encoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script))
-    $shell=Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
+    $shell=Join-Path $PSHOME 'pwsh.exe'
     foreach ($write in @($false,$true)) {
         $name=if ($write) {'write'} else {'read'}
         $args=@('sandbox','-P','bsl_flow','-c',(Get-BFPermissionProfile $State.worker_path $write),'-c','windows.sandbox="unelevated"','-C',$State.worker_path,$shell,'-NoProfile','-EncodedCommand',$encoded)

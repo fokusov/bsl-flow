@@ -1,4 +1,5 @@
-﻿[CmdletBinding()]
+﻿#Requires -Version 7.0
+[CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$ProjectPath,
     [Parameter(Mandatory)][string]$ChangeName,
@@ -242,16 +243,11 @@ try {
     $startInfo.RedirectStandardInput = $true
     $startInfo.RedirectStandardOutput = $true
     $startInfo.RedirectStandardError = $true
+    $startInfo.StandardInputEncoding = $writerEncoding
     $startInfo.StandardOutputEncoding = $writerEncoding
     $startInfo.StandardErrorEncoding = $writerEncoding
     $arguments = @('run', '--pure', '--agent', $agent, '--model', $Model, '--variant', $Variant, '--format', 'json', '--dir', $projectRoot, 'Review the delimited specification context from stdin. Return only the contracted JSON object.')
-    # ProcessStartInfo.ArgumentList is unavailable on .NET Framework / Windows
-    # PowerShell 5.1. Quote each token for the native Windows command line.
-    $quotedArguments = foreach ($argument in $arguments) {
-        if ($argument -notmatch '[\s"]') { $argument; continue }
-        '"' + ([regex]::Replace([string]$argument, '(\\*)"', '$1$1\\"') -replace '(\\+)$', '$1$1') + '"'
-    }
-    $startInfo.Arguments = $quotedArguments -join ' '
+    foreach ($argument in $arguments) { $startInfo.ArgumentList.Add($argument) }
     $env:OPENCODE_CONFIG = $reviewerConfig
     $env:OPENCODE_DISABLE_PROJECT_CONFIG = '1'
     $env:OPENCODE_DISABLE_CLAUDE_CODE = '1'
@@ -259,8 +255,7 @@ try {
     $process.StartInfo = $startInfo
     if (-not $process.Start()) { throw 'OpenCode process could not be started.' }
     Update-ReviewStatus -Phase 'streaming'
-    # StandardInput.Encoding follows the active console code page in Windows
-    # PowerShell 5.1. Write the captured envelope as exact UTF-8 bytes instead.
+    # Keep stdin asynchronous and send the exact captured UTF-8 envelope.
     $inputBytes = $writerEncoding.GetBytes($contextEnvelope)
     $inputTask = $process.StandardInput.BaseStream.WriteAsync($inputBytes, 0, $inputBytes.Length)
     $stdinClosed = $false
@@ -320,7 +315,7 @@ try {
     # The process is already exited in the normal path. Never wait without a bound
     # after a failed/timeout termination.
     # Drain asynchronous readers after exit. Polling tasks avoids PowerShell
-    # event callbacks, which have no runspace on thread-pool threads in PS5.1/7.
+    # event callbacks, which have no runspace on thread-pool threads.
     $drainDeadline = [DateTime]::UtcNow.AddSeconds(2)
     while ((-not $stdoutDone -or -not $stderrDone) -and [DateTime]::UtcNow -lt $drainDeadline) {
         while (-not $stdoutDone -and $stdoutRead.IsCompleted) {

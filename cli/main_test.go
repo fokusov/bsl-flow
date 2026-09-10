@@ -209,3 +209,34 @@ func TestErrorEnvelope(t *testing.T) {
 		t.Fatalf("invalid envelope: %d %s", code, out.String())
 	}
 }
+
+func TestSystemPowerShellUsesKnownProgramFilesPowerShell7(t *testing.T) {
+	programFiles, err := knownProgramFiles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ProgramFiles", filepath.Join(t.TempDir(), "attacker-program-files"))
+	t.Setenv("SystemRoot", filepath.Join(t.TempDir(), "attacker-system-root"))
+	shell, err := systemPowerShell()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(programFiles, "PowerShell", "7", "pwsh.exe")
+	if shell != want {
+		t.Fatalf("resolved %q, want trusted PowerShell 7 path %q", shell, want)
+	}
+	if filepath.Base(shell) != "pwsh.exe" || strings.Contains(strings.ToLower(shell), "windowspowershell") {
+		t.Fatalf("unexpected shell %q", shell)
+	}
+}
+
+func TestSystemPowerShellFailsWithoutPowerShell7(t *testing.T) {
+	missing := t.TempDir()
+	shell, err := powerShell7At(missing)
+	if err == nil || shell != "" {
+		t.Fatalf("missing PowerShell 7 resolved to %q, %v", shell, err)
+	}
+	if !strings.Contains(err.Error(), "PowerShell 7 is required") || strings.Contains(strings.ToLower(err.Error()), "windowspowershell") {
+		t.Fatalf("missing PowerShell 7 error is not explicit and fail-closed: %v", err)
+	}
+}

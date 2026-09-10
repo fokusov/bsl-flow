@@ -4,7 +4,7 @@
 
 ## Единый CLI в версии 0.8
 
-Готовый `bsl-flow.exe` содержит инструкции и controller. Go требуется только для сборки; PowerShell, Git и выбранный provider нужны для работы. Пользовательские команды:
+Готовый `bsl-flow.exe` содержит embedded инструкции и controller. Go требуется только для сборки; для работы нужны PowerShell 7 из стандартной машинной установки `C:\Program Files\PowerShell\7\pwsh.exe`, Git и выбранный provider. Windows PowerShell 5.1 fallback не поддерживается. Пользовательские команды:
 
 ```powershell
 bsl-flow version

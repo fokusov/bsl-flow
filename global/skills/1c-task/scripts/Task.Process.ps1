@@ -1,11 +1,5 @@
+#Requires -Version 7.0
 Set-StrictMode -Version Latest
-
-function ConvertTo-BFNativeArgument {
-    param([AllowEmptyString()][string]$Value)
-    if ($Value -match "[\x00]") { throw 'BF_INVALID: NUL in native argument.' }
-    # Windows CommandLineToArgvW quoting; executable is never a command shell.
-    return '"' + ([regex]::Replace([regex]::Replace($Value, '(\\*)"', '$1$1\"'), '(\\+)$', '$1$1')) + '"'
-}
 
 function Get-BFOwnedProcess {
     param($Identity)
@@ -19,15 +13,7 @@ function Stop-BFOwnedProcess {
     $process=Get-BFOwnedProcess $Identity
     if($null -eq $process){return}
     try {
-        if($null -ne [Diagnostics.Process].GetMethod('Kill',[type[]]@([bool]))){$process.Kill($true)}
-        else {
-            $killInfo=New-Object Diagnostics.ProcessStartInfo
-            $killInfo.FileName=Join-Path $env:SystemRoot 'System32/taskkill.exe'
-            $killInfo.Arguments="/PID $($process.Id) /T /F"; $killInfo.UseShellExecute=$false; $killInfo.CreateNoWindow=$true
-            $killer=[Diagnostics.Process]::Start($killInfo)
-            try{[void]$killer.WaitForExit(3000)}finally{$killer.Dispose()}
-            if(-not $process.HasExited){$process.Kill()}
-        }
+        $process.Kill($true)
         if(-not $process.WaitForExit(3000)){throw 'BF_BLOCKED: exact owned process did not stop; effects remain unknown.'}
     } finally {$process.Dispose()}
 }
@@ -44,12 +30,13 @@ function Invoke-BFProcess {
     if($null -ne $deadline){$TimeoutSeconds=[math]::Min($TimeoutSeconds,[math]::Floor(($deadline-[DateTime]::UtcNow).TotalSeconds));if($TimeoutSeconds -le 0){throw 'BF_BLOCKED: task deadline reached before dispatch.'}}
     $info = New-Object System.Diagnostics.ProcessStartInfo
     $info.FileName=$Executable; $info.WorkingDirectory=$WorkingDirectory
-    $info.Arguments=(@($Arguments | ForEach-Object { ConvertTo-BFNativeArgument $_ }) -join ' ')
+    foreach($argument in $Arguments){
+        if($argument -match "[\x00]"){throw 'BF_INVALID: NUL in native argument.'}
+        $info.ArgumentList.Add([string]$argument)
+    }
     $info.UseShellExecute=$false; $info.CreateNoWindow=$true
     $info.RedirectStandardOutput=$true; $info.RedirectStandardError=$true; $info.RedirectStandardInput=$true
-    $inputEncoding=New-Object Text.UTF8Encoding($false)
-    $usesProcessInputEncoding=$null -ne $info.PSObject.Properties['StandardInputEncoding']
-    if($usesProcessInputEncoding){$info.StandardInputEncoding=$inputEncoding}
+    $info.StandardInputEncoding=New-Object Text.UTF8Encoding($false)
     $info.StandardOutputEncoding=New-Object Text.UTF8Encoding($false)
     $info.StandardErrorEncoding=New-Object Text.UTF8Encoding($false)
     $process=New-Object System.Diagnostics.Process; $process.StartInfo=$info
@@ -57,22 +44,12 @@ function Invoke-BFProcess {
     $stderrFile=[IO.File]::Open((Join-Path $OutputDirectory 'stderr.txt'),[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::Read)
     $reason=$null
     try {
-        $previousConsoleInputEncoding=$null;$restoreConsoleInputEncoding=$false
-        try {
-            # .NET Framework's ProcessStartInfo has no public StandardInputEncoding.
-            # Process.Start captures Console.InputEncoding for its StreamWriter, so
-            # provide no-BOM UTF-8 only while that writer is created.
-            if(-not$usesProcessInputEncoding){$previousConsoleInputEncoding=[Console]::InputEncoding;[Console]::InputEncoding=$inputEncoding;$restoreConsoleInputEncoding=$true}
-            [void]$process.Start()
-        } finally {
-            if($restoreConsoleInputEncoding){[Console]::InputEncoding=$previousConsoleInputEncoding}
-        }
+        [void]$process.Start()
         Write-BFJson -Path (Join-Path $OutputDirectory 'process.json') -Value ([ordered]@{pid=$process.Id;start_time_utc=$process.StartTime.ToUniversalTime().ToString('o');executable=$Executable;arguments_sha256=Get-BFHash $Arguments})
         $outTask=$process.StandardOutput.BaseStream.CopyToAsync($stdoutFile)
         $errTask=$process.StandardError.BaseStream.CopyToAsync($stderrFile)
         $watch=[Diagnostics.Stopwatch]::StartNew()
-        # StreamWriter's default encoding follows the Windows code page on some
-        # hosts. Codex consumes UTF-8; write bytes explicitly in both PS versions.
+        # Write exact UTF-8 bytes asynchronously so a blocked reader stays bounded.
         $inputBytes=[Text.Encoding]::UTF8.GetBytes($InputText)
         $inputTask=$process.StandardInput.BaseStream.WriteAsync($inputBytes,0,$inputBytes.Length)
         $inputClosed=$false
