@@ -24,7 +24,7 @@ type invocation struct {
 	options map[string]string
 }
 
-var actions = map[string]string{"start": "Start", "status": "Status", "next": "Next", "run": "Run", "update": "Update", "resume": "Resume", "cancel": "Cancel", "record": "Record", "accept": "Accept", "deliver": "Deliver"}
+var actions = map[string]string{"start": "Start", "status": "Status", "next": "Next", "run": "Run", "update": "Update", "resume": "Resume", "cancel": "Cancel", "record": "Record", "accept": "Accept", "deliver": "Deliver", "publish": "Publish", "publish-resume": "PublishResume"}
 var uuid = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 func parse(args []string) (invocation, error) {
@@ -41,10 +41,10 @@ func parse(args []string) (invocation, error) {
 	} else if args[0] == "runner" && args[1] == "run" {
 		in.command, in.action = "runner", "Serve"
 	} else {
-		return in, errors.New("expected help, version, task <start|status|next|run|update|resume|cancel|record|accept|deliver>, or runner run")
+		return in, errors.New("expected help, version, task <start|status|next|run|update|resume|cancel|record|accept|deliver|publish|publish-resume>, or runner run")
 	}
 	allowed := map[string]bool{"--project": true}
-	if in.action == "Start" || in.action == "Update" || in.action == "Serve" {
+	if in.action == "Start" || in.action == "Update" || in.action == "Serve" || in.action == "Publish" || in.action == "PublishResume" {
 		allowed["--input"] = true
 	}
 	if in.command == "task" && in.action != "Start" {
@@ -55,6 +55,9 @@ func parse(args []string) (invocation, error) {
 	}
 	if in.action == "Run" || in.action == "Resume" || in.action == "Serve" {
 		allowed["--codex"] = true
+	}
+	if in.action == "Run" || in.action == "Resume" || in.action == "Serve" || in.action == "Update" {
+		allowed["--runtime-auth"] = true
 	}
 	for i := 2; i < len(args); i += 2 {
 		key := args[i]
@@ -76,12 +79,15 @@ func parse(args []string) (invocation, error) {
 			return in, fmt.Errorf("%s must be a lowercase UUID", key)
 		}
 	}
+	if value := in.options["--runtime-auth"]; value != "" && value != "stdin" {
+		return in, errors.New("--runtime-auth accepts only stdin; credentials must not appear in arguments")
+	}
 	return in, nil
 }
 
 func engineArgs(in invocation, root string) ([]string, error) {
 	args := []string{"-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", filepath.Join(root, filepath.FromSlash(entrypoint)), "-Action", in.action}
-	for _, option := range [][2]string{{"--project", "-ProjectPath"}, {"--task", "-TaskId"}, {"--input", "-InputFile"}, {"--attempt", "-AttemptId"}, {"--codex", "-CodexPath"}} {
+	for _, option := range [][2]string{{"--project", "-ProjectPath"}, {"--task", "-TaskId"}, {"--input", "-InputFile"}, {"--attempt", "-AttemptId"}, {"--codex", "-CodexPath"}, {"--runtime-auth", "-RuntimeAuth"}} {
 		value := in.options[option[0]]
 		if value == "" {
 			continue
@@ -117,7 +123,7 @@ func run(args []string, out, errOut io.Writer) int {
 		return hostError(out, 2, in.options["--task"], err)
 	}
 	if in.command == "help" {
-		fmt.Fprintln(out, "bsl-flow version\nbsl-flow help\nbsl-flow task <start|status|next|run|update|resume|cancel|record|accept|deliver> --project <path> [--task <uuid>] [--input <json>] [--attempt <uuid>] [--codex <exe>]\nbsl-flow runner run --project <path> --input <json> [--codex <exe>]\nTask start/update require --input; all task actions except start require --task; record requires --attempt; --codex is for task run/resume and runner run. UUIDs must be lowercase.\nRequires PowerShell 7, Git and the configured worker provider. Ctrl+C is not rollback; inspect the exact task and use task cancel/resume.")
+		fmt.Fprintln(out, "bsl-flow version\nbsl-flow help\nbsl-flow task <start|status|next|run|update|resume|cancel|record|accept|deliver|publish|publish-resume> --project <path> [--task <uuid>] [--input <json>] [--attempt <uuid>] [--codex <exe>]\nbsl-flow runner run --project <path> --input <json> [--codex <exe>]\nTask start/update/publish/publish-resume require --input; all task actions except start require --task; record requires --attempt; --codex is for task run/resume and runner run. UUIDs must be lowercase.\nNative runtime auth uses --runtime-auth stdin on run/resume/update/runner; send one private JSON line with username and password. No credential files or secret arguments.\nPublication requires a separate exact acceptance/remote/ref authorization; publish-resume only reads the remote result.\nRequires PowerShell 7, Git and the configured worker provider. Ctrl+C is not rollback; inspect the exact task and use task cancel/resume.")
 		return 0
 	}
 	data, err := resources.ReadFile("internal/resources/bundle.zip")

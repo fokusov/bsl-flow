@@ -1,6 +1,6 @@
 # Архитектура managed-контура BSL Flow
 
-Статус документа: сохранённые решения source-only ядра `0.7.0-dev.1` и расширения `0.8.0-dev.1`. Managed-адаптер 1С runtime ещё не подтверждён и отключён; также сохраняется временное ограничение Unica. Документ не утверждает завершение M8 или полную автономность. Текущие результаты приведены в [отчёте проверки](../VERIFICATION.md), дальнейшие gates — в [плане 0.8](PLAN_0.8_RU.md).
+Статус документа: решения source-only ядра `0.7.0-dev.1` и managed increment `0.8.0-dev.2`. Native-адаптер расширения прошёл сквозной unit-пилот; временное ограничение Unica сохраняется. Историческое ADR-6 уточнено решениями ниже. Текущие результаты приведены в [отчёте проверки](../VERIFICATION.md), оставшаяся приёмка — в [плане завершения](SDLC_COMPLETION_RU.md).
 
 Машинные схемы и request/recovery contracts описаны в [`1c-task/references/task-contract.md`](../global/skills/1c-task/references/task-contract.md). Проверенная граница Windows host вынесена в [`managed-host-contract.md`](managed-host-contract.md).
 
@@ -20,9 +20,23 @@ Managed controller решает эту задачу как небольшой п
 
 ## Граница доверия
 
+```mermaid
+flowchart LR
+    U[Требования и допуски пользователя] --> G[Go CLI и проверенный bundle]
+    G --> C[PowerShell controller: state и gates]
+    Q[Локальная очередь] --> C
+    C --> W[Изолированный worker]
+    W -->|Предложение и исходные результаты| C
+    C --> N[Разрешённый native FILE adapter]
+    N -->|Inventory и оригинальный JUnit| C
+    C --> A[Acceptance и точный manifest]
+    A --> P[Publication с отдельным допуском]
+    P --> R[Новая ветка remote]
+```
+
 Controller и установленные skills считаются trusted operator code. Авторитетный state и пользовательские input events находятся в основном project root. Worker получает отдельную detached worktree: read-only этапы читают её, `implement` может менять исходники только там. Worker не может менять controller state, выдавать себе authorization, устанавливать инструменты, публиковать результат или работать с базой 1С.
 
-Ограничение относится и к дочерним процессам тестов. Source-controlled test script, Git hook, filter, config или другой executable нельзя считать безопасным только потому, что его вызвал controller. Native test executable запускается через тот же sandbox profile; project Codex execution config блокируется. Прямая команда человека, внешний terminal и процесс вне этого контура остаются вне enforcement boundary.
+Ограничение относится и к дочерним процессам тестов. Source-controlled test script, Git hook, filter, config или другой executable нельзя считать безопасным только потому, что его вызвал controller. Source-only test executable запускается через тот же sandbox profile; project Codex execution config блокируется. Платформа 1С запускается отдельным controller-owned native адаптером после проверки точного target, snapshot и допуска; она не исполняется внутри worker sandbox. Прямая команда человека, внешний terminal и процесс вне этого контура остаются вне enforcement boundary.
 
 Worker result — предложение этапа по JSON Schema. Даже `status: completed` не является acceptance. Авторитетный результат появляется после записи terminal attempt, проверки hashes и прохождения всех gates.
 
@@ -66,7 +80,7 @@ Worker result — предложение этапа по JSON Schema. Даже `
 
 **Цена.** Часть сбоев требует ручной проверки. Cancel не является rollback. Для внешних и бизнес-операций нужен специфичный control-read контракт; общего безопасного auto retry нет.
 
-## ADR-6: runtime готовится, но остаётся BLOCKED
+## ADR-6: первоначальный запрет неподтверждённого runtime (история 0.7)
 
 **Решение.** Criteria типов `integration`, `ui` и `external_artifact` сохраняются как обязательные и требуют точную target identity. Текущий controller не запускает их и возвращает `BLOCKED`. Нельзя переименовать runtime-проверку в `static` или заменить её file assertion.
 
@@ -104,9 +118,33 @@ Codex adapter сохраняет session ID, requested model/effort и provider 
 
 ## Ограничения релиза
 
-- подтверждённая реализация адаптера закрепляет native Windows `codex-cli 0.153.0`; новая версия требует capability suite;
+- адаптер допускает проверенные native Windows `codex-cli 0.153.0` и `0.154.0`; новая версия требует capability suite;
 - source-only worker не получает сеть, plugins, multi-agent, memories, browser/computer use, hooks или project Codex config;
-- задачи выполняются последовательно; shared external target не сериализован этим файловым lock;
-- controller не делает commit, merge, push, publish, deploy, глобальную установку или автоматический rollback;
-- managed 1C runtime и external artifact acceptance отключены;
-- итоговый source-only host pilot и общий acceptance report ведутся отдельно от этой архитектурной страницы.
+- задачи выполняются последовательно; task lock дополняется отдельными same-user locks для разрешённой FILE-базы и пары remote/ref;
+- новый publication profile создаёт одну Git-ветку; merge, deployment, глобальная установка и автоматический rollback в него не входят;
+- runtime ограничен явно разрешённым расширением в FILE-базе; UI и external artifact требуют своих подтверждённых adapters/evidence;
+- фактическая приёмка версии ведётся отдельно от этой архитектурной страницы.
+
+## ADR-7: native действия принадлежат controller
+
+**Решение.** Фиксированный native-адаптер проверяет платформу и FILE identity, создаёт snapshot расширения, последовательно выполняет inventory/load/update/test/inventory и сохраняет оригинальный JUnit. В worker не передаются credentials или команды изменения базы. Приватный stdin заменяет доступные тому же пользователю credential-файлы; `/P` процесса 1С остаётся известным ограничением платформы.
+
+**Почему.** Wrapper вне controller не связывал runtime с общей acceptance. Одних prompt-инструкций недостаточно для запрета повторного load после потери отчёта. Отдельный pending по физической базе сохраняется даже при новой task identity. Control-read recovery не создаёт тестовый PASS; test-only продолжение требует проверяемого доказательства ранее загруженного точного snapshot.
+
+**Цена.** Unknown остаётся BLOCKED до проверки фактического состояния. Общий ledger относится к одному пользователю и не блокирует сторонние административные действия. Подробный [runtime-контракт](NATIVE_RUNTIME_RU.md) включает реальные результаты и ограничения.
+
+## ADR-8: независимая оценка тестов перед исполнением
+
+**Решение.** Trusted requirements связываются с критериями и конкретными защищёнными тестами. Даже S-задача с mapping проходит независимый code review, где отдельно оценивается достаточность проверок. `SUFFICIENT` разрешает verify; фактический PASS появляется только после исполнения и проверки исходного результата.
+
+**Почему.** Формально зелёный тест может не наблюдать требуемое поведение. Executor не должен ослаблять проверку, чтобы исправление выглядело успешным. Отдельная state machine для coverage не нужна: сохранённый review, binding и существующие gates решают эту задачу.
+
+**Цена.** Смысловая оценка модели не является математическим доказательством полноты тестов. Поэтому сохраняются исходные требования, объяснения reviewer, тестовые файлы и hashes. Подробности — [достаточность приёмки](REQUIREMENT_COVERAGE_RU.md).
+
+## ADR-9: публикация отделена от acceptance
+
+**Решение.** Publication получает собственный UUID и явный допуск на acceptance/remote/ref. Git plumbing формирует обычный commit с исходным baseline parent и точными accepted bytes. Новый branch создаётся только при отсутствии ref; intent и same-user pending сохраняются до отправки. После неизвестного результата допускается контрольное чтение, а не повторный push.
+
+**Почему.** Общий `git add/commit/push` может применить filters, отправить лишние файлы или исполнить project config/hooks. Повтор команды после сетевой ошибки не доказывает отсутствие первой записи. Отдельный service или внешний workflow engine не нужны для последовательной локальной поставки.
+
+**Цена.** Поддержанные transport/auth profiles узкие; CI, PR review, production rollout и rollback имеют самостоятельные критерии. Durable `published` фиксирует исторически доказанную отправку и позволяет завершить локальное снятие pending даже при последующей недоступности remote. Подробности — [контракт публикации](PUBLICATION_RU.md).

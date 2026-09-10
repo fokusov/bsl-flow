@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Explicit accepted-source publication",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "publication_id", "task_id", "acceptance_sha256", "remote", "ref", "auth", "author", "message", "provenance"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "publication_id": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "task_id": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "acceptance_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "remote": {"type": "string", "minLength": 1},
+    "ref": {"type": "string", "pattern": "^refs/heads/codex/[A-Za-z0-9][A-Za-z0-9._/-]*$"},
+    "auth": {"enum": ["none", "github_cli"]},
+    "author": {
+      "type": "object", "additionalProperties": false, "required": ["name", "email"],
+      "properties": {"name": {"type": "string", "minLength": 1}, "email": {"type": "string", "minLength": 1}}
+    },
+    "message": {"type": "string", "minLength": 1},
+    "provenance": {
+      "type": "object", "additionalProperties": false, "required": ["source", "text", "reference"],
+      "properties": {"source": {"const": "user"}, "text": {"type": "string", "minLength": 1}, "reference": {"type": "string", "minLength": 1}}
+    }
+  }
+}

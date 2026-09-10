@@ -1,5 +1,8 @@
 #Requires -Version 7.0
 Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot 'Task.Runtime.ps1')
+. (Join-Path $PSScriptRoot 'Task.NativeReuse.ps1')
+. (Join-Path $PSScriptRoot 'Task.Coverage.ps1')
 
 function Assert-BFFields {
     param($Value, [string[]]$Required, [string[]]$Optional = @(), [string]$Name = 'object')
@@ -44,7 +47,7 @@ function Assert-BFCriteria {
     if ($Criteria -isnot [array]) { throw 'BF_INVALID: criteria must be an array.' }
     $ids = @()
     foreach ($criterion in $Criteria) {
-        Assert-BFFields $criterion @('id', 'observation', 'kind') @('path', 'contains', 'executable', 'arguments', 'report', 'expected_tests', 'target', 'profile', 'retry_safe', 'protected_paths') 'criterion'
+        Assert-BFFields $criterion @('id', 'observation', 'kind') @('path', 'contains', 'executable', 'arguments', 'report', 'expected_tests', 'target', 'profile', 'retry_safe', 'protected_paths', 'native_1c') 'criterion'
         $keys=if($criterion -is [System.Collections.IDictionary]){@($criterion.Keys)}else{@($criterion.PSObject.Properties.Name)}
         if ($criterion.id -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$' -or $criterion.id -in $ids) { throw 'BF_INVALID: criterion ids must be safe and unique.' }
         $ids += $criterion.id
@@ -71,12 +74,14 @@ function Assert-BFCriteria {
             if ('expected_tests' -cnotin $keys -or $criterion.expected_tests -isnot [array] -or @($criterion.expected_tests).Count -eq 0) { throw 'BF_INVALID: exact expected test names are required.' }
             if ($criterion.kind -in @('integration','ui')) { Assert-BFText (Get-BFValue $criterion 'target') 'criterion.target' }
         }
+        if ('native_1c' -cin $keys) { Assert-BFNativeCriterion $criterion }
     }
+    if (@($Criteria | Where-Object { $null -ne (Get-BFValue $_ 'native_1c') }).Count -gt 1) { throw 'BF_INVALID: the native route supports one target operation per task.' }
 }
 
 function Assert-BFRequest {
     param($Request)
-    Assert-BFFields $Request @('schema_version','request_id','prompt','mode','analysis_goal','complexity','risk','impact_flags','criteria','provenance','models') @('source_paths','require_spec_review','require_code_review','max_attempts','timeout_seconds','max_source_repairs') 'request'
+    Assert-BFFields $Request @('schema_version','request_id','prompt','mode','analysis_goal','complexity','risk','impact_flags','criteria','provenance','models') @('source_paths','require_spec_review','require_code_review','max_attempts','timeout_seconds','max_source_repairs','requirements') 'request'
     if ($Request.schema_version -ne 1) { throw 'BF_INVALID: unsupported request schema_version.' }
     Assert-BFUuid $Request.request_id
     Assert-BFText $Request.prompt 'prompt'
@@ -85,6 +90,7 @@ function Assert-BFRequest {
     if ($Request.complexity -notin @('S','M','L') -or $Request.risk -notin @('low','medium','high')) { throw 'BF_INVALID: unsupported classification.' }
     Assert-BFImpactFlags $Request.impact_flags
     Assert-BFCriteria $Request.criteria
+    Assert-BFRequirements $Request
     if ($Request.mode -eq 'implement' -and @($Request.criteria).Count -eq 0) { throw 'BF_INVALID: implementation requires observable acceptance criteria before dispatch.' }
     Assert-BFFields $Request.models @('worker','worker_effort','reviewer','reviewer_effort') @() 'models'
     foreach ($field in @('worker','reviewer')) { if ($Request.models.$field -notmatch '^[A-Za-z0-9._:-]+$') { throw "BF_INVALID: invalid model $field." } }
@@ -128,7 +134,8 @@ function Get-BFRoute {
     }
     if ($request.mode -eq 'implement') {
         $route += 'implement'
-        if ($high -or (Get-BFValue $request 'require_code_review' $false) -or (Get-BFValue (Get-BFValue $State 'repair') 'rounds' 0) -gt 0) { $route += 'code_review' }
+        $native=@($request.criteria | Where-Object { $null -ne (Get-BFValue $_ 'native_1c') }).Count -gt 0
+        if ($high -or $native -or (Test-BFCoverageProperty $request 'requirements') -or (Get-BFValue $request 'require_code_review' $false) -or (Get-BFValue (Get-BFValue $State 'repair') 'rounds' 0) -gt 0) { $route += 'code_review' }
         $route += 'verify'
     }
     return @($route + 'acceptance')

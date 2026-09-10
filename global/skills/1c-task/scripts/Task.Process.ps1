@@ -10,6 +10,8 @@ function Get-BFOwnedProcess {
 
 function Stop-BFOwnedProcess {
     param($Identity)
+    # A database update must finish on its own; Cancel disables future dispatch.
+    if ((Get-BFValue $Identity 'non_interruptible' $false) -eq $true) { return }
     $process=Get-BFOwnedProcess $Identity
     if($null -eq $process){return}
     try {

@@ -24,7 +24,7 @@ Native smoke tests retain their isolated evidence under `work/cli-smoke-*`; they
 register and cancel source-only tasks without model calls or 1C execution.
 
 Public commands are `help`, `version`, `task start/status/next/run/update/resume/
-cancel/record/accept/deliver`, and `runner run`. `task deliver` requires `--project`
+cancel/record/accept/deliver/publish/publish-resume`, and `runner run`. `task deliver` requires `--project`
 and `--task`; `runner run` requires `--project` and `--input`, accepts optional
 `--codex`, and does not accept `--task`. Both call the same embedded entrypoint
 (`Deliver` and `Serve`) without adding host-side delivery or scheduling logic.
@@ -54,4 +54,4 @@ same user. Worker sandboxing and controller-owned evidence remain authoritative.
 
 Ctrl+C is not rollback. Use the exact task ID with `status`, `cancel` and `resume`
 to apply controller recovery rules. The host does not retry, authorize operations,
-waive gates, publish changes or lift any 1C runtime restriction.
+waive gates or lift any 1C runtime restriction. Publication uses a separate trusted input and the controller described in [publication](../docs/PUBLICATION_RU.md).

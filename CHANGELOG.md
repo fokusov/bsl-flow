@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.0-dev.2
+
+- Controller-owned native FILE extension execution with exact platform/source/target binding, original JUnit, private credential input, durable process intent and control-read recovery. Test-only continuation reuses a proven prior load without repeating database writes.
+- Trusted requirement-to-criterion mapping and independent test sufficiency review, bound to protected test files and accepted evidence. Real native and coverage pilots are documented separately.
+- Recover queue notifications from the complete durable journal; reject malformed/torn records and prevent repeated execution after a recorded dispatch error.
+- Separate accepted-source publication commands with explicit remote/ref authorization, deterministic Git objects, create-only branches and read-only recovery after uncertain push. Publication integration status is tracked in `docs/SDLC_COMPLETION_RU.md`.
+- Documented architecture decisions and verification boundaries; arbitrary business, UI, EPF and production acceptance remain environment-specific.
+
 ## 0.8.0-dev.1
 
 - Fix Windows CI dependencies with pinned OpenSpec and an isolated package schema; preserve the historical Windows PowerShell 5.1 encoding regression evidence.

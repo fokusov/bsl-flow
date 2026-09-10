@@ -114,6 +114,9 @@ function Get-BFDependencies {
         if ($null -eq $Manifest) { $Manifest = Get-BFSourceManifest $State }
         $inputs.source = $Manifest.sha256
         $inputs.criteria = Get-BFHash $State.request.criteria
+        if(Test-BFCoverageProperty $State.request 'requirements'){$inputs.requirements=Get-BFHash $State.request.requirements}
+        $native=@($State.request.criteria | Where-Object { $null -ne (Get-BFValue $_ 'native_1c') })
+        if ($native.Count) { $inputs.native_platform=Get-BFHash @(Get-BFNativeDependencies $native[0]) }
         $inputs.correction_round = $State.correction_rounds
         if ((Get-BFValue $State.request 'max_source_repairs' 0) -gt 0) {
             $inputs.repair_round=Get-BFValue (Get-BFValue $State 'repair') 'rounds' 0
@@ -211,7 +214,7 @@ function Test-BFJUnit {
 
 function Assert-BFCodeReview {
     param($Review)
-    Assert-BFFields $Review @('verdict','findings') @() 'code_review'
+    Assert-BFFields $Review @('verdict','findings') @('coverage_review') 'code_review'
     if ($Review.verdict -notin @('PASS','REVISE','BLOCK') -or $Review.findings -isnot [array]) { throw 'BF_INVALID: invalid code review.' }
     if ($Review.verdict -ne 'PASS' -and @($Review.findings).Count -eq 0) { throw 'BF_INVALID: non-PASS review requires addressable findings.' }
     if ($Review.verdict -eq 'PASS' -and @($Review.findings).Count -ne 0) { throw 'BF_INVALID: PASS with unresolved findings is contradictory.' }

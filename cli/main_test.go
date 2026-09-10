@@ -12,6 +12,62 @@ import (
 
 const testID = "01234567-89ab-4cde-8123-0123456789ab"
 
+func TestPublicationRequiresSeparateInput(t *testing.T) {
+	for _, action := range []string{"publish", "publish-resume"} {
+		base := []string{"task", action, "--project", `C:\project`, "--task", testID}
+		if _, err := parse(base); err == nil {
+			t.Fatal("publication accepted without authorization input")
+		}
+		args := append(append([]string{}, base...), "--input", `C:\publication.json`)
+		in, err := parse(args)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := "Publish"
+		if action == "publish-resume" {
+			want = "PublishResume"
+		}
+		argv, err := engineArgs(in, `C:\cache`)
+		if err != nil || in.action != want || !reflect.DeepEqual(argv[7:], []string{"-Action", want, "-ProjectPath", `C:\project`, "-TaskId", testID, "-InputFile", `C:\publication.json`}) {
+			t.Fatalf("unexpected publication arguments: %v %v", argv, err)
+		}
+		for _, extra := range [][]string{{"--runtime-auth", "stdin"}, {"--codex", "worker.exe"}, {"--attempt", testID}, {"--input", "other.json"}} {
+			if _, err := parse(append(append([]string{}, args...), extra...)); err == nil {
+				t.Fatalf("accepted unrelated publication option: %v", extra)
+			}
+		}
+	}
+}
+
+func TestRuntimeAuthStaysOutOfArguments(t *testing.T) {
+	for _, action := range []string{"run", "resume", "update"} {
+		args := []string{"task", action, "--project", `C:\project`, "--task", testID, "--runtime-auth", "stdin"}
+		if action == "update" {
+			args = append(args, "--input", `C:\recovery.json`)
+		}
+		in, err := parse(args)
+		if err != nil {
+			t.Fatal(err)
+		}
+		argv, err := engineArgs(in, `C:\cache`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(argv[len(argv)-2:], []string{"-RuntimeAuth", "stdin"}) {
+			t.Fatalf("auth argv: %q", argv)
+		}
+	}
+	for _, args := range [][]string{
+		{"task", "run", "--project", ".", "--task", testID, "--runtime-auth", "password"},
+		{"task", "status", "--project", ".", "--task", testID, "--runtime-auth", "stdin"},
+		{"task", "start", "--project", ".", "--input", "request.json", "--runtime-auth", "stdin"},
+	} {
+		if _, err := parse(args); err == nil {
+			t.Fatalf("accepted unsafe/inapplicable auth: %q", args)
+		}
+	}
+}
+
 func TestStrictCLI(t *testing.T) {
 	valid := [][]string{{"help"}, {"version"}, {"task", "start", "--project", `C:\проект & $x`, "--input", `C:\запрос;evil.json`}, {"task", "record", "--project", ".", "--task", testID, "--attempt", testID}, {"task", "run", "--project", ".", "--task", testID, "--codex", `C:\codex.exe`}}
 	for _, args := range valid {
