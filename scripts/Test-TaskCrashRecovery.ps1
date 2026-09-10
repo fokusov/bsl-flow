@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 [CmdletBinding()]param([string]$PackageRoot)
 Set-StrictMode -Version Latest;$ErrorActionPreference='Stop'
 if(-not $PackageRoot){$PackageRoot=Split-Path $PSScriptRoot -Parent}
@@ -29,7 +30,7 @@ $run=New-BFAttempt $Project $Task ''
 exit 42
 '@
 Write-C $scriptPath $body
-$shell=Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
+$shell=Join-Path $PSHOME 'pwsh.exe'
 $process=Invoke-BFProcess $shell @('-NoProfile','-File',$scriptPath,'-Core',$core,'-Project',$project,'-Task',$task.task_id) $testRoot '' (Join-Path $testRoot 'controller') 30 $null
 Assert-C ($process.exit_code -eq 42) 'Fault fixture did not terminate at its intended checkpoint.'
 $task=Read-BFTask $project $task.task_id;$attemptId=$task.active_attempt

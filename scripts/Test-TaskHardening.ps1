@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 [CmdletBinding()]param([string]$PackageRoot)
 Set-StrictMode -Version Latest;$ErrorActionPreference='Stop'
 if(-not$PackageRoot){$PackageRoot=Split-Path -Parent $PSScriptRoot}
@@ -72,7 +73,7 @@ try{
  $cancelProject=New-Project-H $testRoot 'cancel';$cancel=Start-BFTask $cancelProject (New-Request-H);$run=New-BFAttempt $cancelProject $cancel.task_id '';[void](Cancel-BFTask $cancelProject $cancel.task_id)
  $marker=Join-Path $cancelProject 'stage.marker';$cancelExecutor={param($r)Write-H $marker 'ran';Inspect-H $r}.GetNewClosure();$cancelled=Invoke-BFStage $run '' $cancelExecutor $null
  Assert-H ($cancelled.status-eq'cancelled'-and-not(Test-Path $marker)) 'Cancelled stage invoked its executor.'
- $shell=Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe';$marker=Join-Path $cancelProject 'native.marker';$out=Join-Path $testRoot 'cancel-out'
+ $shell=Join-Path $PSHOME 'pwsh.exe';$marker=Join-Path $cancelProject 'native.marker';$out=Join-Path $testRoot 'cancel-out'
  $code='[IO.File]::WriteAllText('+[char]34+$marker+[char]34+','+[char]34+'ran'+[char]34+')'
     $message=Failure-H {Invoke-BFProcess $shell @('-NoProfile','-Command',$code) $cancelProject '' $out 10 {$true}}
     Assert-H ($message-match'^BF_BLOCKED: cancelled before process dispatch'-and-not(Test-Path $marker)) 'Pre-dispatch cancellation started a process.'
@@ -80,9 +81,31 @@ try{
     # Native stdin bytes are UTF-8 in both host PowerShell versions.
     $unicode=([string]([char[]]@(0x0422,0x0435,0x0441,0x0442)))+' '+[char]::ConvertFromUtf32(0x1F600)
     $readBytes='$s=[Console]::OpenStandardInput();$m=New-Object IO.MemoryStream;$s.CopyTo($m);[Console]::Out.Write([Convert]::ToBase64String($m.ToArray()))'
-    $out=Join-Path $testRoot 'unicode-stdin';$unicodeResult=Invoke-BFProcess $shell @('-NoProfile','-Command',$readBytes) $testRoot $unicode $out 10 {$false}
+    $savedConsoleInputEncoding=[Console]::InputEncoding;$forcedBomEncoding=New-Object Text.UTF8Encoding($true);$forcedBomCodePage=$forcedBomEncoding.CodePage;$forcedBomPreamble=[Convert]::ToBase64String($forcedBomEncoding.GetPreamble())
+    try {
+        # Force a BOM-bearing parent encoding; child transport must ignore it.
+        # This does not change the machine locale.
+        [Console]::InputEncoding=$forcedBomEncoding
+        $out=Join-Path $testRoot 'unicode-stdin';$unicodeResult=Invoke-BFProcess $shell @('-NoProfile','-Command',$readBytes) $testRoot $unicode $out 10 {$false}
+        Assert-H ([Console]::InputEncoding.CodePage-eq$forcedBomCodePage-and[Convert]::ToBase64String([Console]::InputEncoding.GetPreamble())-ceq$forcedBomPreamble) 'Native process setup did not restore Console.InputEncoding after start.'
+        $failedStartOutput=Join-Path $testRoot 'unicode-stdin-failed-start'
+        $failedStart=Failure-H {Invoke-BFProcess $shell @('-NoProfile','-Command',$readBytes) $shell $unicode $failedStartOutput 10 {$false}}
+        Assert-H ($failedStart-ne'') 'Invalid working directory did not fail process start.'
+        Assert-H ([Console]::InputEncoding.CodePage-eq$forcedBomCodePage-and[Convert]::ToBase64String([Console]::InputEncoding.GetPreamble())-ceq$forcedBomPreamble) 'Native process setup did not restore Console.InputEncoding after failed start.'
+    } finally {[Console]::InputEncoding=$savedConsoleInputEncoding}
     $expected=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($unicode));$observed=[IO.File]::ReadAllText($unicodeResult.stdout)
     Assert-H ($unicodeResult.exit_code-eq0-and$null-eq$unicodeResult.stop_reason-and$observed-ceq$expected) 'Native stdin bytes were not exact UTF-8.'
+
+    # ArgumentList must preserve empty arguments and shell metacharacters literally.
+    $argvProbe=Join-Path $testRoot 'argv.ps1'
+    Write-H $argvProbe '[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false);[Console]::Out.Write((ConvertTo-Json -InputObject @($args) -Compress))'
+    $argvValues=@('', 'with spaces', 'quote"value', 'semi;colon&dollar$', 'C:\trailing\', $unicode)
+    $argvResult=Invoke-BFProcess $shell (@('-NoProfile','-File',$argvProbe)+$argvValues) $testRoot '' (Join-Path $testRoot 'argv') 10 {$false}
+    $actualArgs=ConvertFrom-Json -InputObject ([IO.File]::ReadAllText($argvResult.stdout)) -NoEnumerate
+    $argvMatches=$argvResult.exit_code-eq0-and$null-eq$argvResult.stop_reason-and$actualArgs.Count-eq$argvValues.Count
+    for($i=0;$i-lt$argvValues.Count-and$argvMatches;$i++){if($actualArgs[$i]-cne$argvValues[$i]){$argvMatches=$false}}
+    Assert-H $argvMatches 'Native argument boundaries or literal values changed.'
+    Assert-H ((Failure-H {Invoke-BFProcess $shell @('bad'+[char]0+'argument') $testRoot '' (Join-Path $testRoot 'nul-argv') 10 {$false}})-match'^BF_INVALID: NUL') 'NUL argument was not rejected before launch.'
 
  # A child that never reads one megabyte of stdin must still time out.
  $out=Join-Path $testRoot 'stdin-out';$watch=[Diagnostics.Stopwatch]::StartNew()

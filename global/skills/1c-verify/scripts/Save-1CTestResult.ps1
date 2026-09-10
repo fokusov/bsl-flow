@@ -1,4 +1,5 @@
-﻿[CmdletBinding()]
+﻿#Requires -Version 7.0
+[CmdletBinding()]
 param(
     [Alias('Receipt','EvidencePath')][string]$ReceiptPath,
     [Alias('JunitPath')][string]$JUnitReportPath,

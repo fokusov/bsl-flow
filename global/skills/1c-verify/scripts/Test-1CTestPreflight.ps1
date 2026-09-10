@@ -1,4 +1,5 @@
-﻿[CmdletBinding()]
+﻿#Requires -Version 7.0
+[CmdletBinding()]
 param(
     [Alias('PlanPath','DeclarationPath')][Parameter(Mandatory)][string]$RequestPath,
     [Alias('EvidencePath','PreviewPath','ObservedPath')][Parameter(Mandatory)][string]$ObservedEvidencePath,

@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 [CmdletBinding()]
 param([string]$PackageRoot)
 
@@ -44,6 +45,16 @@ try {
     Assert-T ((Read-BFJson $datePath).observed_at -is [string]) 'ISO date text changed type while reading JSON.'
     [void](Write-BFJson -Path $jsonPath -Value ([ordered]@{ replacement = $true }) -Replace)
     Assert-T ((Get-BFObjectProperty (Read-BFJson $jsonPath) 'replacement') -eq $true) 'Replace publication failed.'
+
+    # The target fits MAX_PATH but the same-directory atomic temporary does not.
+    $longDirectory = New-TDirectory $testRoot ('nested-' + ('x' * 70))
+    $longNameLength = 232 - $longDirectory.Length - 1 - '.json'.Length
+    Assert-T ($longNameLength -gt 0) 'Long-path fixture root is unexpectedly long.'
+    $longPath = Join-Path $longDirectory (('q' * $longNameLength) + '.json')
+    [void](Write-BFJson $longPath @{ value = 1 })
+    [void](Write-BFJson $longPath @{ value = 2 } -Replace)
+    Assert-T ((Read-BFJson $longPath).value -eq 2) 'Atomic replacement failed when the temporary path exceeds MAX_PATH.'
+    Expect-T { Assert-BFSafePath ('\\?\' + $jsonPath) } 'BF_INVALID' 'Caller-supplied device path was accepted.'
 
     foreach ($case in @(
         @{ name = 'duplicate.json'; text = '{"Name":1,"name":2}' },

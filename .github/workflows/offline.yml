@@ -1,0 +1,48 @@
+name: Offline verification
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  engine:
+    runs-on: windows-2025
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Install pinned OpenSpec test dependency
+        shell: pwsh
+        run: |
+          node --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm.cmd install --global @fission-ai/openspec@1.11.0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          openspec.cmd --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Offline package checks
+        shell: pwsh
+        run: ./scripts/Test-BSLFlowPackage.ps1 -PackageRoot .
+
+  cli:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.1'
+          cache: false
+      - name: Build reproducible executable and run Go tests
+        shell: pwsh
+        run: ./scripts/Build-BSLFlowCli.ps1 -Test
+      - name: Native CLI checks without model or database calls
+        shell: pwsh
+        run: ./scripts/Test-BSLFlowCli.ps1

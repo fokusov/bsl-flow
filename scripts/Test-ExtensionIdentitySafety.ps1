@@ -1,4 +1,5 @@
-﻿[CmdletBinding()]
+﻿#Requires -Version 7.0
+[CmdletBinding()]
 param([string]$PackageRoot)
 $ErrorActionPreference = 'Stop'
 if (-not $PackageRoot) { $PackageRoot = Split-Path -Parent $PSScriptRoot }

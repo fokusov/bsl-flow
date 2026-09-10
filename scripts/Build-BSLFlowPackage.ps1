@@ -32,13 +32,14 @@ $zipHashPath = $zipPath + '.sha256'
 $zipParent = Split-Path -Parent $zipPath
 New-Item -ItemType Directory -Path $zipParent -Force | Out-Null
 
-$excludedRootSegments = @('.bsl-flow', 'work', 'outputs')
+$excludedRootSegments = @('.bsl-flow', '.build', 'work', 'outputs')
 $excludedRootFiles = @('AGENTIC_SDLC_PLAN_RU.md')
 $relativePaths = [string[]]@(Get-ChildItem -LiteralPath $root -File -Recurse -Force | Where-Object {
     $relative = $_.FullName.Substring($root.Length + 1)
     $segments = @($relative -split '[\\/]')
     $generatedRootArtifact = $segments.Count -eq 1 -and ($segments[0] -eq 'package-manifest.json' -or $segments[0] -like '*.zip' -or $segments[0] -like '*.zip.sha256')
-    $_.FullName -ne $zipPath -and $_.FullName -ne $zipHashPath -and -not $generatedRootArtifact -and $segments[0] -notin $excludedRootFiles -and $segments[0] -notin $excludedRootSegments -and '.git' -notin $segments
+    $generatedCli = $relative.Replace('\','/') -match '^cli/(?:\.cache/|bin/|internal/resources/(?:bundle\.zip|version\.txt)$)'
+    $_.FullName -ne $zipPath -and $_.FullName -ne $zipHashPath -and -not $generatedRootArtifact -and -not $generatedCli -and $segments[0] -notin $excludedRootFiles -and $segments[0] -notin $excludedRootSegments -and '.git' -notin $segments
 } | ForEach-Object { $_.FullName.Substring($root.Length + 1).Replace('\', '/') })
 if ($relativePaths.Count -eq 0) { throw 'No package files selected.' }
 [Array]::Sort($relativePaths, [StringComparer]::Ordinal)

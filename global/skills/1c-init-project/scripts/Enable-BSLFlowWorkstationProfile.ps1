@@ -1,4 +1,5 @@
-﻿[CmdletBinding()]
+﻿#Requires -Version 7.0
+[CmdletBinding()]
 param(
     [Parameter(Mandatory)][string[]]$DevelopmentDatabasePath,
     [Parameter(Mandatory)][string]$PlatformBin,

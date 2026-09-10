@@ -1,4 +1,5 @@
-﻿Set-StrictMode -Version Latest
+﻿#Requires -Version 7.0
+Set-StrictMode -Version Latest
 
 function Get-BSLFlowSha256 {
     param([Parameter(Mandatory)][string]$Path)
@@ -441,8 +442,7 @@ function Get-BSLFlowJsonFromOpenCodeEvents {
             $candidateText = $outside.Substring($candidateStart, $cursor - $candidateStart + 1)
             $candidateValid = $false
             try {
-                # -NoEnumerate is unavailable in Windows PowerShell 5.1.
-                $candidate = ConvertFrom-Json -InputObject $candidateText -ErrorAction Stop
+                $candidate = ConvertFrom-Json -InputObject $candidateText -NoEnumerate -ErrorAction Stop
                 if ($candidate -is [pscustomobject] -or $candidate -is [array]) {
                     $candidateValid = $true
                     if ($stack.Count -eq 0) { $outsideCandidates.Add($candidate) }
@@ -461,11 +461,9 @@ function Get-BSLFlowJsonFromOpenCodeEvents {
     }
 
     try {
-        # Windows PowerShell 5.1 and PowerShell 7 differ in how a one-item
-        # top-level array is materialized. Reject it lexically before parsing.
+        # The review contract requires an object, including for one-item payloads.
         if ($text.TrimStart().StartsWith('[')) { throw 'Review must be a JSON object.' }
-        # InputObject avoids pipeline enumeration in both PowerShell 5.1 and 7.
-        $parsed = ConvertFrom-Json -InputObject $text -ErrorAction Stop
+        $parsed = ConvertFrom-Json -InputObject $text -NoEnumerate -ErrorAction Stop
         if ($null -eq $parsed -or $parsed.GetType().FullName -ne 'System.Management.Automation.PSCustomObject') {
             throw 'Review must be a JSON object.'
         }

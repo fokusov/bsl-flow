@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.0-dev.1
+
+- Fix Windows CI dependencies with pinned OpenSpec and an isolated package schema; preserve the historical Windows PowerShell 5.1 encoding regression evidence.
+- Go executable with embedded versioned instructions/engine, strict task CLI, verified cache and host identity binding. PowerShell 7 from the standard machine installation `C:\Program Files\PowerShell\7\pwsh.exe`, Git and the model provider remain external dependencies; PS5.1 fallback is not supported.
+- Opt-in bounded source failure diagnosis/repair with frozen declared test inputs, exact failed evidence, fresh independent code review and verification. Defaults preserve fail-stop behavior.
+- Local supervisor for explicitly registered tasks and immutable accepted-source handoff; no implicit startup installation, push, deployment or database authority.
+- JUnit aggregate consistency and read-only diagnosis recovery checks; standalone CLI and updated package verification.
+- Documented remaining 1C runtime, test-environment, business-coverage and applied-delivery gates. This development version does not claim autonomous 1C runtime acceptance.
+- Validated a separately authorized native 1C pilot with two passing YAxUnit cases and retained original JUnit; recorded failed attempts, language-binding and internal-UUID corrections. The local pilot wrapper is not the public managed runtime adapter.
+
 ## 0.7.0-dev.1
 
 - Add the managed `1c-task` package surface and deterministic task lifecycle contracts.

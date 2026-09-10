@@ -1,4 +1,5 @@
-﻿[CmdletBinding(DefaultParameterSetName = 'Json')]
+﻿#Requires -Version 7.0
+[CmdletBinding(DefaultParameterSetName = 'Json')]
 param(
     [Parameter(Mandatory = $true)] [string]$ProjectPath,
     [Parameter(Mandatory = $true)] [string]$RunId,

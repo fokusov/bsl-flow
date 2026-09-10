@@ -1,4 +1,5 @@
-﻿[CmdletBinding()]
+﻿#Requires -Version 7.0
+[CmdletBinding()]
 param(
     [string]$PackageRoot
 )
@@ -70,10 +71,6 @@ Assert-True ($invalidCategoryMessage -eq "Invalid finding category 'completeness
 $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ('bsl-flow-review-reliability-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
 try {
-    $compiler = Get-Command csc.exe -ErrorAction SilentlyContinue
-    if (-not $compiler) {
-        $compilerPath = Get-ChildItem -Path "$env:WINDIR\Microsoft.NET\Framework*" -Filter csc.exe -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
-    } else { $compilerPath = $compiler.Source }
     $sourcePath = Join-Path $tempRoot 'fake-provider.cs'
     $providerPath = Join-Path $tempRoot 'fake-provider.exe'
     $source = @'
@@ -121,10 +118,6 @@ class FakeProvider {
 }
 '@
     [IO.File]::WriteAllText($sourcePath, $source, (New-Object Text.UTF8Encoding($false)))
-    if (-not [string]::IsNullOrWhiteSpace($compilerPath)) {
-        & $compilerPath /nologo /target:exe /out:$providerPath $sourcePath | Out-Null
-    }
-    else {
         $dotnet = Get-Command dotnet.exe -ErrorAction SilentlyContinue
         Assert-True ($null -ne $dotnet) 'dotnet available for fake provider'
         $projectPath = Join-Path $tempRoot 'fake-provider.csproj'
@@ -137,7 +130,6 @@ class FakeProvider {
         $buildOutput = @(& $dotnet.Source build $projectPath '--nologo' '--configuration' 'Release' '--output' $tempRoot)
         if ($LASTEXITCODE -ne 0) { throw "Fake provider build failed: $($buildOutput -join ' ')" }
         $providerPath = Join-Path $tempRoot 'fake-provider.exe'
-    }
     Assert-True ((Test-Path -LiteralPath $providerPath -PathType Leaf)) 'fake provider compiled'
 
     $validSpec = @'

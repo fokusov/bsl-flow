@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 Set-StrictMode -Version Latest
 
 function Assert-BFFields {
@@ -43,10 +44,19 @@ function Assert-BFCriteria {
     if ($Criteria -isnot [array]) { throw 'BF_INVALID: criteria must be an array.' }
     $ids = @()
     foreach ($criterion in $Criteria) {
-        Assert-BFFields $criterion @('id', 'observation', 'kind') @('path', 'contains', 'executable', 'arguments', 'report', 'expected_tests', 'target', 'profile') 'criterion'
+        Assert-BFFields $criterion @('id', 'observation', 'kind') @('path', 'contains', 'executable', 'arguments', 'report', 'expected_tests', 'target', 'profile', 'retry_safe', 'protected_paths') 'criterion'
+        $keys=if($criterion -is [System.Collections.IDictionary]){@($criterion.Keys)}else{@($criterion.PSObject.Properties.Name)}
         if ($criterion.id -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$' -or $criterion.id -in $ids) { throw 'BF_INVALID: criterion ids must be safe and unique.' }
         $ids += $criterion.id
         Assert-BFText $criterion.observation 'criterion.observation'
+        if ($null -ne (Get-BFValue $criterion 'retry_safe') -and (Get-BFValue $criterion 'retry_safe') -isnot [bool]) { throw 'BF_INVALID: criterion.retry_safe must be boolean.' }
+        if('protected_paths' -cin $keys){
+            # Direct property access preserves empty/singleton JSON arrays;
+            # the general value helper streams collection members.
+            $protected=$criterion.protected_paths
+            if($protected -isnot [array] -or $protected.Count -eq 0){throw 'BF_INVALID: protected_paths must be a nonempty array.'}
+            foreach($path in $protected){Assert-BFRelativePath $path;if($path -match '(^|[\\/])\.(bsl-flow|bsl-flow-worker|git)([\\/]|$)'){throw 'BF_INVALID: protected test inputs must be source files, not generated/admin paths.'}}
+        }
         if ($criterion.kind -notin @('file_assertion', 'static', 'unit', 'integration', 'ui', 'external_artifact')) { throw 'BF_INVALID: unsupported criterion kind.' }
         if ($criterion.kind -eq 'file_assertion') {
             Assert-BFRelativePath (Get-BFValue $criterion 'path')
@@ -54,11 +64,11 @@ function Assert-BFCriteria {
         } elseif ($criterion.kind -ne 'external_artifact') {
             Assert-BFText (Get-BFValue $criterion 'executable') 'criterion.executable'
             if (-not [IO.Path]::IsPathRooted($criterion.executable)) { throw 'BF_INVALID: test executable must be absolute.' }
-            if ((Get-BFValue $criterion 'arguments') -isnot [array]) { throw 'BF_INVALID: test arguments must be an array.' }
+            if ('arguments' -cnotin $keys -or $criterion.arguments -isnot [array]) { throw 'BF_INVALID: test arguments must be an array.' }
             foreach ($arg in $criterion.arguments) { if ($arg -isnot [string] -or $arg -match '[\x00\r\n]') { throw 'BF_INVALID: test arguments must be single-line strings.' } }
             Assert-BFRelativePath (Get-BFValue $criterion 'report')
             if ($criterion.report -notmatch '^\.bsl-flow-worker[/\\]') { throw 'BF_INVALID: raw test reports belong under .bsl-flow-worker/ in the worktree.' }
-            if ((Get-BFValue $criterion 'expected_tests') -isnot [array] -or @($criterion.expected_tests).Count -eq 0) { throw 'BF_INVALID: exact expected test names are required.' }
+            if ('expected_tests' -cnotin $keys -or $criterion.expected_tests -isnot [array] -or @($criterion.expected_tests).Count -eq 0) { throw 'BF_INVALID: exact expected test names are required.' }
             if ($criterion.kind -in @('integration','ui')) { Assert-BFText (Get-BFValue $criterion 'target') 'criterion.target' }
         }
     }
@@ -66,7 +76,7 @@ function Assert-BFCriteria {
 
 function Assert-BFRequest {
     param($Request)
-    Assert-BFFields $Request @('schema_version','request_id','prompt','mode','analysis_goal','complexity','risk','impact_flags','criteria','provenance','models') @('source_paths','require_spec_review','require_code_review','max_attempts','timeout_seconds') 'request'
+    Assert-BFFields $Request @('schema_version','request_id','prompt','mode','analysis_goal','complexity','risk','impact_flags','criteria','provenance','models') @('source_paths','require_spec_review','require_code_review','max_attempts','timeout_seconds','max_source_repairs') 'request'
     if ($Request.schema_version -ne 1) { throw 'BF_INVALID: unsupported request schema_version.' }
     Assert-BFUuid $Request.request_id
     Assert-BFText $Request.prompt 'prompt'
@@ -86,6 +96,13 @@ function Assert-BFRequest {
     if ($max -isnot [int] -and $max -isnot [long]) { throw 'BF_INVALID: max_attempts must be an integer.' }
     if ($timeout -isnot [int] -and $timeout -isnot [long]) { throw 'BF_INVALID: timeout_seconds must be an integer.' }
     if ($max -lt 1 -or $max -gt 64 -or $timeout -lt 1 -or $timeout -gt 14400) { throw 'BF_INVALID: execution limits out of range.' }
+    $repairs = Get-BFValue $Request 'max_source_repairs' 0
+    if (($repairs -isnot [int] -and $repairs -isnot [long]) -or $repairs -lt 0 -or $repairs -gt 3) { throw 'BF_INVALID: max_source_repairs must be an integer from 0 to 3.' }
+    if($repairs -gt 0){
+        foreach($criterion in $Request.criteria){
+            if($criterion.kind -in @('static','unit') -and (Get-BFValue $criterion 'retry_safe' $false) -eq $true -and $null -eq (Get-BFValue $criterion 'protected_paths')){throw 'BF_INVALID: repairable command checks require protected_paths covering their test code and fixtures.'}
+        }
+    }
 }
 
 function Assert-BFImpactFlags {
@@ -111,7 +128,7 @@ function Get-BFRoute {
     }
     if ($request.mode -eq 'implement') {
         $route += 'implement'
-        if ($high -or (Get-BFValue $request 'require_code_review' $false)) { $route += 'code_review' }
+        if ($high -or (Get-BFValue $request 'require_code_review' $false) -or (Get-BFValue (Get-BFValue $State 'repair') 'rounds' 0) -gt 0) { $route += 'code_review' }
         $route += 'verify'
     }
     return @($route + 'acceptance')
@@ -119,13 +136,19 @@ function Get-BFRoute {
 
 function Assert-BFState {
     param($State)
-    Assert-BFFields $State @('schema_version','task_id','revision','previous_sha256','project_path','worker_path','baseline','request','request_hash','intent_revision','authorization_revision','intent_hash','policy_hash','policy_files','policy_rules','classification','status','stage','active_attempt','unresolved_effect','attempts','evidence','events','question','blockers','acceptances','created_at','updated_at','correction_rounds') @() 'state'
+    Assert-BFFields $State @('schema_version','task_id','revision','previous_sha256','project_path','worker_path','baseline','request','request_hash','intent_revision','authorization_revision','intent_hash','policy_hash','policy_files','policy_rules','classification','status','stage','active_attempt','unresolved_effect','attempts','evidence','events','question','blockers','acceptances','created_at','updated_at','correction_rounds') @('repair') 'state'
     if ($State.schema_version -ne 1) { throw 'BF_BLOCKED: unsupported state schema.' }
     Assert-BFUuid $State.task_id
     Assert-BFRequest $State.request
     if ($State.request.request_id -ne $State.task_id) { throw 'BF_BLOCKED: request/task identity mismatch.' }
     if ($State.status -notin @('ready','running','needs_input','blocked','failed','completed','cancelled')) { throw 'BF_BLOCKED: invalid state status.' }
-    if ($State.stage -notin @('inspect','spec','spec_review','implement','code_review','verify','acceptance')) { throw 'BF_BLOCKED: invalid state stage.' }
+    if ($State.stage -notin @('inspect','spec','spec_review','implement','code_review','verify','diagnose','acceptance')) { throw 'BF_BLOCKED: invalid state stage.' }
+    $repair=Get-BFValue $State 'repair'
+    if ($null -ne $repair) {
+        Assert-BFFields $repair @('rounds','pending_failure','last_source_sha256','diagnosis_attempt') @() 'repair'
+        if (($repair.rounds -isnot [int] -and $repair.rounds -isnot [long]) -or $repair.rounds -lt 0 -or $repair.rounds -gt 3) { throw 'BF_BLOCKED: invalid source repair count.' }
+        foreach($name in @('pending_failure','diagnosis_attempt')) { if($null -ne $repair.$name){Assert-BFUuid $repair.$name} }
+    }
     foreach ($field in @('attempts','evidence','events','blockers','acceptances','policy_files')) { if ($State.$field -isnot [array]) { throw "BF_BLOCKED: $field must be an array." } }
 }
 
