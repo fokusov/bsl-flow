@@ -23,6 +23,9 @@
 | `cli/internal/delivery` | `Task.Publication.ps1`/`Task.PublicationGit.ps1`/`Task.Delivery.ps1` (target/authorization, publish-resume, unknown-effect, handoff) | ported (domain над GitPort); реальный git-адаптер и CLI wiring pending |
 | `cli/internal/bootstrap` | `Initialize-BSLFlowProject.ps1`/`Update-BSLFlowProject.ps1` (create/merge, comment-preserving) | ported; CLI wiring pending |
 | `cli/internal/release` | `Build-BSLFlowCli.ps1`/`Build-BSLFlowPackage.ps1` (сборка/архивы/чексуммы) | ported (`cmd/bslflow-release`, без PowerShell); интеграция в lanes pending |
+| `cli/internal/worker` | Codex/ProfiledCodex адаптеры: JSONL-события, rollout-identity (`Get-BFObservedModelEffort`), host-result.json, capability gate, sealing | ported (parsing/classification, процессный спавн pending); byte-parity host-result |
+| `cli/internal/counciltransport` | `Council.Transport.ps1` (openai_compatible HTTP: 1 MiB bounds, 60–900s, redirect-отказ, redaction, usage-словарь, observed identity) | ported (18 httptest-loopback тестов); wiring в контроллер pending |
+| `cli/internal/specvalidate` | `Test-1CSpec.ps1` (14 lint-правил) + `Test-1CSpecFinal.ps1` v1/v2 (schema/hash/reconciliation проверки) | ported с byte-parity против реального pwsh (20/20 lint фикстур); 3 правила честно не портированы (ConvertTo-Json digest, policy hash вне скоупа, banker's rounding recompute) — см. doc-comment `ValidateFinal` |
 | `cli/cmd/bslflow-release` | — | новый PowerShell-free сборщик (4 таргета, детерминированные архивы) |
 
 ## Runtime `.ps1` (61 в global/, 63 в scripts/) — замещение по группам
@@ -30,8 +33,8 @@
 | Группа | Файлы | Статус |
 | --- | --- | --- |
 | Task engine/process/stages/gates/contracts | Task.Engine/Process/Stages/Gates/Contracts.ps1 | partial: transitions/gates в Go (repository); исполнение стадий через windows-ps provider |
-| Provider/worker adapters | Task.Provider.ps1, Invoke-BFNativeProvider.ps1, adapters/Codex*.ps1, OpenCode*.ps1 | pending: port structured event parsing/worker dispatch в Go (стадия 4) |
-| Review/council | Invoke-CouncilReview.ps1, Council.*.ps1, Invoke-1CSpecReview.ps1, Review.Common.ps1, Test-1CSpec*.ps1 | partial: council v2 валидация в Go (controller_spec_review); транспорт/линтеры pending |
+| Provider/worker adapters | Task.Provider.ps1, Invoke-BFNativeProvider.ps1, adapters/Codex*.ps1, OpenCode*.ps1 | partial: парсинг/identity/usage/capability в Go (`internal/worker`); процессный спавн и OpenCode pending |
+| Review/council | Invoke-CouncilReview.ps1, Council.*.ps1, Invoke-1CSpecReview.ps1, Review.Common.ps1, Test-1CSpec*.ps1 | partial: council v2 валидация в Go (controller_spec_review); транспорт в Go (`internal/counciltransport`); lint/final правила в Go (`internal/specvalidate`, byte-parity); цикл/budget/admission в контроллере пока за PS |
 | Memory | Task.Memory.ps1, Invoke-BFNativeMemory.ps1, Task.NativeReuse.ps1 | partial: Go memory hooks + canonical journal есть; PS extraction helper в provider |
 | Publication/delivery | Task.Publication*.ps1, Task.Delivery.ps1 | partial: контракты в Go (`internal/delivery`); runtime-исполнение pending |
 | Runner/queue | Task.Runner.ps1, Invoke-BSLFlowTask.ps1 | partial: replay/decisions в Go (`internal/runner`); петля pending |
