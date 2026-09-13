@@ -189,26 +189,110 @@
         "worker": {
           "type": "string"
         },
-        "worker_effort": {
-          "enum": [
-            "low",
-            "medium",
-            "high",
-            "xhigh"
-          ]
-        },
+        "worker_effort": {"type": ["string", "null"]},
         "reviewer": {
           "type": "string"
         },
-        "reviewer_effort": {
-          "enum": [
-            "low",
-            "medium",
-            "high",
-            "xhigh"
-          ]
-        }
+        "reviewer_effort": {"type": ["string", "null"]}
       }
+    },
+    "execution_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "executable", "executable_sha256", "sandbox", "toolset", "denied_read_roots"],
+      "properties": {
+        "provider": {"enum": ["codex", "opencode"]},
+        "codex_skills_sha256": {"$ref": "#/$defs/sha256"},
+        "executable": {"$ref": "#/$defs/executable"},
+        "executable_sha256": {"$ref": "#/$defs/sha256"},
+        "sandbox": {
+          "type": "object", "additionalProperties": false,
+          "required": ["executable", "sha256"],
+          "properties": {
+            "executable": {"$ref": "#/$defs/executable"},
+            "sha256": {"$ref": "#/$defs/sha256"}
+          }
+        },
+        "toolset": {
+          "type": "object", "additionalProperties": false,
+          "required": ["name", "root", "sha256"],
+          "properties": {
+            "name": {"enum": ["unica", "cc-1c-skills"]},
+            "root": {"$ref": "#/$defs/absolute_path"},
+            "sha256": {"$ref": "#/$defs/sha256"}
+          }
+        },
+        "denied_read_roots": {
+          "type": "array", "minItems": 1,
+          "items": {"$ref": "#/$defs/absolute_path"}
+        },
+        "runtime": {
+          "type": "object", "additionalProperties": false,
+          "required": ["executable", "sha256", "version", "packages"],
+          "properties": {
+            "executable": {"$ref": "#/$defs/executable"},
+            "sha256": {"$ref": "#/$defs/sha256"},
+            "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+            "packages": {
+              "type": "array", "minItems": 1, "uniqueItems": true,
+              "contains": {"properties": {"name": {"const": "lxml"}}},
+              "items": {
+                "type": "object", "additionalProperties": false,
+                "required": ["name", "version"],
+                "properties": {
+                  "name": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"},
+                  "version": {"type": "string", "minLength": 1, "maxLength": 64}
+                }
+              }
+            }
+          }
+        },
+        "unica": {
+          "type": "object", "additionalProperties": false,
+          "required": ["plugin_root", "bootstrap_sha256", "manifest_sha256", "runtime_cache", "allowed_tools"],
+          "properties": {
+            "plugin_root": {"$ref": "#/$defs/absolute_path"},
+            "bootstrap_sha256": {"$ref": "#/$defs/sha256"},
+            "manifest_sha256": {"$ref": "#/$defs/sha256"},
+            "runtime_cache": {"$ref": "#/$defs/absolute_path"},
+            "allowed_tools": {
+              "type": "array", "minItems": 1,
+              "items": {"type": "string", "pattern": "^unica\\.(?:(cf|cfe|meta|form|skd|dcs|mxl|role|subsystem|interface|template|code)\\.(info|validate|diff|search|diagnostics|add|edit|remove|compile|init|borrow|patch_method)|project\\.map|code\\.patch)$"}
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"toolset": {"properties": {"name": {"const": "unica"}}}}},
+          "then": {"required": ["unica"]},
+          "else": {"not": {"required": ["unica"]}}
+        },
+        {
+          "if": {"properties": {"provider": {"const": "codex"}}},
+          "then": {"required": ["codex_skills_sha256"]},
+          "else": {"not": {"required": ["codex_skills_sha256"]}}
+        },
+        {
+          "if": {"properties": {"toolset": {"properties": {"name": {"const": "cc-1c-skills"}}}}},
+          "then": {"required": ["runtime"]},
+          "else": {"not": {"required": ["runtime"]}}
+        }
+      ]
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["currency", "limit", "reservation"],
+      "properties": {
+        "currency": {"enum": ["USD"]},
+        "limit": {"type": ["number", "null"], "minimum": 0},
+        "reservation": {"type": "number", "minimum": 0}
+      },
+      "allOf": [{
+        "if": {"properties": {"limit": {"type": "null"}}},
+        "then": {"properties": {"reservation": {"const": 0}}}
+      }]
     },
     "source_paths": {
       "type": "array",
@@ -253,5 +337,36 @@
       "minimum": 1,
       "maximum": 14400
     }
+  },
+  "allOf": [{
+    "if": {
+      "required": ["execution_profile"],
+      "properties": {"execution_profile": {"properties": {"provider": {"const": "opencode"}}}}
+    },
+    "then": {"properties": {"models": {"properties": {
+      "worker": {"const": "deepseek/deepseek-v4-flash"},
+      "reviewer": {"const": "deepseek/deepseek-v4-flash"},
+      "worker_effort": {"type": "null"},
+      "reviewer_effort": {"type": "null"}
+    }}}},
+    "else": {"properties": {"models": {"properties": {
+      "worker": {"pattern": "^[A-Za-z0-9._:-]+$"},
+      "reviewer": {"pattern": "^[A-Za-z0-9._:-]+$"},
+      "worker_effort": {"enum": ["low", "medium", "high", "xhigh"]},
+      "reviewer_effort": {"enum": ["low", "medium", "high", "xhigh"]}
+    }}}}
+  },
+  {
+    "if": {"required": ["execution_profile"]},
+    "then": {"required": ["budget"]}
+  },
+  {
+    "if": {"required": ["budget"]},
+    "then": {"required": ["execution_profile"]}
+  }],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "absolute_path": {"type": "string", "pattern": "^(?:[A-Za-z]:[\\\\/]|[\\\\/]).*"},
+    "executable": {"type": "string", "pattern": "^(?:[A-Za-z]:[\\\\/]|[\\\\/]).*\\.exe$"}
   }
 }

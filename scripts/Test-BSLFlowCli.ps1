@@ -71,6 +71,17 @@ $started=$start.stdout|ConvertFrom-Json
 Assert-Cli ($started.task_id -eq $task -and $started.status -eq 'ready') 'real registered task'
 $status=Invoke-Cli @('task','status','--project',$project,'--task',$task)
 Assert-Cli ($status.code -eq 0 -and ($status.stdout|ConvertFrom-Json).task_id -eq $task) 'native status'
+$context=Invoke-Cli @('task','context','--project',$project,'--task',$task)
+$contextEnvelope=$context.stdout|ConvertFrom-Json
+Assert-Cli ($context.code -eq 0 -and $contextEnvelope.schema_version -eq 1 -and $contextEnvelope.task_id -eq $task) 'native context projection'
+Assert-Cli ($contextEnvelope.next.action -eq 'dispatch' -and $contextEnvelope.next.stage -eq 'inspect') 'context did not repeat the authoritative next action'
+# The embedded runtime bundle intentionally carries only global/ + VERSION, so a
+# missing ADR index must surface as missing_context, never as a silent success.
+$adrIdentity=[string]$contextEnvelope.generated_from.adr_index_sha256
+Assert-Cli ($adrIdentity -match '^[0-9a-f]{64}$' -or $adrIdentity -eq 'missing') 'context has an invalid ADR index identity'
+if($adrIdentity -eq 'missing'){ Assert-Cli ($contextEnvelope.missing_context -contains 'adr-index') 'missing ADR index was not reported as missing_context' }
+$afterContext=Invoke-Cli @('task','status','--project',$project,'--task',$task)
+Assert-Cli (($afterContext.stdout|ConvertFrom-Json).revision -eq ($status.stdout|ConvertFrom-Json).revision) 'context mutated the task revision'
 $bundleRoot=Join-Path $cache ('BSLFlow\bundles\'+$identity.version+'-'+$identity.bundle_sha256)
 $entry=Join-Path $bundleRoot 'global\skills\1c-task\scripts\Invoke-BSLFlowTask.ps1'
 $shell=Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'PowerShell\7\pwsh.exe'
@@ -126,6 +137,77 @@ $blocked=Invoke-Cli @('task','status','--project',$project,'--task',$task)
 Assert-Cli ($blocked.code -eq 11 -and ($blocked.stdout|ConvertFrom-Json).blockers[0] -match 'reparse point') 'Windows junction rejection'
 # Remove only the link, never recurse into its target.
 [IO.Directory]::Delete($junction)
+
+# Public native registry and adoption boundaries. These calls never dispatch a
+# worker: the planned task has no binding and the imported task needs rebind.
+$cardPath=Join-Path $testRoot 'native-card.json'
+[IO.File]::WriteAllText($cardPath,('{"schema_version":1,"title":"Native smoke metadata"}'),$utf8)
+$created=Invoke-Cli @('task','create','--project',$project,'--input',$cardPath)
+Assert-Cli ($created.code -eq 0) "native create: $($created.stdout) $($created.stderr)"
+$card=$created.stdout|ConvertFrom-Json
+$nativeId=[string]$card.task_id
+$canonicalTasks=Join-Path $project '.git\bsl-flow\tasks'
+$nativeTask=Join-Path $canonicalTasks $nativeId
+$plannedRun=Invoke-Cli @('task','run','--project',$project,'--task',$nativeId)
+Assert-Cli ($plannedRun.code -ne 0 -and $plannedRun.stdout -match 'BF_BLOCKED') 'planned task cannot dispatch'
+Assert-Cli (@(Get-ChildItem -LiteralPath (Join-Path $nativeTask 'revisions') -Filter '*.json').Count -eq 1) 'blocked planned run adds no revision'
+Assert-Cli (-not(Test-Path -LiteralPath (Join-Path $project ('.bsl-flow\tasks\'+$nativeId)))) 'native metadata creates no legacy journal'
+$nativeRequest=[ordered]@{};foreach($key in @($request.Keys)){$nativeRequest[$key]=$request[$key]};$nativeRequest.request_id=$nativeId
+$nativeInput=Join-Path $testRoot 'native-request-without-profile.json'
+[IO.File]::WriteAllText($nativeInput,($nativeRequest|ConvertTo-Json -Depth 16),$utf8)
+$invalidActivation=Invoke-Cli @('task','activate','--project',$project,'--task',$nativeId,'--expected-revision','1','--input',$nativeInput)
+Assert-Cli ($invalidActivation.code -ne 0) 'missing explicit native execution profile blocks activation'
+Assert-Cli (@(Get-ChildItem -LiteralPath (Join-Path $nativeTask 'revisions') -Filter '*.json').Count -eq 1) 'invalid activation leaves planned history unchanged'
+
+[IO.File]::WriteAllText($tamper,'tampered',$utf8)
+$metadataWithoutProvider=Invoke-Cli @('task','show','--project',$project,'--task',$nativeId)
+Assert-Cli ($metadataWithoutProvider.code -eq 0) 'native metadata read does not load a damaged provider bundle'
+[IO.File]::WriteAllText($tamper,[IO.File]::ReadAllText((Join-Path $PackageRoot 'VERSION')),$utf8)
+
+$importId=[guid]::NewGuid().ToString()
+$importRequest=[ordered]@{};foreach($key in @($request.Keys)){$importRequest[$key]=$request[$key]};$importRequest.request_id=$importId
+$importInput=Join-Path $testRoot 'legacy-import-request.json'
+[IO.File]::WriteAllText($importInput,($importRequest|ConvertTo-Json -Depth 16),$utf8)
+$importStart=Invoke-Cli @('task','start','--project',$project,'--input',$importInput)
+Assert-Cli ($importStart.code -eq 0) 'legacy import fixture starts without model dispatch'
+$importCancel=Invoke-Cli @('task','cancel','--project',$project,'--task',$importId)
+Assert-Cli ($importCancel.code -eq 0) 'legacy import fixture becomes inactive'
+$legacyImport=Join-Path $project ('.bsl-flow\tasks\'+$importId)
+$prefix=@(Get-ChildItem -LiteralPath (Join-Path $legacyImport 'revisions') -Filter '*.json' | Sort-Object Name | ForEach-Object {
+    [pscustomobject]@{name=$_.Name;sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash}
+})
+$preview=Invoke-Cli @('task','adopt','--project',$project,'--source',$project,'--task',$importId,'--preview')
+Assert-Cli ($preview.code -eq 0) "adopt preview: $($preview.stdout) $($preview.stderr)"
+$plan=$preview.stdout|ConvertFrom-Json
+Assert-Cli ($plan.eligibility.eligible -eq $true) 'inactive valid legacy task is eligible'
+$canonicalImport=Join-Path $canonicalTasks $importId
+Assert-Cli (-not(Test-Path -LiteralPath $canonicalImport)) 'preview publishes no canonical task'
+$planPath=Join-Path $testRoot 'adoption-plan.json'
+[IO.File]::WriteAllText($planPath,$preview.stdout,$utf8)
+$apply=Invoke-Cli @('task','adopt','--project',$project,'--source',$project,'--task',$importId,'--apply','--input',$planPath)
+Assert-Cli ($apply.code -eq 0) "adopt apply: $($apply.stdout) $($apply.stderr)"
+foreach($revisionFile in $prefix){
+    $copied=Join-Path (Join-Path $canonicalImport 'revisions') $revisionFile.name
+    Assert-Cli ((Get-FileHash -LiteralPath $copied -Algorithm SHA256).Hash -eq $revisionFile.sha256) ('adopt preserves original revision bytes '+$revisionFile.name)
+    Assert-Cli ((Get-FileHash -LiteralPath (Join-Path (Join-Path $legacyImport 'revisions') $revisionFile.name) -Algorithm SHA256).Hash -eq $revisionFile.sha256) ('adopt preserves source revision '+$revisionFile.name)
+}
+$importRevisions=@(Get-ChildItem -LiteralPath (Join-Path $canonicalImport 'revisions') -Filter '*.json')
+Assert-Cli ($importRevisions.Count -eq ($prefix.Count+1)) 'adopt appends exactly one continuation'
+$repeatApply=Invoke-Cli @('task','adopt','--project',$project,'--source',$project,'--task',$importId,'--apply','--input',$planPath)
+Assert-Cli ($repeatApply.code -eq 0 -and @(Get-ChildItem -LiteralPath (Join-Path $canonicalImport 'revisions') -Filter '*.json').Count -eq $importRevisions.Count) "adopt repeat: $($repeatApply.stdout) $($repeatApply.stderr)"
+$importRun=Invoke-Cli @('task','run','--project',$project,'--task',$importId)
+Assert-Cli ($importRun.stdout -match 'rebind') 'imported history requires explicit rebind before dispatch'
+Assert-Cli (@(Get-ChildItem -LiteralPath (Join-Path $canonicalImport 'revisions') -Filter '*.json').Count -eq $importRevisions.Count) 'rebind barrier adds no execution revision'
+$refusedLegacy=Invoke-CliProcess $shell @('-NoProfile','-NonInteractive','-File',$entry,'-Action','Cancel','-ProjectPath',$project,'-TaskId',$importId)
+Assert-Cli ($refusedLegacy.code -ne 0 -and ($refusedLegacy.stdout+$refusedLegacy.stderr) -match 'BF_(BLOCKED|CONFLICT)') 'packaged legacy writer refuses canonical ownership'
+Assert-Cli (@(Get-ChildItem -LiteralPath (Join-Path $legacyImport 'revisions') -Filter '*.json').Count -eq $prefix.Count) 'refused legacy write preserves original journal'
+
+# Any existing canonical UUID reserves identity, even a corrupt empty target.
+# The old cancelled task must not become a fallback for this reservation.
+$corruptCanonical=Join-Path $canonicalTasks $task
+[void][IO.Directory]::CreateDirectory($corruptCanonical)
+$noFallback=Invoke-Cli @('task','status','--project',$project,'--task',$task)
+Assert-Cli ($noFallback.code -ne 0 -and ($noFallback.stdout+$noFallback.stderr) -match 'BF_(BLOCKED|CONFLICT|INVALID)') 'corrupt canonical identity never falls back to readable legacy task'
 $summary=[ordered]@{schema_version=1;status='PASS';checks=$script:checks;executable=$Executable;sha256=(Get-FileHash -LiteralPath $Executable -Algorithm SHA256).Hash.ToLowerInvariant();bundle_sha256=$identity.bundle_sha256;evidence_root=$testRoot;runtime_1c='not_run';model_calls=0}
 [IO.File]::WriteAllText((Join-Path $testRoot 'result.json'),($summary|ConvertTo-Json -Depth 8),$utf8)
 $summary|ConvertTo-Json -Depth 8

@@ -1,5 +1,6 @@
 #Requires -Version 7.0
 Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot 'Task.Memory.ps1')
 
 function Get-BFTaskDirectory {
     param([string]$ProjectPath, [string]$TaskId)
@@ -27,6 +28,7 @@ function Get-BFIntentHash {
     $intent=[ordered]@{prompt=$Request.prompt;analysis_goal=$Request.analysis_goal;criteria=$Request.criteria;complexity=$Request.complexity;risk=$Request.risk;impact_flags=$Request.impact_flags;source_paths=@(Get-BFValue $Request 'source_paths' @('.'))}
     if ((Get-BFValue $Request 'max_source_repairs' 0) -gt 0) { $intent.max_source_repairs=$Request.max_source_repairs }
     if(Test-BFCoverageProperty $Request 'requirements'){$intent.requirements=$Request.requirements}
+    if($null -ne (Get-BFValue $Request 'execution_profile')){$intent.execution_profile=$Request.execution_profile;$intent.models=$Request.models}
     return Get-BFHash $intent
 }
 
@@ -109,7 +111,10 @@ function Update-BFTask {
         $previous=@($state.events | Where-Object { $_.input_event_id -eq $Event.input_event_id })
         if ($previous.Count) {
             if ($previous[0].sha256 -ne $hash) { throw 'BF_CONFLICT: input event identity reused with different payload.' }
-            if($Event.kind -eq 'recovery' -and (Get-BFValue (Get-BFValue $Event 'resolution') 'scope') -eq 'native_1c'){[void](Complete-BFNativeRecovery $state $Event.resolution)}
+            if($Event.kind -eq 'recovery') {
+                if((Get-BFValue (Get-BFValue $Event 'resolution') 'scope') -eq 'native_1c') {[void](Complete-BFNativeRecovery $state $Event.resolution)}
+                else {[void](Add-BFMemoryFromRecovery $state $Event.resolution (Get-BFSourceManifest $state) (Get-BFHash $Event.resolution))}
+            }
             return $state
         }
         if ($Event.expected_revision -ne $state.revision) { throw 'BF_CONFLICT: stale expected_revision.' }
@@ -188,6 +193,7 @@ function Update-BFTask {
         Write-BFJson -Path (Join-Path $directory ('inputs/'+$Event.input_event_id+'.json')) -Value $Event
         $state=Save-BFTask $state $state.revision
         if($Event.kind -eq 'recovery' -and $runtimeAttempt){[void](Complete-BFNativeRecovery $state $Event.resolution)}
+        if($Event.kind -eq 'recovery' -and -not $runtimeAttempt){[void](Add-BFMemoryFromRecovery $state $Event.resolution $manifest (Get-BFHash $Event.resolution))}
         return $state
     } finally { $lock.Dispose() }
 }
@@ -217,7 +223,10 @@ function New-BFAttempt {
         $id=[guid]::NewGuid().ToString()
         $attemptPath=Join-Path $directory ('attempts/'+$id)
         $manifest=Get-BFSourceManifest $state
-        $attempt=[ordered]@{schema_version=1;task_id=$state.task_id;attempt_id=$id;stage=$next.stage;intent_revision=$state.intent_revision;authorization_revision=$state.authorization_revision;dependencies=Get-BFDependencies $state $next.stage $manifest;source_manifest=$manifest;worker_path=$state.worker_path;executable=$CodexPath;requested_models=$state.request.models;started_at=[DateTime]::UtcNow.ToString('o');operation_id=$id}
+        # Attempt-bound advisory memory bundle; a memory failure degrades to an
+        # explicit disabled envelope and never blocks the authorized dispatch.
+        $memory=Add-BFMemoryAttemptBinding $state $next.stage
+        $attempt=[ordered]@{schema_version=1;task_id=$state.task_id;attempt_id=$id;stage=$next.stage;intent_revision=$state.intent_revision;authorization_revision=$state.authorization_revision;dependencies=Get-BFDependencies $state $next.stage $manifest;source_manifest=$manifest;worker_path=$state.worker_path;executable=$CodexPath;requested_models=$state.request.models;started_at=[DateTime]::UtcNow.ToString('o');operation_id=$id;memory=$memory}
         $attempt.controller_process=[ordered]@{pid=$PID;start_time_utc=(Get-Process -Id $PID).StartTime.ToUniversalTime().ToString('o')}
         Write-BFJson -Path (Join-Path $attemptPath 'start.json') -Value $attempt
         $state.active_attempt=$id; $state.stage=$next.stage; $state.status='running'; $state.blockers=@(); $state.attempts+=,$id
@@ -257,6 +266,7 @@ function Record-BFAttempt {
         if ($existing.Count) {
             if ($existing[0].result_sha256 -ne $resultHash) { throw 'BF_CONFLICT: conflicting terminal attempt result.' }
             Complete-BFRecordedNativeSuccess $state $AttemptId
+            [void](Add-BFMemoryFromAttempt $state $result $resultHash)
             return $state
         }
         if ($state.active_attempt -ne $AttemptId) { throw 'BF_CONFLICT: attempt is no longer active.' }
@@ -305,6 +315,7 @@ function Record-BFAttempt {
         $state=Save-BFTask $state $state.revision
         if (-not (Test-Path -LiteralPath $recordPath)) { Write-BFJson -Path $recordPath -Value ([ordered]@{attempt_id=$AttemptId;result_sha256=$resultHash;revision=$state.revision}) }
         Complete-BFRecordedNativeSuccess $state $AttemptId
+        [void](Add-BFMemoryFromAttempt $state $result $resultHash)
         return $state
     } finally { $lock.Dispose() }
 }
@@ -327,10 +338,15 @@ function Accept-BFTask {
         $receipt=[ordered]@{schema_version=1;task_id=$TaskId;intent_revision=$state.intent_revision;mode=$state.request.mode;intent_hash=$state.intent_hash;policy_hash=$state.policy_hash;baseline=$state.baseline;source_manifest=$manifest;gates=$gates;verdict='PASS';scope=if ($state.request.mode -eq 'analysis_only') {'analysis'} else {'source-and-declared-checks'} }
         $id=Get-BFHash $receipt; $receiptPath=Join-Path $directory ('acceptance/'+$id+'.json')
         if (-not (Test-Path -LiteralPath $receiptPath)) { Write-BFJson -Path $receiptPath -Value $receipt }
-        if ($state.status -eq 'completed' -and @($state.acceptances).Count -and $state.acceptances[-1].sha256 -eq $id) { return $state }
+        if ($state.status -eq 'completed' -and @($state.acceptances).Count -and $state.acceptances[-1].sha256 -eq $id) {
+            [void](Add-BFMemoryFromAcceptance $state $receipt $id)
+            return $state
+        }
         $state.acceptances+=,[ordered]@{sha256=$id;path=$receiptPath;verdict='PASS';mode=$state.request.mode;intent_revision=$state.intent_revision}
         $state.stage='acceptance'; $state.status='completed'; $state.blockers=@()
-        return Save-BFTask $state $state.revision
+        $state=Save-BFTask $state $state.revision
+        [void](Add-BFMemoryFromAcceptance $state $receipt $id)
+        return $state
     } finally { $lock.Dispose() }
 }
 

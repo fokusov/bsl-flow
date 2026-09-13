@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "review_sha256": "e60ec2c6c19a48207b367df4d4a3ebc68f52a56910bc7a0ee9ffda003631c3fe",
+  "draft_spec_sha256": "a74984ea317de5e0ff0c4ab842ad39243397ba1783dc8d0403cdb7a039a271a6",
+  "final_spec_sha256": "5ca901e005bb7e5df852fea97b932ca568020c9d139794a0cfd7385e6edd456f",
+  "draft_design_sha256": "c7af1b3ff81294804dd0e8d8f74fd350ff125dcde39c0230f4dec98d573587a5",
+  "final_design_sha256": "b9296908a166c9bef6dbce5b347a5f0215f9f83aec0bac37f96e0477108b17cc",
+  "reconciled_at_utc": "2026-09-11T08:01:46Z",
+  "summary": "Приняты три замечания reviewer. Спека сведена к дельте памяти поверх существующих task context, Get-BFNext и Resume-BFAttempt; удалён неопределённый run; зафиксированы закрытые классы знания и риска, canonical key согласованности и запрет считать replay production-подтверждением.",
+  "decisions": [
+    {
+      "finding_id": "R-001",
+      "decision": "accepted",
+      "reason": "Первоначальный текст повторно задавал recovery-поведение и мог привести к параллельной реализации рядом с уже существующим controller contract.",
+      "evidence": "Reviewer сверил spec с task context/Get-BFNext, Resume-BFAttempt, side_effects и unresolved_effect в текущем дереве; исходный запрос требует не смешивать feature с параллельным планом.",
+      "status": "addressed",
+      "resolution": "Требования и design теперь явно потребляют готовые recovery-disposition и добавляют только working set, memory record IDs и attempt-bound bundle hash; добавлен прямой запрет повторной реализации recovery-классификации.",
+      "spec_ref_after": "Требуемое поведение / 2-3; Не делать"
+    },
+    {
+      "finding_id": "R-002",
+      "decision": "accepted",
+      "reason": "Сущность run не определена существующей схемой задачи и не нужна для контракта памяти.",
+      "evidence": "Существующие идентификаторы task_id, revision и attempt_id достаточны для привязки bundle; review не обнаружил поля run в state contract.",
+      "status": "addressed",
+      "resolution": "run удалён; Resume Capsule и bundle привязаны к task_id, revision и attempt_id.",
+      "spec_ref_after": "Требуемое поведение / 2"
+    },
+    {
+      "finding_id": "R-003",
+      "decision": "accepted",
+      "reason": "Без закрытой таксономии и canonical критерия разные реализации могли бы по-разному разрешать автоматическое promotion.",
+      "evidence": "Исходное решение допускает автопродвижение только низкорискового знания, поэтому граница должна быть fail-closed и проверяема schema/unit tests.",
+      "status": "addressed",
+      "resolution": "Добавлены закрытые enum knowledge_class и risk_class, автопродвижение ограничено procedural/low, согласованность определена canonical key, независимость — разными task IDs; replay оставлен только тестовым механизмом.",
+      "spec_ref_after": "Требуемое поведение / 6-7; Неопределённости / 3"
+    }
+  ],
+  "do_not_change_checks": [
+    {
+      "item": "Раздел 'Не делать' (spec 39-48): запрет vector DB/embeddings, межпроектного переноса памяти, саморедактирования нормативных источников моделью, хранения transcript/секретов/CoT, новой task state machine и runtime 1C для проверки — корректен и соответствует границам проекта и исходному запросу.",
+      "decision": "preserved",
+      "reason": "Эти ограничения удерживают feature проектной, детерминированной и нерасширяющей полномочия.",
+      "evidence": "Все перечисленные запреты сохранены в разделе 'Не делать'; добавлен только более строгий запрет дублировать recovery contract."
+    },
+    {
+      "item": "Promotion policy (spec 6-7): интерпретация 'Низкий риск автоматически' как fail-closed автопродвижения только низкорискового процедурного знания с порогом подтверждений и запрещёнными категориями — верна и проверяема.",
+      "decision": "preserved",
+      "reason": "Это прямо реализует выбранный пользователем режим без автоматизации нормативных и высокорисковых решений.",
+      "evidence": "Порог и fail-closed граница сохранены и уточнены закрытыми enum и canonical key."
+    },
+    {
+      "item": "Append-only Experience Ledger + перестраиваемый производный индекс (spec 4, 5, 11): соответствует существующей immutable hash-linked revision-архитектуре (.bsl-flow/tasks/<uuid>/revisions, current.json как производная).",
+      "decision": "preserved",
+      "reason": "Append-only события и rebuildable index сохраняют аудит и совместимы с текущей моделью controller-owned state.",
+      "evidence": "Требования 4, 5 и 11 и соответствующий раздел design не расширялись и не заменялись mutable store."
+    },
+    {
+      "item": "Стратегия проверки (spec 85-93): static/unit/offline integration/smoke без runtime 1С и Computer Use — соразмерна controller-owned локальному состоянию и offline fixtures.",
+      "decision": "preserved",
+      "reason": "Контракты feature локальны controller и не требуют мутации базы 1С или визуальной проверки.",
+      "evidence": "Набор static/unit/integration/smoke сохранён; recovery integration уточнён как неизменность готовых dispositions."
+    },
+    {
+      "item": "Классификация L/high и обязательный independent criticism-only review с reconciliation — согласуется с правилами проекта для L/high-risk спецификаций.",
+      "decision": "preserved",
+      "reason": "Feature затрагивает восстановление, доверие и автоматическое promotion, поэтому L/high остаётся обоснованной.",
+      "evidence": "Классификация spec не изменилась; review.json и этот reconciliation сохранены рядом со change."
+    }
+  ]
+}

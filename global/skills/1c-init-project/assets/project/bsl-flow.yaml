@@ -67,6 +67,31 @@ policy:
   require_independent_review_for_high_risk: true
   max_review_fix_rounds: 1
 
+llm:
+  providers:
+    openai:
+      protocol: openai_responses
+      base_url: https://api.openai.com/v1
+      token_env: OPENAI_API_KEY
+    deepseek:
+      protocol: openai_compatible
+      base_url: https://api.deepseek.com
+      token_env: DEEPSEEK_API_KEY
+
+  models:
+    sol:
+      provider: openai
+      model: gpt-5.6-sol
+      effort: medium
+    astra:
+      provider: openai
+      model: gpt-6-astra
+      effort: high
+    flash:
+      provider: deepseek
+      model: deepseek-flash
+      effort: medium
+
 review:
   enabled: true
 
@@ -76,11 +101,39 @@ review:
     l_default: required
     high_risk_override: required
 
-  reviewer:
-    provider: opencode
-    agent: bsl-flow-spec-reviewer
-    model: deepseek/deepseek-v4-pro
-    variant: high
+  council:
+    enabled: true
+    max_parallel: 2
+    allow_local_http: false
+    # block = explicit legacy opencode config fails with migration blocker.
+    # opencode_compat = separate compatibility route outside the API council.
+    legacy_mode: block
+    roles:
+      brainstorm:
+        enabled: false
+        required: false
+        model: astra
+        fallback: current_agent
+      intent_critic:
+        enabled: true
+        required: true
+        model: flash
+        fallback: current_agent
+      architecture_critic:
+        enabled: true
+        required: true
+        model: flash
+        fallback: current_agent
+      executability_critic:
+        enabled: true
+        required: true
+        model: flash
+        fallback: current_agent
+      chair:
+        enabled: true
+        required: true
+        model: sol
+        fallback: current_agent
 
   permissions:
     # read_search checks project evidence; attached_only is the sealed mode.

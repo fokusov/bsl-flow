@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BSL Flow experience memory index v1",
+  "description": "Derived, deterministically rebuildable projection over the append-only memory event log. Never authoritative; deleting or corrupting it cannot change truth.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project_id", "events_count", "event_files_count", "last_event_seq", "event_files_stamp", "last_event_id", "torn_events", "quarantined_ids", "deprecated_ids", "superseded_ids", "records_sha256", "records"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "project_id": {"type": ["string", "null"]},
+    "events_count": {"type": "integer", "minimum": 0},
+    "event_files_count": {"type": "integer", "minimum": 0},
+    "last_event_seq": {"type": "integer", "minimum": 0},
+    "event_files_stamp": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "last_event_id": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "torn_events": {"type": "array", "items": {"type": "string"}},
+    "quarantined_ids": {"type": "array", "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}},
+    "deprecated_ids": {"type": "array", "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}},
+    "superseded_ids": {"type": "array", "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}},
+    "records_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "records": {
+      "type": "object",
+      "additionalProperties": false,
+      "patternProperties": {
+        "^[0-9a-f]{64}$": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["record_id", "state", "knowledge_class", "risk_class", "scope", "observation", "action", "confirmations", "confirmation_tasks", "contradictions", "superseded_by", "fingerprints", "evidence_count", "first_event_id", "last_event_id", "last_reason", "task_kind", "task_kinds", "error_signatures", "evidence_kinds", "evidence_ref", "provenance"],
+          "properties": {
+            "record_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "state": {"enum": ["candidate", "shadow", "accepted", "quarantined", "superseded", "deprecated"]},
+            "knowledge_class": {"type": "string", "enum": ["procedural", "diagnostic", "business_rule", "authorization", "test_or_waiver", "architecture", "controller_policy", "model_routing", "runtime_or_external_effect"]},
+            "risk_class": {"type": "string", "enum": ["low", "medium", "high"]},
+            "task_kind": {"type": "string", "maxLength": 256},
+            "task_kinds": {"type": "array", "items": {"type": "string", "maxLength": 256}},
+            "error_signatures": {"type": "array", "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}},
+            "evidence_kinds": {"type": "array", "items": {"enum": ["accepted-result", "confirmed-error", "successful-recovery"]}},
+            "evidence_ref": {
+              "type": ["object", "null"],
+              "additionalProperties": false,
+              "required": ["kind"],
+              "properties": {
+                "kind": {"type": "string", "maxLength": 64},
+                "task_id": {"type": ["string", "null"], "maxLength": 256},
+                "attempt_id": {"type": ["string", "null"], "maxLength": 256},
+                "sha256": {"type": ["string", "null"], "maxLength": 256},
+                "policy": {"type": ["string", "null"], "maxLength": 256},
+                "controller": {"type": ["string", "null"], "maxLength": 256},
+                "version": {"type": ["string", "null"], "maxLength": 256}
+              }
+            },
+            "provenance": {"enum": ["", "controller-template", "controller-error"]},
+            "scope": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["stage", "paths"],
+              "properties": {
+                "stage": {"type": ["string", "null"]},
+                "paths": {"type": "array", "items": {"type": "string"}}
+              }
+            },
+            "observation": {"type": ["string", "null"], "maxLength": 512},
+            "action": {
+              "type": ["object", "null"],
+              "additionalProperties": false,
+              "required": ["type", "text"],
+              "properties": {
+                "type": {"enum": ["recommended", "avoid"]},
+                "text": {"type": "string", "maxLength": 256}
+              }
+            },
+            "confirmations": {"type": "integer", "minimum": 0},
+            "confirmation_tasks": {"type": "array", "items": {"type": "string"}},
+            "contradictions": {"type": "integer", "minimum": 0},
+            "superseded_by": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+            "fingerprints": {
+              "type": ["object", "null"],
+              "additionalProperties": false,
+              "required": ["policy", "controller", "version"],
+              "properties": {
+                "policy": {"type": "string"},
+                "controller": {"type": "string"},
+                "version": {"type": "string"},
+                "schema": {"type": "string"},
+                "toolchain": {"type": "string"}
+              }
+            },
+            "evidence_count": {"type": "integer", "minimum": 0},
+            "first_event_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "last_event_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "last_reason": {"type": ["string", "null"], "maxLength": 256}
+          }
+        }
+      }
+    }
+  }
+}

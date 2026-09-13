@@ -148,3 +148,11 @@ Codex adapter сохраняет session ID, requested model/effort и provider 
 **Почему.** Общий `git add/commit/push` может применить filters, отправить лишние файлы или исполнить project config/hooks. Повтор команды после сетевой ошибки не доказывает отсутствие первой записи. Отдельный service или внешний workflow engine не нужны для последовательной локальной поставки.
 
 **Цена.** Поддержанные transport/auth profiles узкие; CI, PR review, production rollout и rollback имеют самостоятельные критерии. Durable `published` фиксирует исторически доказанную отправку и позволяет завершить локальное снятие pending даже при последующей недоступности remote. Подробности — [контракт публикации](PUBLICATION_RU.md).
+
+## ADR-10: архитектурный контекст является производной read-only проекцией
+
+**Решение.** Решено ввести машинно-читаемый индекс ADR, компактный контекст возобновления и выборку применимых решений для этапа. Индекс ссылается на нормативный текст ADR и не копирует его. Проекции строятся из текущего controller state, trusted inputs, OpenSpec, policy, manifests и receipts; включают авторитетный `Get-BFNext`, имеют versioned schema и hashes входов. Они не создают transitions, authorization, acceptance или publication authority.
+
+**Почему.** После паузы агенту нужен короткий проверяемый контекст: состояние задачи, применимые решения, зависимости, отсутствующие данные и следующий разрешённый шаг. Повторное чтение всей документации дорого и склонно к пропуску ограничений, но отдельный архитектурный store или второй state machine разошлись бы с controller. Производная проекция сокращает discovery, сохраняя единственный источник истины.
+
+**Цена.** Индекс и subject mapping становятся частью package contract и требуют validation. Изменение применимого ADR инвалидирует связанный stage bundle; отсутствующая ссылка даёт `missing_context`, а повреждённая — fail-closed, а не молчаливый fallback. Проект может добавить собственный `docs/architecture/adr-index.json` как необязательный project-owned файл: bootstrap его не создаёт, не перезаписывает и не считает managed, а его отсутствие сохраняет прежний fallback. Подробности — [план архитектурного контекста](ARCHITECTURE_CONTEXT_PLAN_RU.md) и [справка bootstrap](../global/skills/1c-init-project/references/architecture-context.md).

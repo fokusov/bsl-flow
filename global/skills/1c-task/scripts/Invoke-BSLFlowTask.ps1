@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidateSet('Start','Status','Next','Run','Record','Update','Accept','Resume','Cancel','Deliver','Serve','Publish','PublishResume')][string]$Action,
+    [Parameter(Mandatory)][ValidateSet('Start','Status','Next','Context','Run','Record','Update','Accept','Resume','Cancel','Deliver','Serve','Publish','PublishResume')][string]$Action,
     [Parameter(Mandatory)][string]$ProjectPath,
     [string]$TaskId,
     [string]$InputFile,
@@ -16,8 +16,11 @@ if (-not [string]::IsNullOrWhiteSpace($env:BSL_FLOW_HOST_PATH)) {
     [Console]::OutputEncoding=New-Object Text.UTF8Encoding($false)
     $OutputEncoding=[Console]::OutputEncoding
 }
-foreach($module in @('Task.Storage.ps1','Task.Contracts.ps1','Task.Gates.ps1','Task.Process.ps1','Task.Engine.ps1','Task.Stages.ps1','Task.Delivery.ps1','Task.Runner.ps1','Task.PublicationGit.ps1','Task.Publication.ps1')){ . (Join-Path $PSScriptRoot $module) }
+foreach($module in @('Task.Storage.ps1','Task.Contracts.ps1','Task.Memory.ps1','Task.Architecture.ps1','Task.Gates.ps1','Task.Process.ps1','Task.Engine.ps1','Task.Stages.ps1','Task.Delivery.ps1','Task.Runner.ps1','Task.PublicationGit.ps1','Task.Publication.ps1')){ . (Join-Path $PSScriptRoot $module) }
 . (Join-Path (Split-Path $PSScriptRoot -Parent) 'adapters/Codex.ps1')
+. (Join-Path (Split-Path $PSScriptRoot -Parent) 'adapters/OpenCode.ps1')
+. (Join-Path (Split-Path $PSScriptRoot -Parent) 'adapters/ProfiledCodex.ps1')
+. (Join-Path $PSScriptRoot 'Task.ManagedReview.ps1')
 
 $code=0;$state=$null;$delivery=$null
 try {
@@ -68,7 +71,11 @@ try {
             default{$state=Read-BFTask $ProjectPath $TaskId}
         }
     }
-    if($Action -notin @('Serve','Publish','PublishResume')){
+    if($Action -eq 'Context'){
+        # Pure read-only projection: it resolves the ADR source and includes
+        # Get-BFNext internally; it writes nothing.
+        $envelope=Get-BFTaskContext $state $ProjectPath
+    } elseif($Action -notin @('Serve','Publish','PublishResume')){
         $next=Get-BFNext $state
         $envelope=New-BFEnvelope $state $next.action @($next.blockers) $next.stage
         if($null -ne $delivery){$envelope.delivery=$delivery}
@@ -79,9 +86,15 @@ try {
 } catch {
     $reason=$_.Exception.Message
     $code=if($reason.StartsWith('BF_INVALID:')){2}elseif($reason.StartsWith('BF_CONFLICT:')){3}elseif($reason.StartsWith('BF_BLOCKED:')){11}elseif($reason.StartsWith('BF_FAIL:')){12}else{4}
-    $envelope=[ordered]@{schema_version=1;task_id=$TaskId;revision=$null;status=if($code -eq 12){'failed'}else{'blocked'};stage=$null;next_action='inspect_blocker';blockers=@($reason);evidence_refs=@()}
+    $stateVar=Get-Variable -Name state -Scope Local -ErrorAction SilentlyContinue
+    if($Action -eq 'Context' -and $null -ne $stateVar -and $null -ne $stateVar.Value){
+        # A Context read error keeps the versioned context-shaped envelope.
+        $envelope=New-BFContextErrorEnvelope $stateVar.Value $reason $ProjectPath
+    } else {
+        $envelope=[ordered]@{schema_version=1;task_id=$TaskId;revision=$null;status=if($code -eq 12){'failed'}else{'blocked'};stage=$null;next_action='inspect_blocker';blockers=@($reason);evidence_refs=@()}
+    }
     # Read-only commands expose corrupted/unavailable state in the envelope, never PASS.
-    if($Action -in @('Status','Next') -and $code -eq 11){$code=0}
+    if($Action -in @('Status','Next','Context') -and $code -eq 11){$code=0}
 }
 Write-Output ($envelope|ConvertTo-Json -Depth 64 -Compress)
 if($null -ne (Get-Variable BFNativeCredential -Scope Script -ErrorAction SilentlyContinue)){

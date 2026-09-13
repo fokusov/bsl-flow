@@ -33,6 +33,10 @@ function New-RInventory([string]$Target,[string]$SelectedVersion='1',[string]$Ot
 function New-ReuseFixture([string]$Name){
     $project=Join-Path $script:root ('project/'+$Name);$taskId=[guid]::NewGuid().ToString();$prior=[guid]::NewGuid().ToString();$target=Join-Path $script:root ('target/'+$Name);[void][IO.Directory]::CreateDirectory($target)
     $task=Get-BFTaskDirectory $project $taskId;$attempt=Join-Path $task ('attempts/'+$prior);$raw=Join-Path $attempt 'raw/native';[void][IO.Directory]::CreateDirectory($raw)
+    # The storage fence verifies task-path writes against a Git worktree root;
+    # give the fixture project a repository like every real task project has.
+    $null=& git -C $project init 2>&1
+    if($LASTEXITCODE -ne 0){throw 'native reuse fixture repository was not created.'}
     $native=[ordered]@{source_root='src/ext';extension='Ext';module='FixtureModule';platform_version='8.3.27.2074';executable_sha256=('d'*64);authorized_operations=@('inventory','test');authorization_reference='fixture';reuse_load_attempt=$prior}
     $criterion=[ordered]@{id='native';kind='integration';target=$target;expected_tests=@('FixtureModule.ExactCase');native_1c=$native}
     $request=[ordered]@{schema_version=1;kind='bsl-flow.native-1c-request';task_id=$taskId;attempt_id=$prior;criterion_id='native';target=$target;target_key='fixture';source=[ordered]@{extension='Ext';version='1';uuid=$script:source.uuid;sha256=$script:source.sha256};operations=@('inventory','load','update','test');expected_tests=@('FixtureModule.ExactCase')}

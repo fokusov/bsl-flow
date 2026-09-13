@@ -1,0 +1,257 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bsl-flow.local/schemas/council-review-v2.json",
+  "title": "bsl-flow council review (schema v2)",
+  "description": "Sanitized council provenance built by the controller. No tokens, headers, raw prompts or raw provider responses.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "reviewed_at_utc",
+    "council_schema_version",
+    "verdict",
+    "diversity",
+    "fallback_visible",
+    "inputs",
+    "manifest",
+    "members",
+    "findings",
+    "protected",
+    "questions",
+    "chair",
+    "reconciliation",
+    "gate"
+  ],
+  "properties": {
+    "schema_version": { "const": 2 },
+    "reviewed_at_utc": { "type": "string", "format": "date-time" },
+    "council_schema_version": { "const": 1 },
+    "verdict": { "enum": ["PASS", "REVISE", "BLOCK", "needs_input"] },
+    "diversity": { "enum": ["multi_model", "multi_role_single_model", "degraded", "unknown"] },
+    "fallback_visible": { "type": "boolean" },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["original_task_sha256", "spec_sha256", "design_sha256", "policy_hash"],
+      "properties": {
+        "original_task_sha256": { "$ref": "#/$defs/sha256" },
+        "spec_sha256": { "$ref": "#/$defs/sha256" },
+        "design_sha256": { "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+        "policy_hash": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "requirements"],
+      "properties": {
+        "version": { "const": 1 },
+        "requirements": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "source_hash", "draft_ref"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^REQ-[0-9]{3,}$" },
+              "source_hash": { "$ref": "#/$defs/sha256" },
+              "draft_ref": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "members": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["schema_version", "role", "attempt_id", "status", "summary", "requested", "observed", "execution_mode", "input_hashes", "payload_sha256", "cost_state"],
+        "properties": {
+          "role": { "enum": ["brainstorm", "intent_critic", "architecture_critic", "executability_critic", "chair"] },
+          "schema_version": { "const": 1 },
+          "attempt_id": { "type": "string", "minLength": 1 },
+          "summary": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["completed", "failed_before_acceptance", "unknown_after_dispatch", "cancelled", "invalid_response"] },
+          "requested": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["provider", "model", "effort"],
+            "properties": {
+              "provider": { "type": "string", "minLength": 1 },
+              "model": { "type": "string", "minLength": 1 },
+              "effort": { "type": "string", "minLength": 1 }
+            }
+          },
+          "observed": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["provider", "model", "effort"],
+            "properties": {
+              "provider": { "type": ["string", "null"] },
+              "model": { "type": ["string", "null"] },
+              "effort": { "type": ["string", "null"] }
+            }
+          },
+          "execution_mode": { "enum": ["direct_api", "current_agent_fallback"] },
+          "fallback_reason": { "type": ["string", "null"] },
+          "input_hashes": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["original_task_sha256", "spec_sha256"],
+            "properties": {
+              "original_task_sha256": { "$ref": "#/$defs/sha256" },
+              "spec_sha256": { "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] }
+            }
+          },
+          "payload_sha256": { "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+          "usage": {
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "required": ["input_tokens", "output_tokens", "reasoning_tokens"],
+            "properties": {
+              "input_tokens": { "type": ["integer", "null"], "minimum": 0 },
+              "output_tokens": { "type": ["integer", "null"], "minimum": 0 },
+              "reasoning_tokens": { "type": ["integer", "null"], "minimum": 0 }
+            }
+          },
+          "cost_state": { "enum": ["unknown", "provider_usage_reported", "no_usage_reported", null] },
+          "dispatched_at_utc": { "type": ["string", "null"], "format": "date-time" },
+          "completed_at_utc": { "type": ["string", "null"], "format": "date-time" }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["composite_id", "role", "id", "severity", "category", "spec_ref", "issue", "evidence", "suggested_direction"],
+        "properties": {
+          "composite_id": { "type": "string", "pattern": "^(brainstorm|intent_critic|architecture_critic|executability_critic):F-[0-9]{3,}$" },
+          "role": { "enum": ["brainstorm", "intent_critic", "architecture_critic", "executability_critic"] },
+          "id": { "type": "string", "pattern": "^F-[0-9]{3,}$" },
+          "severity": { "enum": ["blocker", "high", "medium", "low"] },
+          "category": { "enum": ["intent_drift", "missing_requirement", "unsupported_assumption", "overengineering", "architecture_fit", "testability", "clarity", "prompt_injection"] },
+          "spec_ref": { "type": "string", "minLength": 1 },
+          "issue": { "type": "string", "minLength": 1 },
+          "evidence": { "type": "string", "minLength": 1 },
+          "suggested_direction": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "protected": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["composite_id", "role", "item"],
+        "properties": {
+          "composite_id": { "type": "string", "minLength": 1 },
+          "role": { "enum": ["brainstorm", "intent_critic", "architecture_critic", "executability_critic"] },
+          "item": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "text"],
+        "properties": {
+          "role": { "enum": ["brainstorm", "intent_critic", "architecture_critic", "executability_critic"] },
+          "text": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "chair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verdict", "decisions", "protected_decisions", "requirement_refs", "final_spec_text"],
+      "properties": {
+        "verdict": { "enum": ["PASS", "REVISE", "BLOCK", "needs_input"] },
+        "final_spec_text": { "type": "string", "minLength": 1 },
+        "final_design_text": { "type": ["string", "null"] },
+        "decisions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["composite_id", "decision", "reason", "evidence", "resolution"],
+            "properties": {
+              "composite_id": { "type": "string", "minLength": 1 },
+              "decision": { "enum": ["accepted", "rejected", "partially_accepted"] },
+              "reason": { "type": "string", "minLength": 1 },
+              "evidence": { "type": "string", "minLength": 1 },
+              "resolution": { "type": "string", "minLength": 1 },
+              "accepted_scope": { "type": "string" },
+              "rejected_scope": { "type": "string" },
+              "resolution_refs": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        },
+        "protected_decisions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["composite_id", "decision", "reason", "evidence"],
+            "properties": {
+              "composite_id": { "type": "string", "minLength": 1 },
+              "decision": { "enum": ["preserved", "rejected"] },
+              "reason": { "type": "string", "minLength": 1 },
+              "evidence": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "requirement_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "final_refs"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^REQ-[0-9]{3,}$" },
+              "final_refs": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "reconciliation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["review_sha256", "draft_spec_sha256", "final_spec_sha256"],
+      "properties": {
+        "review_sha256": { "$ref": "#/$defs/sha256" },
+        "draft_spec_sha256": { "$ref": "#/$defs/sha256" },
+        "final_spec_sha256": { "$ref": "#/$defs/sha256" },
+        "draft_design_sha256": { "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+        "final_design_sha256": { "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["structural_only", "passed"],
+      "properties": {
+        "structural_only": { "const": true },
+        "passed": { "type": "boolean" }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

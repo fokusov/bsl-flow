@@ -32,3 +32,9 @@
 - E: реализовано восстановление событий из полного журнала и уведомление об ожидании ответа. Прежние 16 проверок, публичный CLI-пилот и финальные 20 регрессий PASS. Независимое review закрыто; проверены quiet snapshot, строгий формат журнала и отсутствие повторного dispatch после durable execution_error.
 - F: Git module и controller интегрированы. Helper 18 PASS, controller 39 PASS на реальном локальном bare remote; независимое ревью закрыто. Публичный CLI publish/publish-resume: 9 PASS, один реальный локальный push; общий native CLI smoke: 23 PASS. GitHub HTTPS ещё не прошёл отдельный пилот.
 - G: полный offline suite неизменяемого snapshot C PASS. Все обязательные локальные проверки объединённой версии закрыты основным прогоном и адресными продолжениями после двух исправлений тестового harness. Независимое ревью F закрыто, поставляемый Go CLI воспроизводим и прошёл 23 smoke-проверки. Полный чистый CI привязан к публикуемому commit; его результат проверяется отдельно.
+
+## Обновление 2026-09-13: native activation/adoption инкремент
+
+После статуса выше принят и заморожен отдельный инкремент managed SDLC (Go controller + stateless Windows PowerShell provider: activate/adopt/rebind, маршруты S/M/repair, Council v2, memory bridge). Offline-приёмка зафиксирована в `openspec/changes/native-task-activation-adoption/verification.md`; freeze r6 — lanes package/extras/cli exit=0, воспроизводимые ZIP и exe с SHA-256.
+
+Не изменилось: GitHub HTTPS без отдельного живого пилота (F); полный чистый CI по-прежнему привязан к публикуемому коммиту — commit/push рабочего diff не выполнялись, результат удалённого CI проверяется после решения о публикации (G); live Astra council — 0/4, preflight требует запуска из Codex-хоста (fail-closed из внешней среды подтверждён 2026-09-13); настоящий Codex sandbox denial — environmental BLOCKED.

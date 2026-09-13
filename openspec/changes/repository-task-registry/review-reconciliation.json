@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "review_sha256": "2705fe8d44ee30454f55887f9183aa5fb61fa574191fd78b9b2d380aa3fe48c7",
+  "draft_spec_sha256": "984b461dcaf00cff958f1c93b64abc53cfbc06431f009bedb431bb69e4452ef8",
+  "final_spec_sha256": "3a5b72cf09c8670bbe5025607ab45eb87f138e9367ed8febea393b09badb3106",
+  "draft_design_sha256": "9205f6338c6cc7a41ad25e7903652bc057f6992c328a4a8c16590675006af885",
+  "final_design_sha256": "8f7d5993631a46130aac5c402b9f8816099ac3d63832e2b2a7c186b2dae72968",
+  "reconciled_at_utc": "2026-09-11T16:46:00Z",
+  "summary": "All six findings accepted as valid scope/clarity corrections; no blocker. Remediation order: (1) R-002+R-005 scope the dependency pre-dispatch gate and freshness predicate out of this version; (2) R-003 scope legacy adoption out and keep read-only discovery; (3) R-001 make the derived catalog index non-mandatory and never a read source; (4) R-004 drop the six-step durability/unknown-commit protocol from design and rely on AtomicWrite plus torn-journal detection; (5) R-006 document the exit-code contract and envelope fields in §14. Minimal targeted edits only; every do_not_change item preserved.",
+  "decisions": [
+    {
+      "finding_id": "R-001",
+      "decision": "accepted",
+      "reason": "Correct. The original task requires only viewing tasks; it has no volume or performance requirement. The spec mandated a derived catalog index with cache/rebuild semantics while all read commands derive from journals, so the index was a write-only artifact with durability obligations and no reader.",
+      "evidence": "original-task.md lists only catalog scope, local-only data, planned tasks and read commands. Implementation confirms the read path rebuilds from journals (cli/internal/repository/catalog.go Catalog) and the index is never read back.",
+      "status": "addressed",
+      "resolution": "§16 rewritten: read commands derive from authoritative journals; catalog/index.json is not a mandatory artifact, is never a read source, and its absence or corruption does not affect reads. Design 'Команды и read model' updated to match.",
+      "spec_ref_after": "Требуемое поведение / 16"
+    },
+    {
+      "finding_id": "R-002",
+      "decision": "accepted",
+      "reason": "Correct. The original task names dependencies only as a planned-task v1 metadata field. §7 converted that into a controller-owned pre-dispatch execution gate that changes runner behavior and cannot be exercised until the native controller capability exists.",
+      "evidence": "original-task.md: 'planned-задача первой версии содержит title, description, priority, labels и dependencies' with no execution semantics. commands.go activate returns BF_BLOCKED in this milestone.",
+      "status": "addressed",
+      "resolution": "§7 rewritten: depends_on stays metadata; pre-dispatch gate, effective-completed/stale classification and attempt binding are explicitly deferred to the native controller write-slice specification; run does not use depends_on in this version. Design 'Dependencies' updated accordingly.",
+      "spec_ref_after": "Требуемое поведение / 7"
+    },
+    {
+      "finding_id": "R-003",
+      "decision": "accepted",
+      "reason": "Correct. The original task does not request legacy migration. The full adoption machinery (portable artifact manifest, immutable segment, lineage receipts, routing manifest) exceeds scope and its apply path is staged unimplemented; read-only discovery alone prevents data loss.",
+      "evidence": "original-task.md has no migration requirement. commands.go commandAdopt returns BF_BLOCKED for --apply; main.go help marks adopt --apply as staged BLOCKED.",
+      "status": "addressed",
+      "resolution": "§17/§18 scoped to read-only legacy discovery, fail-closed UUID conflict and bytes preservation; adoption deferred to a separate specification and adopt performs no canonical-store write. Design renamed 'Legacy discovery' and adoption detail removed.",
+      "spec_ref_after": "Требуемое поведение / 17"
+    },
+    {
+      "finding_id": "R-004",
+      "decision": "accepted",
+      "reason": "Correct. The design's explicit six-step durability protocol with commit_outcome=unknown reconciliation describes a crash scenario the task never raises, while AtomicWrite already performs write/fsync/rename/directory-sync and torn journals are surfaced by §15.",
+      "evidence": "storage.go AtomicWrite implements atomic publish with file fsync and directory sync; original-task.md contains no crash-durability requirement.",
+      "status": "addressed",
+      "resolution": "Design 'Concurrency и recovery' rewritten to rely on the existing AtomicWrite primitive and torn/conflicting-journal detection; the unknown-commit reconciliation protocol and unknown-temp retention are removed.",
+      "spec_ref_after": "design / Concurrency и recovery"
+    },
+    {
+      "finding_id": "R-005",
+      "decision": "accepted",
+      "reason": "Correct. 'Fresh effective completed' and 'stale-completed' were used as acceptance-relevant predicates with no observable definition, so the dispatch criterion was not objectively implementable. This is resolved together with its only in-scope consumer (R-002).",
+      "evidence": "§7 and §18 used the terms without a predicate; the original task does not require dispatch gating at all.",
+      "status": "addressed",
+      "resolution": "§7 drops fresh-effective-completed/stale-completed as undefined for this version; §18 now defines the only retained notion as an observable diagnostic: a record that references an absolute live input that no longer exists is marked stale|orphaned, without changing historical status or acting as a gate.",
+      "spec_ref_after": "Требуемое поведение / 18"
+    },
+    {
+      "finding_id": "R-006",
+      "decision": "accepted",
+      "reason": "Correct. §14 claimed documented exit contracts and the verification section claimed closed schemas, but neither the numeric exit codes nor the read/write envelope field shapes appeared in the specification body.",
+      "evidence": "Exit codes existed only in code (commands.go writeError: BF_INVALID=2, otherwise 11); §14 contained no schema or exit table.",
+      "status": "addressed",
+      "resolution": "§14 now fixes schema_version=1, lists write-command and read-command envelope fields, and documents the exit-code contract 0/2/11 with the BF_INVALID/BF_BLOCKED/BF_CONFLICT classes.",
+      "spec_ref_after": "Требуемое поведение / 14"
+    }
+  ],
+  "do_not_change_checks": [
+    {
+      "item": "§1 — resolving a single clone-local store from the verified git common dir shared by all worktrees is the correct, directly required mechanism for the whole-repo/worktree scope.",
+      "decision": "preserved",
+      "reason": "The original task requires a catalog covering the whole repository and all worktrees; the common-dir store remains the directly required mechanism.",
+      "evidence": "§1 unchanged; design 'Repository и worktree boundary' still resolves the store from the verified git common dir with clone_id identity."
+    },
+    {
+      "item": "§2 — keeping the immutable hash-linked journal as the single source of truth and making catalog/overview/index derived data that cannot authorize execution/acceptance preserves the existing architecture and recovery semantics.",
+      "decision": "preserved",
+      "reason": "The R-001 revision keeps journals authoritative and explicitly makes the index non-authoritative, strengthening this principle rather than weakening it.",
+      "evidence": "§2 and §23 unchanged; revised §16 states read commands derive from authoritative journals and the index is never a read source."
+    },
+    {
+      "item": "§3 — the planned-task v1 field set (title/description/priority/labels/depends_on) and the explicit exclusions (milestones, assignee, comments, due dates, custom fields) are correct minimal scoping.",
+      "decision": "preserved",
+      "reason": "The field set and exclusions match the original task and were not touched by any accepted finding.",
+      "evidence": "§3 and the 'Не делать' section are unchanged; §7 edits concern execution semantics, not the field set."
+    },
+    {
+      "item": "§6 — treating archived as a presentation flag that never alters next_action/acceptance/recovery/dependency result is correct and prevents a subtle execution-status bug.",
+      "decision": "preserved",
+      "reason": "Archive-as-presentation-flag remains correct and is independent of the reverted dependency-gate scope.",
+      "evidence": "§6 unchanged; tests assert archiving preserves lifecycle (repository_test.go TestArchiveAndUnarchiveArePresentationFlags)."
+    },
+    {
+      "item": "§15 — corrupt/torn/conflicting journals must surface as diagnostic entries without hiding other tasks; this is a correct robustness requirement.",
+      "decision": "preserved",
+      "reason": "Corrupt-journal diagnostics remain a required robustness property and are now also the mechanism that replaces the removed unknown-commit protocol.",
+      "evidence": "§15 unchanged; revised design 'Concurrency и recovery' explicitly relies on torn/conflicting-journal detection; TestCorruptTaskIsDiagnosticNotFatal covers it."
+    },
+    {
+      "item": "§19 + design 'Security и privacy' — redacting prompts/evidence/credentials from list/overview and using allowlisted projections is justified because existing controller journals store raw prompts and evidence.",
+      "decision": "preserved",
+      "reason": "Redaction remains necessary because legacy journals contain raw prompts/evidence, independent of the adoption scope reduction.",
+      "evidence": "§19 unchanged; legacy.go reads request.prompt only to derive a safe display title; list/show project allowlisted fields."
+    },
+    {
+      "item": "'Не делать' section — no Markdown-per-task storage, no SQL/daemon/second database, no tasks.md, no automatic deletion of completed tasks, no automatic dependency execution; these correctly constrain scope.",
+      "decision": "preserved",
+      "reason": "All non-goals still hold; deferring the dependency gate and adoption is consistent with 'no automatic dependency execution' and no second database.",
+      "evidence": "'Не делать' section unchanged; no accepted finding required altering it."
+    }
+  ]
+}

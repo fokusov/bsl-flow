@@ -1,4 +1,4 @@
-﻿#Requires -Version 7.0
+#Requires -Version 7.0
 Set-StrictMode -Version Latest
 
 function Get-BSLFlowSha256 {
@@ -109,7 +109,9 @@ function Get-BSLFlowAllowedFindingCategories {
     return @(
         'intent_drift',
         'missing_requirement',
+        'lost_requirement',
         'unsupported_assumption',
+        'scope_creep',
         'overengineering',
         'architecture_fit',
         'testability',
@@ -271,6 +273,28 @@ function Assert-BSLFlowReviewReconciliationPayload {
         foreach ($name in @('item', 'reason', 'evidence')) { Assert-BSLFlowText $check.$name "reconciliation.do_not_change_checks.$name" }
         if ($check.decision -notin @('preserved', 'rejected')) { throw "Invalid do_not_change decision: $($check.item)" }
     }
+}
+
+function Get-BSLFlowReviewPolicy {
+    param([AllowEmptyString()][string]$ConfigText)
+    $readMode=Get-BSLFlowYamlValue $ConfigText @('review','permissions','project_read_mode') 'read_search'
+    if($readMode -notin @('read_search','attached_only')){throw "Invalid project_read_mode: $readMode"}
+    foreach($forbidden in @('edit','shell','subagents','web','external_directory')){
+        if(ConvertTo-BSLFlowBoolean (Get-BSLFlowYamlValue $ConfigText @('review','permissions',$forbidden) 'false') "review.permissions.$forbidden"){throw "Unsafe reviewer permission cannot be enabled: $forbidden"}
+    }
+    $culture=[Globalization.CultureInfo]::InvariantCulture
+    $policy=[ordered]@{
+        ReadMode=$readMode
+        PassWeightedScore=[double]::Parse((Get-BSLFlowYamlValue $ConfigText @('review','thresholds','pass_weighted_score') '4.3'),$culture)
+        BlockBelowWeightedScore=[double]::Parse((Get-BSLFlowYamlValue $ConfigText @('review','thresholds','block_below_weighted_score') '3.5'),$culture)
+        MaxOverengineeringIndexForPass=[int]::Parse((Get-BSLFlowYamlValue $ConfigText @('review','thresholds','max_overengineering_index_for_pass') '1'),$culture)
+        MaxUnjustifiedRatioForPass=[double]::Parse((Get-BSLFlowYamlValue $ConfigText @('review','thresholds','max_unjustified_ratio_for_pass') '0'),$culture)
+    }
+    if($policy.PassWeightedScore -lt 1 -or $policy.PassWeightedScore -gt 5 -or $policy.BlockBelowWeightedScore -lt 1 -or $policy.BlockBelowWeightedScore -gt 5){throw 'Review score thresholds must be between 1 and 5.'}
+    if($policy.BlockBelowWeightedScore -gt $policy.PassWeightedScore){throw 'block_below_weighted_score must not exceed pass_weighted_score.'}
+    if($policy.MaxOverengineeringIndexForPass -lt 0){throw 'max_overengineering_index_for_pass must not be negative.'}
+    if($policy.MaxUnjustifiedRatioForPass -lt 0 -or $policy.MaxUnjustifiedRatioForPass -gt 1){throw 'max_unjustified_ratio_for_pass must be between 0 and 1.'}
+    return $policy
 }
 
 function Complete-BSLFlowReview {
@@ -470,4 +494,14 @@ function Get-BSLFlowJsonFromOpenCodeEvents {
         return $parsed
     }
     catch { throw "OpenCode text was not one JSON object: $($_.Exception.Message)" }
+}
+
+function Get-BSLFlowBoundedUtf8Snapshot {
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][int]$MaxBytes)
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    if ($bytes.Length -gt $MaxBytes) { throw "Review input exceeds $MaxBytes bytes: $Path" }
+    $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
+    try { $text = $utf8.GetString($bytes) }
+    catch { throw "Review input is not valid UTF-8: $Path" }
+    return [pscustomobject]@{ Bytes = $bytes; Text = $text; Sha256 = Get-BSLFlowBytesSha256 $bytes }
 }

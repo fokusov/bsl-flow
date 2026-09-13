@@ -26,6 +26,21 @@ $versionPath = Join-Path $root 'VERSION'
 if (-not (Test-Path -LiteralPath $versionPath -PathType Leaf)) { throw "VERSION not found: $versionPath" }
 $version = (Get-Content -Raw -LiteralPath $versionPath).Trim()
 if ($version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$') { throw "Invalid package VERSION: $version" }
+
+# Stage A: the ADR index is validated and bound into the package identity.
+# A damaged index link fails the build before any archive is produced.
+$architectureScripts = Join-Path $root 'global/skills/1c-task/scripts'
+. (Join-Path $architectureScripts 'Task.Storage.ps1')
+. (Join-Path $architectureScripts 'Task.Architecture.ps1')
+$adrIndexRelative = 'docs/architecture/adr-index.json'
+$adrSchemaRelative = 'docs/architecture/adr-index.schema.json'
+$adrSourceRelative = 'docs/ARCHITECTURE_RU.md'
+foreach ($relative in @($adrIndexRelative, $adrSchemaRelative, $adrSourceRelative)) {
+    if (-not (Test-Path -LiteralPath (Join-Path $root $relative) -PathType Leaf)) { throw "Missing architecture file: $relative" }
+}
+$adrIndex = Read-BFArchitectureIndex $root
+Assert-BFADRIndex $adrIndex $root | Out-Null
+$adrIndexCanonical = Get-BFArchitectureIndexHash $adrIndex
 if ([string]::IsNullOrWhiteSpace($OutputPath)) { $OutputPath = Join-Path $root "outputs\BSL-Flow-$version.zip" }
 $zipPath = [IO.Path]::GetFullPath($OutputPath)
 $zipHashPath = $zipPath + '.sha256'
@@ -48,10 +63,22 @@ $manifestFiles = foreach ($relative in $relativePaths) {
     $file = Get-Item -LiteralPath (Join-Path $root $relative)
     [ordered]@{ path = $relative; size_bytes = [int64]$file.Length; sha256 = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
 }
+if ($relativePaths -notcontains $adrIndexRelative -or $relativePaths -notcontains $adrSchemaRelative -or $relativePaths -notcontains $adrSourceRelative) {
+    throw 'Architecture files are missing from the package file inventory.'
+}
 $manifest = [ordered]@{
     schema_version = 1
     package = 'bsl-flow'
     version = $version
+    architecture = [ordered]@{
+        adr_index_path = $adrIndexRelative
+        adr_index_sha256 = (Get-FileHash -LiteralPath (Join-Path $root $adrIndexRelative) -Algorithm SHA256).Hash.ToLowerInvariant()
+        adr_index_canonical_sha256 = $adrIndexCanonical
+        adr_schema_path = $adrSchemaRelative
+        adr_schema_sha256 = (Get-FileHash -LiteralPath (Join-Path $root $adrSchemaRelative) -Algorithm SHA256).Hash.ToLowerInvariant()
+        adr_source_path = $adrSourceRelative
+        adr_source_sha256 = (Get-FileHash -LiteralPath (Join-Path $root $adrSourceRelative) -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
     files = @($manifestFiles)
 }
 $utf8 = [Text.UTF8Encoding]::new($false)

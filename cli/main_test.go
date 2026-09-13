@@ -3,11 +3,14 @@ package main
 import (
 	"archive/zip"
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+
+	"bsl-flow/cli/internal/repository"
 )
 
 const testID = "01234567-89ab-4cde-8123-0123456789ab"
@@ -83,6 +86,91 @@ func TestStrictCLI(t *testing.T) {
 	}
 }
 
+func TestExplicitEngineSelectionIsValidatedAndNotForwardedToLegacy(t *testing.T) {
+	for _, engine := range []string{"native", "legacy-powershell"} {
+		args := []string{"task", "run", "--project", `C:\project`, "--task", testID, "--engine", engine}
+		in, err := parse(args)
+		if err != nil {
+			t.Fatalf("%s: %v", engine, err)
+		}
+		argv, err := engineArgs(in, `C:\cache`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, value := range argv {
+			if value == "--engine" || value == engine {
+				t.Fatalf("engine selection leaked to legacy argv: %q", argv)
+			}
+		}
+	}
+	for _, args := range [][]string{
+		{"task", "run", "--project", ".", "--task", testID, "--engine", "powershell"},
+		{"task", "start", "--project", ".", "--input", "request.json", "--engine", "native"},
+		{"runner", "run", "--project", ".", "--input", "runner.json", "--engine", "native"},
+	} {
+		if _, err := parse(args); err == nil {
+			t.Fatalf("accepted unsupported engine selection: %q", args)
+		}
+	}
+}
+
+func TestProviderJSONRejectsDuplicateMembersAndTrailingDocuments(t *testing.T) {
+	for _, input := range []string{
+		`{"schema_version":1,"Schema_Version":1}`,
+		`{"nested":{"key":1,"key":2}}`,
+		`{"ok":true}{"extra":true}`,
+	} {
+		if _, err := strictJSONDocument([]byte(input)); err == nil {
+			t.Fatalf("accepted ambiguous provider JSON: %s", input)
+		}
+	}
+	for _, input := range []string{`{"schema_version":1}`, "[1,{\"key\":true}]"} {
+		if _, err := strictJSONDocument([]byte(input)); err != nil {
+			t.Fatalf("rejected valid provider JSON %s: %v", input, err)
+		}
+	}
+}
+
+func TestProviderObjectRejectsNonCanonicalClosedKeys(t *testing.T) {
+	for _, input := range []string{
+		`{"SCHEMA_VERSION":1}`,
+		`{"schema_version":1,"provider_contract":{"NAME":"bsl-flow.native-provider.windows-ps.v1"}}`,
+		`{"schema_version":1,"artifacts":[{"Path":"artifact"}]}`,
+	} {
+		var observation repository.ExecuteObservation
+		if err := decodeProviderObject([]byte(input), &observation); err == nil {
+			t.Fatalf("accepted non-canonical provider key: %s", input)
+		}
+	}
+
+	valid := `{"schema_version":1,"provider_contract":{"name":"bsl-flow.native-provider.windows-ps.v1","version":1,"host_sha256":"","provider_sha256":"","asset_manifest_sha256":""},"artifacts":[{"path":"artifact","sha256":"","size_bytes":0,"kind":"source"}]}`
+	var observation repository.ExecuteObservation
+	if err := decodeProviderObject([]byte(valid), &observation); err != nil {
+		t.Fatalf("rejected canonical provider keys: %v", err)
+	}
+}
+
+func TestProviderJSONBoundsWideAndDeepDocuments(t *testing.T) {
+	var wide strings.Builder
+	wide.Grow(nativeProviderJSONMaxObjectMembers * 8)
+	wide.WriteByte('{')
+	for index := 0; index <= nativeProviderJSONMaxObjectMembers; index++ {
+		if index > 0 {
+			wide.WriteByte(',')
+		}
+		_, _ = fmt.Fprintf(&wide, "\"k%d\":0", index)
+	}
+	wide.WriteByte('}')
+	if _, err := strictJSONDocument([]byte(wide.String())); err == nil || !strings.Contains(err.Error(), "members") {
+		t.Fatalf("wide provider JSON was not bounded: %v", err)
+	}
+
+	deep := strings.Repeat("[", nativeProviderJSONMaxDepth+1) + "0" + strings.Repeat("]", nativeProviderJSONMaxDepth+1)
+	if _, err := strictJSONDocument([]byte(deep)); err == nil || !strings.Contains(err.Error(), "nesting") {
+		t.Fatalf("deep provider JSON was not bounded: %v", err)
+	}
+}
+
 func TestArgumentsRemainData(t *testing.T) {
 	in, err := parse([]string{"task", "start", "--project", `C:\проект & $x`, "--input", `C:\запрос;$(evil).json`})
 	if err != nil {
@@ -107,6 +195,7 @@ func TestDeliveryAndRunnerContracts(t *testing.T) {
 		input []string
 		want  []string
 	}{
+		{[]string{"task", "context", "--project", `C:\проект`, "--task", testID}, []string{"-Action", "Context", "-ProjectPath", `C:\проект`, "-TaskId", testID}},
 		{[]string{"task", "deliver", "--project", `C:\проект`, "--task", testID}, []string{"-Action", "Deliver", "-ProjectPath", `C:\проект`, "-TaskId", testID}},
 		{[]string{"runner", "run", "--project", `C:\проект`, "--input", `C:\runner.json`}, []string{"-Action", "Serve", "-ProjectPath", `C:\проект`, "-InputFile", `C:\runner.json`}},
 		{[]string{"runner", "run", "--project", `C:\проект`, "--input", `C:\runner.json`, "--codex", `C:\codex.exe`}, []string{"-Action", "Serve", "-ProjectPath", `C:\проект`, "-InputFile", `C:\runner.json`, "-CodexPath", `C:\codex.exe`}},
@@ -125,6 +214,8 @@ func TestDeliveryAndRunnerContracts(t *testing.T) {
 		}
 	}
 	invalid := [][]string{
+		{"task", "context", "--project", "."},
+		{"task", "context", "--project", ".", "--task", testID, "--input", "extra.json"},
 		{"task", "deliver", "--project", "."},
 		{"task", "deliver", "--project", ".", "--task", testID, "--input", "extra.json"},
 		{"task", "deliver", "--project", ".", "--task", strings.ToUpper(testID)},

@@ -1,0 +1,198 @@
+{
+  "schema_version": 1,
+  "reviewed_at_utc": "2026-09-11T16:40:46.6679010Z",
+  "review_iteration": 1,
+  "reviewer_verdict": "REVISE",
+  "verdict": "REVISE",
+  "summary": "The spec faithfully preserves the original intent (clone-local registry spanning all worktrees, planned tasks with the five required metadata fields, local-only storage, list/show of completed tasks) and reuses the existing hash-linked controller journal and common-dir Git discovery. Verified against cli/internal/repository: the pre-feature controller claims are accurate (legacy .bsl-flow/tasks journals with hash chains, derived current.json, UUID-required commands). However the spec adds several speculative layers the original task does not require: a derived catalog index whose read path is never defined (the code writes index.json but Catalog() always rebuilds from journals), a full legacy adoption machinery with lineage/portable-artifact layers staged as unimplemented, a dependency pre-dispatch execution gate that modifies controller runner behavior beyond a metadata field, and a six-step durability protocol beyond the existing AtomicWrite. These are removable/scopeable without losing any required behavior, so REVISE is appropriate; no blocker exists.",
+  "scores": {
+    "intent_fidelity": 4,
+    "minimality": 3,
+    "completeness": 4,
+    "architecture_fit": 4,
+    "testability": 4,
+    "assumption_discipline": 4,
+    "clarity": 4
+  },
+  "weighted_score": 3.8,
+  "overengineering": {
+    "architectural_decision_count": 12,
+    "required_count": 3,
+    "justified_count": 4,
+    "optional_count": 5,
+    "unjustified_count": 0,
+    "index": 5,
+    "optional_ratio": 0.4167,
+    "unjustified_ratio": 0.0,
+    "normalized_index": 0.1389,
+    "items": [
+      {
+        "spec_ref": "§1 + design 'Repository и worktree boundary'",
+        "item": "Clone-local store under verified git common dir with repository.json schema+clone_id identity",
+        "necessity": "required",
+        "evidence": "Original task requires a catalog covering the whole repo and all worktrees; repository.go OpenRepository/EnsureIdentity implements this.",
+        "simpler_direction": ""
+      },
+      {
+        "spec_ref": "§2, §3",
+        "item": "Unified task journal v2 with planned/controller lifecycle, hash-linked revisions remain source of truth",
+        "necessity": "required",
+        "evidence": "Original task requires planned + controller tasks; task.go readChain/writeRevision preserves the existing immutable hash-linked journal.",
+        "simpler_direction": ""
+      },
+      {
+        "spec_ref": "§14",
+        "item": "Dual versioned JSON + stable human-readable output for read commands",
+        "necessity": "required",
+        "evidence": "Original task requires CLI to view all tasks, statuses and details; commands.go humanOutput and JSON envelopes.",
+        "simpler_direction": ""
+      },
+      {
+        "spec_ref": "§5",
+        "item": "task activate with native controller capability gating (returns staged BLOCKED until capability exists)",
+        "necessity": "justified",
+        "evidence": "Planned tasks must eventually enter the controller workflow or they are dead ends; commands.go activate returns BF_BLOCKED in this milestone, clearly staged.",
+        "simpler_direction": ""
+      },
+      {
+        "spec_ref": "§3, §8",
+        "item": "Dependencies stored + self-reference/duplicate/cycle validation serialized by repository graph lock",
+        "necessity": "justified",
+        "evidence": "depends_on is a required planned-task field; cycle/self-ref rejection is the minimal correct semantics; graph.go validateGraph + graphLock.",
+        "simpler_direction": ""
+      },
+      {
+        "spec_ref": "§7",
+        "item": "Dependency pre-dispatch execution gate: effective-completed freshness, stale-completed classification, attempt binding of dependency revisions/hashes, dispatch drift detection",
+        "necessity": "optional",
+        "evidence": "Original task only lists depends_on as a planned-task metadata field; the enforcement modifies controller runner behavior that cannot be exercised until the native controller exists (activate is staged BLOCKED).",
+        "simpler_direction": "Store and validate depends_on in v1; defer the pre-dispatch gate and attempt binding to the native controller write slice specification."
+      },
+      {
+        "spec_ref": "§16 + design 'Команды и read model'",
+        "item": "Derived catalog index (catalog/index.json) with revision/hash cache and failure isolation",
+        "necessity": "optional",
+        "evidence": "No scale requirement in the task; Catalog() always rebuilds from journals and RefreshIndex() is write-only (never consumed by list/show/overview), so the index adds a second derived artifact and failure surface with no read-path benefit.",
+        "simpler_direction": "Drop index.json in v1 and derive list/overview directly from journals, or specify the exact read path that consumes the cache and the scale at which it is needed."
+      },
+      {
+        "spec_ref": "§9",
+        "item": "Opaque cursor pagination with filter/sort/repository binding",
+        "necessity": "optional",
+        "evidence": "Bounded limit is reasonable, but an opaque versioned cursor bound to filter/sort hash is speculative for a clone-local tracker with no demonstrated task volume.",
+        "simpler_direction": "Ship bounded --limit and deterministic sort; add cursors only when a concrete volume problem is demonstrated."
+      },
+      {
+        "spec_ref": "design 'Concurrency и recovery'",
+        "item": "Six-step durability protocol with commit_outcome=unknown reconciliation and explicit unknown-temp-path retention",
+        "necessity": "optional",
+        "evidence": "storage.go AtomicWrite already does write->fsync->close->rename->directory sync; torn-journal detection is covered by §15. The unknown-commit reconciliation protocol addresses a crash scenario the task never raises.",
+        "simpler_direction": "Rely on existing AtomicWrite plus torn/conflicting-journal detection; drop the unknown-commit reconciliation protocol unless a real crash-recovery requirement is demonstrated."
+      },
+      {
+        "spec_ref": "§17 (first sentence)",
+        "item": "Read-only legacy discovery of checkout-local .bsl-flow/tasks with conflict dedup",
+        "necessity": "justified",
+        "evidence": "Existing controller stores tasks under .bsl-flow/tasks (legacy.go, main.go PowerShell engine path); they must remain visible or existing work is lost.",
+        "simpler_direction": ""
+      },
+      {
+        "spec_ref": "§17-18",
+        "item": "Full legacy adoption: portable artifact manifest, immutable segment, source-prefix->canonical-continuation lineage receipts, routing manifest forbidding writes",
+        "necessity": "optional",
+        "evidence": "Original task does not mention migration; adopt --apply is staged 'not implemented' (commands.go). Read-only discovery already prevents data loss; the lineage/portable-artifact layers exceed what the task requires.",
+        "simpler_direction": "Scope v1 to read-only legacy discovery + fail-closed conflict handling; defer adoption to a separate spec or a minimal hash-verified copy."
+      },
+      {
+        "spec_ref": "§10-11, §19 + design 'Security и privacy'",
+        "item": "Allowlisted safe projections and redaction of prompts/evidence/credentials",
+        "necessity": "justified",
+        "evidence": "Existing task store holds raw prompts/evidence; legacy.go legacyTitle reads request.prompt, confirming raw content is present and must be excluded from list/overview.",
+        "simpler_direction": ""
+      }
+    ]
+  },
+  "blocking_findings": [],
+  "findings": [
+    {
+      "id": "R-001",
+      "severity": "medium",
+      "category": "overengineering",
+      "spec_ref": "§16 + design 'Команды и read model'",
+      "issue": "The spec mandates a derived catalog index (catalog/index.json) with revision/hash cache and rebuild semantics, but no read path that consumes it is defined; list/show/overview (§9-13) are specified to derive from authoritative journals on every read. The implementation confirms this: Catalog() always re-runs readChain over every task and RefreshIndex() writes index.json that is never read back (TestIndexIsRebuildableDerivedData only asserts the index file exists and that a rebuild matches, not that the index accelerates anything). A cache that is written but never read is pure overhead and adds durability/consistency obligations for zero benefit.",
+      "evidence": "Original task requires only 'view all project tasks'; no volume or performance requirement. cli/internal/repository/catalog.go Catalog() rebuilds from journals; RefreshIndex() is invoked only from commands.go refreshIndex(), and no reader opens catalog/index.json.",
+      "suggested_direction": "Remove the index in v1 and derive list/overview directly from journals, or, if kept, specify the exact read path and the measurable scale that justifies it; otherwise drop the derived-artifact requirements from §16."
+    },
+    {
+      "id": "R-002",
+      "severity": "medium",
+      "category": "overengineering",
+      "spec_ref": "§7",
+      "issue": "depends_on is required by the original task only as a planned-task metadata field, but §7 turns it into a controller-owned pre-dispatch gate: blocking run until each dependency has 'fresh effective completed' acceptance, classifying missing/corrupt/cancelled/failed/blocked/stale-completed dependencies, binding resolved dependency revisions/hashes into the attempt, and detecting dispatch drift. This changes controller runner execution behavior, which the original task does not request, and cannot be exercised or tested until the native controller capability exists (activate is staged BLOCKED, verified in commands.go).",
+      "evidence": "Original task lists 'dependencies' among planned-task v1 fields without execution semantics. cli/internal/repository/commands.go activate returns 'task activation requires a native controller capability that is not available in this milestone' (BF_BLOCKED).",
+      "suggested_direction": "Keep depends_on storage plus self-reference/duplicate/cycle validation in v1; move the pre-dispatch gate, staleness classification and attempt binding into the future native controller write-slice specification, or explicitly mark §7 as out-of-milestone."
+    },
+    {
+      "id": "R-003",
+      "severity": "medium",
+      "category": "overengineering",
+      "spec_ref": "§17-18",
+      "issue": "The full adoption machinery (portable artifact manifest classifying immutable receipts vs live-only inputs, immutable legacy segment, source-prefix->canonical-continuation lineage receipts, routing manifest forbidding later writes) is specified in detail, but the original task does not mention legacy migration and the apply path is staged as unimplemented ('adoption apply is not implemented in this milestone; use --preview' in commands.go). Read-only legacy discovery (§17 first sentence) already prevents data loss; the lineage/portable-artifact layers exceed the requested scope.",
+      "evidence": "Original task has no migration requirement. cli/internal/repository/commands.go commandAdopt returns BF_BLOCKED for --apply. main.go help states 'registry adopt --apply are staged BLOCKED in this milestone'.",
+      "suggested_direction": "Scope v1 to read-only legacy discovery plus fail-closed conflict handling; defer adoption to a separate specification or reduce it to a minimal hash-verified copy with a simple provenance note."
+    },
+    {
+      "id": "R-004",
+      "severity": "low",
+      "category": "overengineering",
+      "spec_ref": "design 'Concurrency и recovery'",
+      "issue": "The design adds a six-step durability protocol (write temp -> fsync -> atomic rename -> OS directory sync -> confirm durable commit -> update derived state) with commit_outcome=unknown reconciliation and explicit retention of unknown temporary paths. The existing storage primitive already performs write->file.Sync()->close()->rename()->syncDirectory() (storage.go AtomicWrite), and torn/conflicting journals are already surfaced per §15. The unknown-commit reconciliation addresses a crash scenario the original task does not raise and adds recovery complexity.",
+      "evidence": "cli/internal/repository/storage.go AtomicWrite implements atomic publish with file fsync and directory sync. Original task contains no crash-durability requirement.",
+      "suggested_direction": "Rely on the existing AtomicWrite primitive and torn/conflicting-journal detection; remove the unknown-commit reconciliation protocol unless a concrete crash-recovery requirement is demonstrated."
+    },
+    {
+      "id": "R-005",
+      "severity": "medium",
+      "category": "clarity",
+      "spec_ref": "§7, §18",
+      "issue": "The acceptance-relevant terms 'fresh effective completed' and 'stale-completed' (and 'stale|orphaned' for acceptance gates in §18) are used to define dispatch gating and adoption freshness but are never defined as an observable predicate. It is unclear whether staleness is an age threshold, absence of live inputs, hash mismatch against the current terminal revision, or a combination, so two developers would implement materially different gating behavior. This directly undermines the acceptance criterion 'dispatch разрешён только при свежем effective completed состоянии всех dependencies'.",
+      "evidence": "§7 states 'каждая dependency не имеет свежий effective completed acceptance... stale-completed dependency даёт явный dependency blocker' without defining freshness; §18 uses 'stale|orphaned' for acceptance gates without a boundary.",
+      "suggested_direction": "Define freshness/staleness as an explicit predicate (e.g. live inputs present AND evidence hash equals the current terminal revision hash), or explicitly defer these terms together with the dependency gate in R-002."
+    },
+    {
+      "id": "R-006",
+      "severity": "low",
+      "category": "clarity",
+      "spec_ref": "§14 + 'Требуемые проверки'",
+      "issue": "§14 requires 'exit contracts документированы' and the verification checklist claims 'closed schemas', but the spec body does not include the schema v1 shapes for read envelopes/write inputs nor the numeric exit codes (JSON vs human mode). The design only says schemas are 'разделены на write inputs и read envelopes' without the schema content. This leaves output shape and error-exit behavior to the implementer's interpretation.",
+      "evidence": "The actual exit codes exist only in code (commands.go writeError: BF_INVALID=2, otherwise 11) but are absent from the specification text, contradicting the claim that they are documented.",
+      "suggested_direction": "Include the field-level schema v1 for read envelopes and write inputs and an exit-code table in the specification, or reference the authoritative schema/contract files as spec artifacts."
+    }
+  ],
+  "do_not_change": [
+    "§1 — resolving a single clone-local store from the verified git common dir shared by all worktrees is the correct, directly required mechanism for the whole-repo/worktree scope.",
+    "§2 — keeping the immutable hash-linked journal as the single source of truth and making catalog/overview/index derived data that cannot authorize execution/acceptance preserves the existing architecture and recovery semantics.",
+    "§3 — the planned-task v1 field set (title/description/priority/labels/depends_on) and the explicit exclusions (milestones, assignee, comments, due dates, custom fields) are correct minimal scoping.",
+    "§6 — treating archived as a presentation flag that never alters next_action/acceptance/recovery/dependency result is correct and prevents a subtle execution-status bug.",
+    "§15 — corrupt/torn/conflicting journals must surface as diagnostic entries without hiding other tasks; this is a correct robustness requirement.",
+    "§19 + design 'Security и privacy' — redacting prompts/evidence/credentials from list/overview and using allowlisted projections is justified because existing controller journals store raw prompts and evidence.",
+    "'Не делать' section — no Markdown-per-task storage, no SQL/daemon/second database, no tasks.md, no automatic deletion of completed tasks, no automatic dependency execution; these correctly constrain scope."
+  ],
+  "confidence": 0.85,
+  "reviewer": {
+    "provider": "opencode",
+    "agent": "bsl-flow-spec-reviewer",
+    "model": "deepseek/deepseek-v4-pro"
+  },
+  "inputs": {
+    "original_task_sha256": "343b3d57a5417bad4fde0e1c8ea415006967b566d14f23f63d14b1786c5c467c",
+    "spec_sha256": "984b461dcaf00cff958f1c93b64abc53cfbc06431f009bedb431bb69e4452ef8",
+    "design_sha256": "9205f6338c6cc7a41ad25e7903652bc057f6992c328a4a8c16590675006af885"
+  },
+  "gate": {
+    "pass_weighted_score": 4.3,
+    "block_below_weighted_score": 3.5,
+    "max_overengineering_index_for_pass": 1,
+    "max_unjustified_ratio_for_pass": 0.0
+  }
+}

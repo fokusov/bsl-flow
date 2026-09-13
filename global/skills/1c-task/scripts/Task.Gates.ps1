@@ -1,14 +1,21 @@
 #Requires -Version 7.0
 Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot 'Task.Architecture.ps1')
 
 function Invoke-BFGit {
     param([string]$Root, [string[]]$Arguments)
     $previous = $ErrorActionPreference
     try {
         $ErrorActionPreference = 'Continue'
-        $text = & git -c core.hooksPath=NUL -c core.fsmonitor=false -C $Root @Arguments 2>&1 | ForEach-Object { $_.ToString() } | Out-String
-        if ($LASTEXITCODE -ne 0) { throw "BF_BLOCKED: Git failed: $($text.Trim())" }
-        return $text.TrimEnd("`r", "`n")
+        # Keep Git stdout separate from diagnostic stderr: a warning (for
+        # example an unreadable global ignore file) must never be mistaken for
+        # command output such as `git status --porcelain`.
+        $combined = & git -c core.hooksPath=NUL -c core.fsmonitor=false -C $Root @Arguments 2>&1
+        $exit=$LASTEXITCODE
+        $stdout=@($combined | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] }) | ForEach-Object { $_.ToString() }
+        $stderr=@($combined | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] }) | ForEach-Object { $_.ToString() }
+        if ($exit -ne 0) { throw "BF_BLOCKED: Git failed: $((@($stderr+$stdout) -join "`n").Trim())" }
+        return ((@($stdout) -join "`n").TrimEnd("`r", "`n"))
     } finally { $ErrorActionPreference = $previous }
 }
 
@@ -99,6 +106,11 @@ function Get-BFSpecInputs {
 function Get-BFDependencies {
     param($State, [string]$Stage, $Manifest)
     $inputs = [ordered]@{intent=$State.intent_hash;policy=$State.policy_hash}
+    if($null -ne (Get-BFValue $State.request 'execution_profile')){$inputs.execution=Get-BFHash (Get-BFExecutionDependencies $State)}
+    # Bundle hash binds the applicable architecture context to the attempt, so a
+    # changed applicable ADR invalidates old stage evidence deterministically.
+    # A project index takes precedence; otherwise the package default is used.
+    $inputs.architecture=Get-BFArchitectureBundleHash $Stage (Get-BFArchitectureContextRoot (Get-BFValue $State 'project_path'))
     if ($Stage -eq 'inspect') { $inputs.baseline = $State.baseline }
     if ($Stage -ne 'inspect') { $inputs.classification = Get-BFHash $State.classification }
     if ($Stage -in @('spec','spec_review','implement','code_review','verify','diagnose','acceptance')) { $inputs.spec = Get-BFHash (Get-BFSpecInputs $State) }

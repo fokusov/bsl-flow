@@ -11,6 +11,9 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
+
+	"bsl-flow/cli/internal/repository"
 )
 
 //go:embed internal/resources/*
@@ -24,7 +27,7 @@ type invocation struct {
 	options map[string]string
 }
 
-var actions = map[string]string{"start": "Start", "status": "Status", "next": "Next", "run": "Run", "update": "Update", "resume": "Resume", "cancel": "Cancel", "record": "Record", "accept": "Accept", "deliver": "Deliver", "publish": "Publish", "publish-resume": "PublishResume"}
+var actions = map[string]string{"start": "Start", "status": "Status", "next": "Next", "context": "Context", "run": "Run", "update": "Update", "resume": "Resume", "cancel": "Cancel", "record": "Record", "accept": "Accept", "deliver": "Deliver", "publish": "Publish", "publish-resume": "PublishResume"}
 var uuid = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 func parse(args []string) (invocation, error) {
@@ -41,7 +44,7 @@ func parse(args []string) (invocation, error) {
 	} else if args[0] == "runner" && args[1] == "run" {
 		in.command, in.action = "runner", "Serve"
 	} else {
-		return in, errors.New("expected help, version, task <start|status|next|run|update|resume|cancel|record|accept|deliver|publish|publish-resume>, or runner run")
+		return in, errors.New("expected help, version, task <start|status|next|context|run|update|resume|cancel|record|accept|deliver|publish|publish-resume>, or runner run")
 	}
 	allowed := map[string]bool{"--project": true}
 	if in.action == "Start" || in.action == "Update" || in.action == "Serve" || in.action == "Publish" || in.action == "PublishResume" {
@@ -58,6 +61,12 @@ func parse(args []string) (invocation, error) {
 	}
 	if in.action == "Run" || in.action == "Resume" || in.action == "Serve" || in.action == "Update" {
 		allowed["--runtime-auth"] = true
+	}
+	if in.command == "task" {
+		switch in.action {
+		case "Status", "Next", "Context", "Run", "Resume", "Record", "Update", "Cancel", "Accept":
+			allowed["--engine"] = true
+		}
 	}
 	for i := 2; i < len(args); i += 2 {
 		key := args[i]
@@ -81,6 +90,9 @@ func parse(args []string) (invocation, error) {
 	}
 	if value := in.options["--runtime-auth"]; value != "" && value != "stdin" {
 		return in, errors.New("--runtime-auth accepts only stdin; credentials must not appear in arguments")
+	}
+	if value := in.options["--engine"]; value != "" && value != "native" && value != "legacy-powershell" {
+		return in, errors.New("--engine accepts only native or legacy-powershell")
 	}
 	return in, nil
 }
@@ -117,24 +129,91 @@ func hostError(out io.Writer, code int, task string, err error) int {
 	return code
 }
 
+// readEmbeddedBundle parses the exact bundle snapshot compiled into this
+// executable. It performs no extraction or process lookup, so registry reads
+// can remain independent of PowerShell and the cache.
+func readEmbeddedBundle() (bundle, error) {
+	data, err := resources.ReadFile("internal/resources/bundle.zip")
+	if err != nil {
+		return bundle{}, errors.New("embedded bundle missing; build with Build-BSLFlowCli.ps1")
+	}
+	versionBytes, err := resources.ReadFile("internal/resources/version.txt")
+	if err != nil {
+		return bundle{}, err
+	}
+	return readBundle(data, strings.TrimSpace(string(versionBytes)))
+}
+
+// newPackagedNativeResolver returns a lazy native host. The closure does not
+// read the embedded bundle, touch the cache, resolve PowerShell, or hash the
+// executable until the controller actually selects native execution. A
+// failed resolution is retained, which prevents a later retry from silently
+// selecting a different provider or bundle.
+func newPackagedNativeResolver() *repository.ControllerHost {
+	var once sync.Once
+	var provider repository.Provider
+	var identity repository.EngineIdentity
+	var resolveErr error
+	return &repository.ControllerHost{
+		Resolve: func() (repository.Provider, repository.EngineIdentity, error) {
+			once.Do(func() {
+				b, err := readEmbeddedBundle()
+				if err != nil {
+					resolveErr = err
+					return
+				}
+				cache, err := os.UserCacheDir()
+				if err != nil {
+					resolveErr = fmt.Errorf("native provider cache: %w", err)
+					return
+				}
+				root, err := ensureBundle(filepath.Join(cache, "BSLFlow", "bundles"), b)
+				if err != nil {
+					resolveErr = fmt.Errorf("native provider bundle: %w", err)
+					return
+				}
+				self, err := os.Executable()
+				if err != nil {
+					resolveErr = fmt.Errorf("native provider host executable: %w", err)
+					return
+				}
+				self, err = filepath.Abs(self)
+				if err != nil {
+					resolveErr = fmt.Errorf("native provider host executable: %w", err)
+					return
+				}
+				if err := checkPath(self); err != nil {
+					resolveErr = fmt.Errorf("native provider host executable: %w", err)
+					return
+				}
+				packaged, err := newNativeProvider(root, b, self)
+				if err != nil {
+					resolveErr = err
+					return
+				}
+				provider = packaged
+				identity = packaged.engineIdentity()
+			})
+			return provider, identity, resolveErr
+		},
+	}
+}
+
 func run(args []string, out, errOut io.Writer) int {
+	if handled, code := repository.DispatchWithHost(args, out, errOut, newPackagedNativeResolver()); handled {
+		return code
+	}
 	in, err := parse(args)
 	if err != nil {
 		return hostError(out, 2, in.options["--task"], err)
 	}
 	if in.command == "help" {
-		fmt.Fprintln(out, "bsl-flow version\nbsl-flow help\nbsl-flow task <start|status|next|run|update|resume|cancel|record|accept|deliver|publish|publish-resume> --project <path> [--task <uuid>] [--input <json>] [--attempt <uuid>] [--codex <exe>]\nbsl-flow runner run --project <path> --input <json> [--codex <exe>]\nTask start/update/publish/publish-resume require --input; all task actions except start require --task; record requires --attempt; --codex is for task run/resume and runner run. UUIDs must be lowercase.\nNative runtime auth uses --runtime-auth stdin on run/resume/update/runner; send one private JSON line with username and password. No credential files or secret arguments.\nPublication requires a separate exact acceptance/remote/ref authorization; publish-resume only reads the remote result.\nRequires PowerShell 7, Git and the configured worker provider. Ctrl+C is not rollback; inspect the exact task and use task cancel/resume.")
+		fmt.Fprintln(out, "bsl-flow version\nbsl-flow help\nbsl-flow task <start|status|next|context|run|update|resume|cancel|record|accept|deliver|publish|publish-resume> --project <path> [--task <uuid>] [--input <json>] [--attempt <uuid>] [--codex <exe>] [--engine <native|legacy-powershell>]\nbsl-flow runner run --project <path> --input <json> [--codex <exe>]\nTask start/update/publish/publish-resume require --input; all task actions except start require --task; record requires --attempt; --codex is for task run/resume and runner run. UUIDs must be lowercase.\nExecution routing defaults to native for canonical repository tasks and legacy-powershell for checkout-local v1 tasks; --engine makes a supported choice explicit.\nTask context is a read-only projection of the controller journal and Get-BFNext; it writes nothing and authorizes nothing.\nNative runtime auth uses --runtime-auth stdin on run/resume/update/runner; send one private JSON line with username and password. No credential files or secret arguments.\nPublication requires a separate exact acceptance/remote/ref authorization; publish-resume only reads the remote result.\nRequires PowerShell 7, Git and the configured worker provider. Ctrl+C is not rollback; inspect the exact task and use task cancel/resume.")
+		fmt.Fprintln(out, "bsl-flow task <create|edit|activate|adopt|rebind|list|show|history|overview|archive|unarchive> --project <path> [--task <uuid>] [--input <json>] [--expected-revision <n>] [--source <path>] [--preview|--apply] [--json] [--human]")
+		fmt.Fprintln(out, "Native repository task commands are clone-local operations; metadata reads default to JSON and --human prints tables. activate requires a trusted request and a compatible packaged provider, then publishes the ready revision. adopt previews or applies a checked legacy binding; rebind attaches the same UUID to a fresh trusted request. Execution of canonical tasks stays on the native route and never falls back to legacy PowerShell.")
 		return 0
 	}
-	data, err := resources.ReadFile("internal/resources/bundle.zip")
-	if err != nil {
-		return hostError(out, 11, "", errors.New("embedded bundle missing; build with Build-BSLFlowCli.ps1"))
-	}
-	versionBytes, err := resources.ReadFile("internal/resources/version.txt")
-	if err != nil {
-		return hostError(out, 11, "", err)
-	}
-	bundle, err := readBundle(data, strings.TrimSpace(string(versionBytes)))
+	bundle, err := readEmbeddedBundle()
 	if err != nil {
 		return hostError(out, 11, "", err)
 	}

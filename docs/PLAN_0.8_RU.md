@@ -109,3 +109,19 @@ A и B могут разрабатываться параллельно с read-
 | G | Offline CI workflow, все обязательные локальные проверки объединённой версии (основной прогон и адресные продолжения), real Codex repair, C5 с реальной FILE-базой и D2 source-only pilot | Подтверждённый удалённый CI и более широкий сквозной 1С-корпус; один BSLFlowPilot не доказывает полный произвольный SDLC |
 
 Эта таблица не объявляет весь план выполненным. C5 доказывает ограниченный native-маршрут BSLFlowPilot, D2 — отдельный source-only маршрут независимой оценки тестов; они не переносят acceptance на другие базы, типы артефактов и бизнес-сценарии. F принят для проверенного локального FILE-профиля. Актуальные числа и результаты проверок — в [VERIFICATION.md](../VERIFICATION.md).
+
+## Обновление статуса: native activation/adoption, 2026-09-13
+
+Поверх состояния 2026-09-10 принят отдельный инкремент managed SDLC: Go controller + stateless Windows PowerShell provider, активация planned-задач, adopt/rebind legacy-задач с сохранением UUID/истории, controller-owned маршруты S/M/repair с реальными PS validators и memory bridge. Приёмка инкремента зафиксирована в `openspec/changes/native-task-activation-adoption/verification.md` (ACCEPT для offline/public-process среза; все девять критериев приёмки закрыты, включая свежие прогоны S+/S− public lifecycle и targeted-набора adoption/activation). Независимые review закрыты (7×P1 контроллера устранены; Council v2 validator ACCEPT-WITH-FIXES).
+
+Source-only freeze завершён (r6, snapshot `bfn-4983a515`, 306 файлов): lanes package/extras/cli — exit=0, артефакты `BSL-Flow-native-activation-adoption.zip` и `bsl-flow.exe` с SHA-256 в `work/blocked-completion-20260912/final-offline-20260913/output/`. Это доказательство офлайн-контуров, не релиз.
+
+Не изменившиеся требования к моменту публикации: commit/push рабочего diff и удалённый чистый CI на публикуемом коммите не выполнялись (решение за владельцем); настоящий Codex sandbox denial — environmental BLOCKED; живой Astra council — 0/4 бюджета, REAL-harness preflight корректно fail-closed вне Codex-хоста (`CODEX_SESSION_ID is required`, попытка 2026-09-13); runtime 1С, Unica durable jobs и бизнес-корпус — без изменений против строк A–G выше. Оценки трудоёмкости `native-cross-platform-cli` из `IMPLEMENTATION_AUDIT_2026-09-12_RU.md` частично устарели: controller core реализован и принят, остаются non-Windows хосты, отказ от runtime PowerShell и release-канал.
+
+## Найденные доработки интеграций перед бенчмарком
+
+Дефекты и необходимые проверки по синтетическим host/model прогонам вынесены в [BENCHMARK_FINDINGS_RU.md](BENCHMARK_FINDINGS_RU.md): BFI-001–005 — открытые пункты, BFI-006–014 — исправления рабочего дерева, ещё не выпущенные. Правильные блокировки coverage gate и проблемы локального harness перечислены отдельно. Это не меняет историческую приёмку этапов A–G выше. Работа приостановлена; состояние продолжения — в [контрольной точке](BENCHMARK_CHECKPOINT_2026-09-10.md).
+
+## Отложенное развитие после бенчмарка
+
+По решению пользователя от 2026-09-10, исследовать собственное расширение-адаптер BSL Flow внутри 1С с предлагаемой при инициализации установкой по согласию пользователя. Сначала проверить транспорт для FILE-базы, capabilities/version handshake, чтение и один тестовый сценарий. Внешние установка, обновление и восстановление сохраняются отдельным адаптером; произвольный код и административные операции требуют отдельных возможностей и допуска. До этого этапа используется текущий COM/native-маршрут. Это пункт будущего плана, не реализованная замена COM.

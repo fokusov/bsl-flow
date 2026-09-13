@@ -21,7 +21,8 @@ function Stop-BFOwnedProcess {
 }
 
 function Invoke-BFProcess {
-    param([string]$Executable, [string[]]$Arguments, [string]$WorkingDirectory, [string]$InputText = '', [string]$OutputDirectory, [int]$TimeoutSeconds = 600, [scriptblock]$Cancelled)
+    param([string]$Executable, [string[]]$Arguments, [string]$WorkingDirectory, [string]$InputText = '', [string]$OutputDirectory, [int]$TimeoutSeconds = 600, [scriptblock]$Cancelled, [System.Collections.IDictionary]$Environment, [switch]$CleanEnvironment, [int]$MaxOutputBytes = 16777216)
+    if($MaxOutputBytes -lt 65536 -or $MaxOutputBytes -gt 16777216){throw 'BF_INVALID: managed output bound is outside the supported range.'}
     [void](Assert-BFSafePath $Executable)
     if (-not (Test-Path -LiteralPath $Executable -PathType Leaf) -or [IO.Path]::GetExtension($Executable) -ne '.exe') { throw 'BF_BLOCKED: managed process launch requires an existing native .exe, not a shell launcher.' }
     [void](Assert-BFSafePath $WorkingDirectory)
@@ -31,6 +32,15 @@ function Invoke-BFProcess {
     $deadline=Get-Variable -Name BFRunDeadlineUtc -ValueOnly -ErrorAction SilentlyContinue
     if($null -ne $deadline){$TimeoutSeconds=[math]::Min($TimeoutSeconds,[math]::Floor(($deadline-[DateTime]::UtcNow).TotalSeconds));if($TimeoutSeconds -le 0){throw 'BF_BLOCKED: task deadline reached before dispatch.'}}
     $info = New-Object System.Diagnostics.ProcessStartInfo
+    if($CleanEnvironment){
+        $info.Environment.Clear()
+        # Preserve Windows launch/policy inputs, never arbitrary host credentials.
+        foreach($name in @('SystemRoot','WINDIR','SystemDrive','COMSPEC','PATH','PATHEXT','USERPROFILE','APPDATA','LOCALAPPDATA','ProgramFiles','ProgramFiles(x86)','ProgramW6432','ProgramData','CommonProgramFiles','CommonProgramFiles(x86)','CommonProgramW6432','COMPUTERNAME','USERNAME','USERDOMAIN','HOMEDRIVE','HOMEPATH','OS','PROCESSOR_ARCHITECTURE','NUMBER_OF_PROCESSORS','__PSLockDownPolicy')){
+            $value=[Environment]::GetEnvironmentVariable($name)
+            if($null -ne $value){$info.Environment[$name]=$value}
+        }
+    }
+    if($null -ne $Environment){foreach($key in $Environment.Keys){$info.Environment[[string]$key]=[string]$Environment[$key]}}
     $info.FileName=$Executable; $info.WorkingDirectory=$WorkingDirectory
     foreach($argument in $Arguments){
         if($argument -match "[\x00]"){throw 'BF_INVALID: NUL in native argument.'}
@@ -59,7 +69,7 @@ function Invoke-BFProcess {
             if(-not $inputClosed -and $inputTask.IsCompleted){try{[void]$inputTask.GetAwaiter().GetResult();$process.StandardInput.Close();$inputClosed=$true}catch{$reason='stdin_failure';break}}
             if ($null -ne $Cancelled -and (& $Cancelled)) { $reason='cancelled'; break }
             if ($watch.Elapsed.TotalSeconds -ge $TimeoutSeconds) { $reason='timeout'; break }
-            if ($stdoutFile.Length -gt 16777216 -or $stderrFile.Length -gt 16777216) { $reason='output_limit'; break }
+            if (($stdoutFile.Length + $stderrFile.Length) -gt $MaxOutputBytes) { $reason='output_limit'; break }
         }
         if ($reason) {
             # Terminate only this owned process tree, after checking process start identity.
@@ -69,6 +79,7 @@ function Invoke-BFProcess {
         if (-not $process.HasExited) { throw 'BF_BLOCKED: owned process did not terminate; effects are unknown.' }
         if (-not $outTask.Wait(2000) -or -not $errTask.Wait(2000)) { throw 'BF_BLOCKED: subprocess output still open; reconcile the owned process tree.' }
         $stdoutFile.Flush($true); $stderrFile.Flush($true)
+        if(-not $reason -and (($stdoutFile.Length + $stderrFile.Length) -gt $MaxOutputBytes)){$reason='output_limit'}
         $result=[ordered]@{exit_code=$process.ExitCode;stop_reason=$reason;elapsed_seconds=[math]::Round($watch.Elapsed.TotalSeconds,3);process_id=$process.Id;executable=$Executable;stdout=Join-Path $OutputDirectory 'stdout.txt';stderr=Join-Path $OutputDirectory 'stderr.txt'}
         Write-BFJson -Path (Join-Path $OutputDirectory 'exit.json') -Value $result
         return $result

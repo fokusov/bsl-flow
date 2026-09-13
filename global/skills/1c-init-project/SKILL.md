@@ -57,6 +57,10 @@ Do not stop at "files downloaded": distinguish local availability, installed sta
 
 For a new test scaffold, use [test-starters.md](../1c-verify/references/test-starters.md). Before runtime, follow [test-evidence.md](../1c-verify/references/test-evidence.md) to record the selected route and preserve its actual result. Generated files are not proof of an installed or passing engine.
 
+## Optional architecture context
+
+A project may add its own ADR index for the read-only architecture projection (`bsl-flow task context`). Bootstrap does not create, overwrite or delete `docs/architecture`; the file stays project-owned and optional, and an absent index keeps the existing `missing_context` fallback. Read [architecture-context.md](references/architecture-context.md) before adding or reviewing one.
+
 ## Delegated work audit
 
 When this project uses native subagents, read [agent-audit.md](references/agent-audit.md) and start the compact journal at delegation. Follow the existing AGENTS/model-routing policy, not a new BSL Flow model table. Record requested/observed settings separately and parent acceptance after verification. The helper does not spawn agents or capture internal reasoning. Missing usage remains explicitly partial; do not substitute account limits or an agent's estimate.

@@ -1,0 +1,6771 @@
+{
+  "schema_version": 1,
+  "description": "Observed outputs of frozen legacy pure functions; no task, provider, model, Git or runtime action dispatched.",
+  "source_files": [
+    {
+      "path": "global/skills/1c-task/scripts/Task.Storage.ps1",
+      "sha256": "9018bb1203d4a7f7fd75961dba9e3535d6b4c0feadf33570b5c2d568a6ee54cd"
+    },
+    {
+      "path": "global/skills/1c-task/scripts/Task.Contracts.ps1",
+      "sha256": "755c707441d4769fb5465b0cf59370c9a55d77ddf580c3a4b922ce1c7e7787f6"
+    },
+    {
+      "path": "global/skills/1c-task/scripts/Task.Engine.ps1",
+      "sha256": "79b5e4e3a5b05e1d45f8e406cac15b4f199d30b714c4d690ba5d9b5890993266"
+    },
+    {
+      "path": "global/skills/1c-task/scripts/Task.Coverage.ps1",
+      "sha256": "c39b34684624f45e463f9dbcea41a91df4f882c05bb999f4ddd0a5449b92cbd0"
+    }
+  ],
+  "routes": [
+    {
+      "name": "implement-analysis-S-low-default",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "implement",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-S-low-spec-review",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_spec_review": true
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-S-low-code-review",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_code_review": true
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-S-low-s-policy-review",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": true
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-S-low-repaired",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 1,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-S-low-requirements",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "Frozen route presence input."
+            }
+          ]
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-S-medium-default",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "implement",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-S-medium-spec-review",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_spec_review": true
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-S-medium-code-review",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_code_review": true
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-S-medium-s-policy-review",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": true
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-S-medium-repaired",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 1,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-S-medium-requirements",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "Frozen route presence input."
+            }
+          ]
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-S-high-default",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-S-high-spec-review",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_spec_review": true
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-S-high-code-review",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_code_review": true
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-S-high-s-policy-review",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": true
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-S-high-repaired",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 1,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-S-high-requirements",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "Frozen route presence input."
+            }
+          ]
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-M-low-default",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-M-low-spec-review",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_spec_review": true
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-M-low-code-review",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_code_review": true
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-M-low-s-policy-review",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": true
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-M-low-repaired",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 1,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-M-low-requirements",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "Frozen route presence input."
+            }
+          ]
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-M-medium-default",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-M-medium-spec-review",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_spec_review": true
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-M-medium-code-review",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_code_review": true
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-M-medium-s-policy-review",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": true
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-M-medium-repaired",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 1,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-M-medium-requirements",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "Frozen route presence input."
+            }
+          ]
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-M-high-default",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-M-high-spec-review",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_spec_review": true
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-M-high-code-review",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_code_review": true
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-M-high-s-policy-review",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": true
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-M-high-repaired",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 1,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-M-high-requirements",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "Frozen route presence input."
+            }
+          ]
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-L-low-default",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-L-low-spec-review",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_spec_review": true
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-L-low-code-review",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_code_review": true
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-L-low-s-policy-review",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": true
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-L-low-repaired",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 1,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-L-low-requirements",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "Frozen route presence input."
+            }
+          ]
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-L-medium-default",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-L-medium-spec-review",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_spec_review": true
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-L-medium-code-review",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_code_review": true
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-L-medium-s-policy-review",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": true
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-L-medium-repaired",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 1,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-L-medium-requirements",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "Frozen route presence input."
+            }
+          ]
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-L-high-default",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-L-high-spec-review",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_spec_review": true
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-L-high-code-review",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_code_review": true
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-L-high-s-policy-review",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": true
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-L-high-repaired",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 1,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "implement-analysis-L-high-requirements",
+      "controller": {
+        "request": {
+          "mode": "implement",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "Frozen route presence input."
+            }
+          ]
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "implement",
+        "code_review",
+        "verify",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-S-low-default",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-S-low-spec-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_spec_review": true
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-S-low-code-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_code_review": true
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-S-low-s-policy-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": true
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-S-low-repaired",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 1,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-S-low-requirements",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "Frozen route presence input."
+            }
+          ]
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-S-medium-default",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-S-medium-spec-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_spec_review": true
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-S-medium-code-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_code_review": true
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-S-medium-s-policy-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": true
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-S-medium-repaired",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 1,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-S-medium-requirements",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "Frozen route presence input."
+            }
+          ]
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-S-high-default",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-S-high-spec-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_spec_review": true
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-S-high-code-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_code_review": true
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-S-high-s-policy-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": true
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-S-high-repaired",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 1,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-S-high-requirements",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "Frozen route presence input."
+            }
+          ]
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-M-low-default",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-M-low-spec-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_spec_review": true
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-M-low-code-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_code_review": true
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-M-low-s-policy-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": true
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-M-low-repaired",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 1,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-M-low-requirements",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "Frozen route presence input."
+            }
+          ]
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-M-medium-default",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-M-medium-spec-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_spec_review": true
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-M-medium-code-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_code_review": true
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-M-medium-s-policy-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": true
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-M-medium-repaired",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 1,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-M-medium-requirements",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "Frozen route presence input."
+            }
+          ]
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-M-high-default",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-M-high-spec-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_spec_review": true
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-M-high-code-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_code_review": true
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-M-high-s-policy-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": true
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-M-high-repaired",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 1,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-M-high-requirements",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "Frozen route presence input."
+            }
+          ]
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-L-low-default",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-L-low-spec-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_spec_review": true
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-L-low-code-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_code_review": true
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-L-low-s-policy-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": true
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-L-low-repaired",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 1,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-L-low-requirements",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "Frozen route presence input."
+            }
+          ]
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-L-medium-default",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-L-medium-spec-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_spec_review": true
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-L-medium-code-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_code_review": true
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-L-medium-s-policy-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": true
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-L-medium-repaired",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 1,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-L-medium-requirements",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "Frozen route presence input."
+            }
+          ]
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-L-high-default",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-L-high-spec-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_spec_review": true
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-L-high-code-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "require_code_review": true
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-L-high-s-policy-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": true
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-L-high-repaired",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 1,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-analysis-L-high-requirements",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "analysis",
+          "criteria": [],
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "Frozen route presence input."
+            }
+          ]
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-S-low-default",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-S-low-spec-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": [],
+          "require_spec_review": true
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-S-low-code-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": [],
+          "require_code_review": true
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-S-low-s-policy-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": true
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-S-low-repaired",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 1,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-S-low-requirements",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": [],
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "Frozen route presence input."
+            }
+          ]
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-S-medium-default",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-S-medium-spec-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": [],
+          "require_spec_review": true
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-S-medium-code-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": [],
+          "require_code_review": true
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-S-medium-s-policy-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": true
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-S-medium-repaired",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 1,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-S-medium-requirements",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": [],
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "Frozen route presence input."
+            }
+          ]
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-S-high-default",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-S-high-spec-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": [],
+          "require_spec_review": true
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-S-high-code-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": [],
+          "require_code_review": true
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-S-high-s-policy-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": true
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-S-high-repaired",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 1,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-S-high-requirements",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": [],
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "Frozen route presence input."
+            }
+          ]
+        },
+        "classification": {
+          "complexity": "S",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-M-low-default",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-M-low-spec-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": [],
+          "require_spec_review": true
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-M-low-code-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": [],
+          "require_code_review": true
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-M-low-s-policy-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": true
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-M-low-repaired",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 1,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-M-low-requirements",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": [],
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "Frozen route presence input."
+            }
+          ]
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-M-medium-default",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-M-medium-spec-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": [],
+          "require_spec_review": true
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-M-medium-code-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": [],
+          "require_code_review": true
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-M-medium-s-policy-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": true
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-M-medium-repaired",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 1,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-M-medium-requirements",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": [],
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "Frozen route presence input."
+            }
+          ]
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-M-high-default",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-M-high-spec-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": [],
+          "require_spec_review": true
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-M-high-code-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": [],
+          "require_code_review": true
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-M-high-s-policy-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": true
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-M-high-repaired",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 1,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-M-high-requirements",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": [],
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "Frozen route presence input."
+            }
+          ]
+        },
+        "classification": {
+          "complexity": "M",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-L-low-default",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-L-low-spec-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": [],
+          "require_spec_review": true
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-L-low-code-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": [],
+          "require_code_review": true
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-L-low-s-policy-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": true
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-L-low-repaired",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 1,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-L-low-requirements",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": [],
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "Frozen route presence input."
+            }
+          ]
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "low",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-L-medium-default",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-L-medium-spec-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": [],
+          "require_spec_review": true
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-L-medium-code-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": [],
+          "require_code_review": true
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-L-medium-s-policy-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": true
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-L-medium-repaired",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 1,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-L-medium-requirements",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": [],
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "Frozen route presence input."
+            }
+          ]
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "medium",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-L-high-default",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-L-high-spec-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": [],
+          "require_spec_review": true
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-L-high-code-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": [],
+          "require_code_review": true
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-L-high-s-policy-review",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": true
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-L-high-repaired",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": []
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 1,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    },
+    {
+      "name": "analysis_only-specification-L-high-requirements",
+      "controller": {
+        "request": {
+          "mode": "analysis_only",
+          "analysis_goal": "specification",
+          "criteria": [],
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "Frozen route presence input."
+            }
+          ]
+        },
+        "classification": {
+          "complexity": "L",
+          "risk": "high",
+          "impact_flags": [],
+          "rationale": "Frozen pure route input."
+        },
+        "policy_rules": {
+          "s_review_required": false
+        },
+        "repair": {
+          "rounds": 0,
+          "pending_failure": null,
+          "last_source_sha256": null,
+          "diagnosis_attempt": null
+        }
+      },
+      "route": [
+        "inspect",
+        "spec",
+        "spec_review",
+        "acceptance"
+      ]
+    }
+  ],
+  "classifications": [
+    {
+      "name": "S-low-",
+      "before": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "S-low-permissions",
+      "before": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "permissions"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "S",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "permissions"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "S-low-posting",
+      "before": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "posting"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "data_exchange",
+          "posting"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "S-low-data_migration",
+      "before": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "data_migration"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "S",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "data_migration"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "S-low-form_flow",
+      "before": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "form_flow"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "data_exchange",
+          "form_flow"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "S-low-data_deletion",
+      "before": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "data_deletion"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "S",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "data_deletion"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "S-medium-",
+      "before": {
+        "complexity": "S",
+        "risk": "medium",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "S",
+        "risk": "medium",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "S-medium-permissions",
+      "before": {
+        "complexity": "S",
+        "risk": "medium",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "permissions"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "S",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "permissions"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "S-medium-posting",
+      "before": {
+        "complexity": "S",
+        "risk": "medium",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "posting"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "S",
+        "risk": "medium",
+        "impact_flags": [
+          "data_exchange",
+          "posting"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "S-medium-data_migration",
+      "before": {
+        "complexity": "S",
+        "risk": "medium",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "data_migration"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "S",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "data_migration"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "S-medium-form_flow",
+      "before": {
+        "complexity": "S",
+        "risk": "medium",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "form_flow"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "S",
+        "risk": "medium",
+        "impact_flags": [
+          "data_exchange",
+          "form_flow"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "S-medium-data_deletion",
+      "before": {
+        "complexity": "S",
+        "risk": "medium",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "data_deletion"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "S",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "data_deletion"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "S-high-",
+      "before": {
+        "complexity": "S",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "S",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "S-high-permissions",
+      "before": {
+        "complexity": "S",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "permissions"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "S",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "permissions"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "S-high-posting",
+      "before": {
+        "complexity": "S",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "posting"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "S",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "posting"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "S-high-data_migration",
+      "before": {
+        "complexity": "S",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "data_migration"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "S",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "data_migration"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "S-high-form_flow",
+      "before": {
+        "complexity": "S",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "form_flow"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "S",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "form_flow"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "S-high-data_deletion",
+      "before": {
+        "complexity": "S",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "data_deletion"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "S",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "data_deletion"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "M-low-",
+      "before": {
+        "complexity": "M",
+        "risk": "low",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "M",
+        "risk": "low",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "M-low-permissions",
+      "before": {
+        "complexity": "M",
+        "risk": "low",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "permissions"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "M",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "permissions"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "M-low-posting",
+      "before": {
+        "complexity": "M",
+        "risk": "low",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "posting"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "M",
+        "risk": "low",
+        "impact_flags": [
+          "data_exchange",
+          "posting"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "M-low-data_migration",
+      "before": {
+        "complexity": "M",
+        "risk": "low",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "data_migration"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "M",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "data_migration"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "M-low-form_flow",
+      "before": {
+        "complexity": "M",
+        "risk": "low",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "form_flow"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "M",
+        "risk": "low",
+        "impact_flags": [
+          "data_exchange",
+          "form_flow"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "M-low-data_deletion",
+      "before": {
+        "complexity": "M",
+        "risk": "low",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "data_deletion"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "M",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "data_deletion"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "M-medium-",
+      "before": {
+        "complexity": "M",
+        "risk": "medium",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "M",
+        "risk": "medium",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "M-medium-permissions",
+      "before": {
+        "complexity": "M",
+        "risk": "medium",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "permissions"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "M",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "permissions"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "M-medium-posting",
+      "before": {
+        "complexity": "M",
+        "risk": "medium",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "posting"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "M",
+        "risk": "medium",
+        "impact_flags": [
+          "data_exchange",
+          "posting"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "M-medium-data_migration",
+      "before": {
+        "complexity": "M",
+        "risk": "medium",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "data_migration"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "M",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "data_migration"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "M-medium-form_flow",
+      "before": {
+        "complexity": "M",
+        "risk": "medium",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "form_flow"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "M",
+        "risk": "medium",
+        "impact_flags": [
+          "data_exchange",
+          "form_flow"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "M-medium-data_deletion",
+      "before": {
+        "complexity": "M",
+        "risk": "medium",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "data_deletion"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "M",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "data_deletion"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "M-high-",
+      "before": {
+        "complexity": "M",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "M",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "M-high-permissions",
+      "before": {
+        "complexity": "M",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "permissions"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "M",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "permissions"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "M-high-posting",
+      "before": {
+        "complexity": "M",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "posting"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "M",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "posting"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "M-high-data_migration",
+      "before": {
+        "complexity": "M",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "data_migration"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "M",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "data_migration"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "M-high-form_flow",
+      "before": {
+        "complexity": "M",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "form_flow"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "M",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "form_flow"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "M-high-data_deletion",
+      "before": {
+        "complexity": "M",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "data_deletion"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "M",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "data_deletion"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "L-low-",
+      "before": {
+        "complexity": "L",
+        "risk": "low",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "L",
+        "risk": "low",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "L-low-permissions",
+      "before": {
+        "complexity": "L",
+        "risk": "low",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "permissions"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "L",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "permissions"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "L-low-posting",
+      "before": {
+        "complexity": "L",
+        "risk": "low",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "posting"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "L",
+        "risk": "low",
+        "impact_flags": [
+          "data_exchange",
+          "posting"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "L-low-data_migration",
+      "before": {
+        "complexity": "L",
+        "risk": "low",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "data_migration"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "L",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "data_migration"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "L-low-form_flow",
+      "before": {
+        "complexity": "L",
+        "risk": "low",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "form_flow"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "L",
+        "risk": "low",
+        "impact_flags": [
+          "data_exchange",
+          "form_flow"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "L-low-data_deletion",
+      "before": {
+        "complexity": "L",
+        "risk": "low",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "data_deletion"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "L",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "data_deletion"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "L-medium-",
+      "before": {
+        "complexity": "L",
+        "risk": "medium",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "L",
+        "risk": "medium",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "L-medium-permissions",
+      "before": {
+        "complexity": "L",
+        "risk": "medium",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "permissions"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "L",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "permissions"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "L-medium-posting",
+      "before": {
+        "complexity": "L",
+        "risk": "medium",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "posting"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "L",
+        "risk": "medium",
+        "impact_flags": [
+          "data_exchange",
+          "posting"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "L-medium-data_migration",
+      "before": {
+        "complexity": "L",
+        "risk": "medium",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "data_migration"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "L",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "data_migration"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "L-medium-form_flow",
+      "before": {
+        "complexity": "L",
+        "risk": "medium",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "form_flow"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "L",
+        "risk": "medium",
+        "impact_flags": [
+          "data_exchange",
+          "form_flow"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "L-medium-data_deletion",
+      "before": {
+        "complexity": "L",
+        "risk": "medium",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "data_deletion"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "L",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "data_deletion"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "L-high-",
+      "before": {
+        "complexity": "L",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "L",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "L-high-permissions",
+      "before": {
+        "complexity": "L",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "permissions"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "L",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "permissions"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "L-high-posting",
+      "before": {
+        "complexity": "L",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "posting"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "L",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "posting"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "L-high-data_migration",
+      "before": {
+        "complexity": "L",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "data_migration"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "L",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "data_migration"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "L-high-form_flow",
+      "before": {
+        "complexity": "L",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "form_flow"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "L",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "form_flow"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    },
+    {
+      "name": "L-high-data_deletion",
+      "before": {
+        "complexity": "L",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange"
+        ],
+        "rationale": "Original trusted classification."
+      },
+      "proposal": {
+        "complexity": "S",
+        "risk": "low",
+        "impact_flags": [
+          "data_deletion"
+        ],
+        "rationale": "Read-only inspected result."
+      },
+      "after": {
+        "complexity": "L",
+        "risk": "high",
+        "impact_flags": [
+          "data_exchange",
+          "data_deletion"
+        ],
+        "rationale": "Read-only inspected result."
+      }
+    }
+  ]
+}

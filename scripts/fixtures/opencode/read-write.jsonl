@@ -1,0 +1,9 @@
+{"type":"step_start","timestamp":1,"sessionID":"ses_fixture","part":{"id":"prt_a","messageID":"msg_a","sessionID":"ses_fixture","type":"step-start"}}
+{"type":"tool_use","timestamp":2,"sessionID":"ses_fixture","part":{"id":"prt_b","messageID":"msg_a","sessionID":"ses_fixture","type":"tool","tool":"read","callID":"call_a","state":{"status":"completed"}}}
+{"type":"step_finish","timestamp":3,"sessionID":"ses_fixture","part":{"id":"prt_c","messageID":"msg_a","sessionID":"ses_fixture","type":"step-finish","reason":"tool-calls","tokens":{"total":10,"input":2,"output":3,"reasoning":1,"cache":{"read":4,"write":0}},"cost":0.1}}
+{"type":"step_start","timestamp":4,"sessionID":"ses_fixture","part":{"id":"prt_d","messageID":"msg_b","sessionID":"ses_fixture","type":"step-start"}}
+{"type":"tool_use","timestamp":5,"sessionID":"ses_fixture","part":{"id":"prt_e","messageID":"msg_b","sessionID":"ses_fixture","type":"tool","tool":"write","callID":"call_b","state":{"status":"completed"}}}
+{"type":"step_finish","timestamp":6,"sessionID":"ses_fixture","part":{"id":"prt_f","messageID":"msg_b","sessionID":"ses_fixture","type":"step-finish","reason":"tool-calls","tokens":{"total":20,"input":4,"output":6,"reasoning":2,"cache":{"read":8,"write":0}},"cost":0.2}}
+{"type":"step_start","timestamp":7,"sessionID":"ses_fixture","part":{"id":"prt_g","messageID":"msg_c","sessionID":"ses_fixture","type":"step-start"}}
+{"type":"text","timestamp":8,"sessionID":"ses_fixture","part":{"id":"prt_h","messageID":"msg_c","sessionID":"ses_fixture","type":"text","text":"{\"schema_version\":1,\"status\":\"completed\",\"summary\":\"ok\",\"payload_json\":\"{}\"}"}}
+{"type":"step_finish","timestamp":9,"sessionID":"ses_fixture","part":{"id":"prt_i","messageID":"msg_c","sessionID":"ses_fixture","type":"step-finish","reason":"stop","tokens":{"total":30,"input":6,"output":9,"reasoning":3,"cache":{"read":12,"write":0}},"cost":0.3}}

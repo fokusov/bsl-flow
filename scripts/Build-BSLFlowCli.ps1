@@ -49,7 +49,9 @@ foreach ($key in $settings.Keys) { $saved[$key] = [Environment]::GetEnvironmentV
 Push-Location $cliRoot
 try {
     if ($Test) {
-        & $GoPath test -count=1 ./...
+        # The public lifecycle integration tests spawn real provider processes
+        # and can legitimately exceed Go's 10m per-package default under load.
+        & $GoPath test -count=1 -timeout 45m ./...
         if ($LASTEXITCODE -ne 0) { throw "Go tests failed: $LASTEXITCODE" }
     }
     & $GoPath build -trimpath -buildvcs=false '-ldflags=-buildid=' -o $OutputPath .

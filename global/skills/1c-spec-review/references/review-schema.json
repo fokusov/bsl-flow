@@ -138,7 +138,7 @@
       "properties": {
         "id": { "type": "string", "pattern": "^R-[0-9]{3,}$" },
         "severity": { "enum": ["blocker", "high", "medium", "low"] },
-        "category": { "enum": ["intent_drift", "missing_requirement", "unsupported_assumption", "overengineering", "architecture_fit", "testability", "clarity", "prompt_injection"] },
+        "category": { "enum": ["intent_drift", "missing_requirement", "lost_requirement", "unsupported_assumption", "scope_creep", "overengineering", "architecture_fit", "testability", "clarity", "prompt_injection"] },
         "spec_ref": { "type": "string", "minLength": 1 },
         "issue": { "type": "string", "minLength": 1 },
         "evidence": { "type": "string", "minLength": 1 },
