@@ -3,6 +3,7 @@ package main
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -385,5 +386,54 @@ func TestSystemPowerShellFailsWithoutPowerShell7(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "PowerShell 7 is required") || strings.Contains(strings.ToLower(err.Error()), "windowspowershell") {
 		t.Fatalf("missing PowerShell 7 error is not explicit and fail-closed: %v", err)
+	}
+}
+
+func TestLegacyEngineGate(t *testing.T) {
+	if err := legacyEngineGate("windows"); err != nil {
+		t.Fatalf("windows must allow the legacy engine: %v", err)
+	}
+	for _, goos := range []string{"darwin", "linux"} {
+		err := legacyEngineGate(goos)
+		if err == nil || !strings.Contains(err.Error(), "unsupported on this platform") {
+			t.Fatalf("goos %s must be rejected with an unsupported-platform error, got %v", goos, err)
+		}
+	}
+}
+
+func TestCapabilityCommandPrintsMachineModel(t *testing.T) {
+	var out bytes.Buffer
+	if code := run([]string{"capability"}, &out, &out); code != 0 {
+		t.Fatalf("capability exit %d: %s", code, out.String())
+	}
+	var caps struct {
+		GOOS     string   `json:"goos"`
+		GOArch   string   `json:"goarch"`
+		Engines  []string `json:"engines"`
+		Native1C struct {
+			Status string `json:"status"`
+		} `json:"native_1c"`
+		Filesystem struct {
+			AtomicRename bool `json:"atomic_rename"`
+			Locks        bool `json:"locks"`
+		} `json:"filesystem"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &caps); err != nil {
+		t.Fatalf("capability output is not JSON: %v: %s", err, out.String())
+	}
+	if caps.GOOS != "windows" || caps.GOArch != "amd64" {
+		t.Fatalf("unexpected platform %s/%s", caps.GOOS, caps.GOArch)
+	}
+	if !caps.Filesystem.AtomicRename || !caps.Filesystem.Locks {
+		t.Fatalf("expected probed filesystem capabilities on the trusted cache root: %+v", caps.Filesystem)
+	}
+	found := false
+	for _, engine := range caps.Engines {
+		if engine == "native" {
+			found = true
+		}
+	}
+	if !found || caps.Native1C.Status != "windows-only" {
+		t.Fatalf("unexpected engine/native1c model: %+v", caps)
 	}
 }

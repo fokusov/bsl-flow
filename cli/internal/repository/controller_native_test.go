@@ -173,7 +173,7 @@ func (p *nativeTestProvider) Measure(_ context.Context, input MeasureInput) (Mea
 		PolicyRules:    policyRules,
 		SourceManifest: manifest,
 		SpecInputs:     specInputs,
-		Dependencies: dependencies,
+		Dependencies:   dependencies,
 		Capability: map[string]any{
 			"observations": map[string]any{
 				"config_read": "allowed", "config_write": "denied",
@@ -301,9 +301,9 @@ func (p *nativeTestProvider) executeObservation(input ExecuteInput, stage string
 		proposal = map[string]any{"changed_files": []any{}}
 	case "verify":
 		observations := map[string]any{"criteria": []any{map[string]any{
-				"criterion_id": "readme", "kind": "file_assertion", "file": "readme.txt",
-				"sha256":  nativeTestFileHashFromPath(filepath.Join(worker, "readme.txt")),
-				"outcome": "PASS",
+			"criterion_id": "readme", "kind": "file_assertion", "file": "readme.txt",
+			"sha256":  nativeTestFileHashFromPath(filepath.Join(worker, "readme.txt")),
+			"outcome": "PASS",
 		}}}
 		observationData, err := Canonical(observations)
 		if err != nil {

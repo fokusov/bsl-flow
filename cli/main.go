@@ -10,9 +10,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 
+	"bsl-flow/cli/internal/platform"
 	"bsl-flow/cli/internal/repository"
 )
 
@@ -32,7 +34,7 @@ var uuid = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-
 
 func parse(args []string) (invocation, error) {
 	in := invocation{options: map[string]string{}}
-	if len(args) == 1 && (args[0] == "help" || args[0] == "version") {
+	if len(args) == 1 && (args[0] == "help" || args[0] == "version" || args[0] == "capability") {
 		in.command = args[0]
 		return in, nil
 	}
@@ -208,10 +210,13 @@ func run(args []string, out, errOut io.Writer) int {
 		return hostError(out, 2, in.options["--task"], err)
 	}
 	if in.command == "help" {
-		fmt.Fprintln(out, "bsl-flow version\nbsl-flow help\nbsl-flow task <start|status|next|context|run|update|resume|cancel|record|accept|deliver|publish|publish-resume> --project <path> [--task <uuid>] [--input <json>] [--attempt <uuid>] [--codex <exe>] [--engine <native|legacy-powershell>]\nbsl-flow runner run --project <path> --input <json> [--codex <exe>]\nTask start/update/publish/publish-resume require --input; all task actions except start require --task; record requires --attempt; --codex is for task run/resume and runner run. UUIDs must be lowercase.\nExecution routing defaults to native for canonical repository tasks and legacy-powershell for checkout-local v1 tasks; --engine makes a supported choice explicit.\nTask context is a read-only projection of the controller journal and Get-BFNext; it writes nothing and authorizes nothing.\nNative runtime auth uses --runtime-auth stdin on run/resume/update/runner; send one private JSON line with username and password. No credential files or secret arguments.\nPublication requires a separate exact acceptance/remote/ref authorization; publish-resume only reads the remote result.\nRequires PowerShell 7, Git and the configured worker provider. Ctrl+C is not rollback; inspect the exact task and use task cancel/resume.")
+		fmt.Fprintln(out, "bsl-flow version\nbsl-flow help\nbsl-flow capability\nbsl-flow task <start|status|next|context|run|update|resume|cancel|record|accept|deliver|publish|publish-resume> --project <path> [--task <uuid>] [--input <json>] [--attempt <uuid>] [--codex <exe>] [--engine <native|legacy-powershell>]\nbsl-flow runner run --project <path> --input <json> [--codex <exe>]\nTask start/update/publish/publish-resume require --input; all task actions except start require --task; record requires --attempt; --codex is for task run/resume and runner run. UUIDs must be lowercase.\nExecution routing defaults to native for canonical repository tasks and legacy-powershell for checkout-local v1 tasks; --engine makes a supported choice explicit.\nThe legacy-powershell engine exists only on Windows; other platforms reject it before task state access. bsl-flow capability prints the observed machine capability model.\nTask context is a read-only projection of the controller journal and Get-BFNext; it writes nothing and authorizes nothing.\nNative runtime auth uses --runtime-auth stdin on run/resume/update/runner; send one private JSON line with username and password. No credential files or secret arguments.\nPublication requires a separate exact acceptance/remote/ref authorization; publish-resume only reads the remote result.\nRequires PowerShell 7, Git and the configured worker provider. Ctrl+C is not rollback; inspect the exact task and use task cancel/resume.")
 		fmt.Fprintln(out, "bsl-flow task <create|edit|activate|adopt|rebind|list|show|history|overview|archive|unarchive> --project <path> [--task <uuid>] [--input <json>] [--expected-revision <n>] [--source <path>] [--preview|--apply] [--json] [--human]")
 		fmt.Fprintln(out, "Native repository task commands are clone-local operations; metadata reads default to JSON and --human prints tables. activate requires a trusted request and a compatible packaged provider, then publishes the ready revision. adopt previews or applies a checked legacy binding; rebind attaches the same UUID to a fresh trusted request. Execution of canonical tasks stays on the native route and never falls back to legacy PowerShell.")
 		return 0
+	}
+	if in.command == "capability" {
+		return printCapabilities(out)
 	}
 	bundle, err := readEmbeddedBundle()
 	if err != nil {
@@ -220,6 +225,9 @@ func run(args []string, out, errOut io.Writer) int {
 	if in.command == "version" {
 		_ = json.NewEncoder(out).Encode(map[string]interface{}{"schema_version": 1, "package": "bsl-flow", "version": bundle.version, "bundle_sha256": bundle.hash})
 		return 0
+	}
+	if err := legacyEngineGate(runtime.GOOS); err != nil {
+		return hostError(out, 11, in.options["--task"], err)
 	}
 	cache, err := os.UserCacheDir()
 	if err != nil {
@@ -264,3 +272,34 @@ func run(args []string, out, errOut io.Writer) int {
 }
 
 func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
+
+// The legacy PowerShell engine exists only on Windows. On every other
+// platform a legacy-bound request is rejected before any cache or task
+// state access; native repository reads stay available.
+func legacyEngineGate(goos string) error {
+	if goos != "windows" {
+		return errors.New("legacy powershell engine is unsupported on this platform")
+	}
+	return nil
+}
+
+// printCapabilities reports the observed machine capability model. Text or
+// configuration claims cannot enable a capability absent here.
+func printCapabilities(out io.Writer) int {
+	var probe platform.Capability
+	if root, err := platform.TrustedCacheRoot(); err == nil {
+		if err = safeMkdir(root); err == nil {
+			if probed, probeErr := platform.ProbeFilesystem(root); probeErr == nil {
+				probe = probed
+			}
+		}
+	}
+	gitPath, _ := exec.LookPath("git")
+	caps := platform.Detect(runtime.GOOS, runtime.GOARCH, probe, gitPath)
+	encoder := json.NewEncoder(out)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(caps); err != nil {
+		return hostError(out, 11, "", err)
+	}
+	return 0
+}

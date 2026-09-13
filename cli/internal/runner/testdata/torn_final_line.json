@@ -1,0 +1,32 @@
+{
+  "description": "a torn final journal line replays up to the last complete event and demands reconciliation",
+  "journal": "torn_final_line.jsonl",
+  "parse_journal_error": "torn",
+  "replay_error": "torn",
+  "expect": {
+    "needs_reconciliation": true,
+    "running": {
+      "22222222-2222-4222-8222-222222222222": ""
+    },
+    "pending": [
+      "11111111-1111-4111-8111-111111111111",
+      "22222222-2222-4222-8222-222222222222"
+    ],
+    "recovery": [],
+    "cursor": 0,
+    "last_kind": {
+      "11111111-1111-4111-8111-111111111111": "observed",
+      "22222222-2222-4222-8222-222222222222": "run"
+    },
+    "last_status": {
+      "11111111-1111-4111-8111-111111111111": "completed",
+      "22222222-2222-4222-8222-222222222222": "ready"
+    }
+  },
+  "dispatch": [
+    {"task": "11111111-1111-4111-8111-111111111111", "ok": false, "reason_contains": "reconciliation"}
+  ],
+  "next": [
+    {"cursor": 0, "error_contains": "reconciliation"}
+  ]
+}

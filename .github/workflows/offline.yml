@@ -59,3 +59,44 @@ jobs:
       - name: Native CLI checks without model or database calls
         shell: pwsh
         run: ./scripts/Test-BSLFlowCli.ps1
+
+  # Windows coverage stays in the engine and cli jobs above (runs-on: windows-2025);
+  # this native OS matrix must remain OS-neutral and bash-only by design.
+  native-matrix:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-13, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.1'
+          cache: false
+      - name: Vet Go sources
+        shell: bash
+        working-directory: cli
+        run: go vet ./...
+      - name: Build Go sources
+        shell: bash
+        working-directory: cli
+        run: go build ./...
+      - name: Cross-compile smoke (GOOS=windows GOARCH=amd64)
+        shell: bash
+        working-directory: cli
+        run: GOOS=windows GOARCH=amd64 go build ./...
+      - name: OS-neutral contract suites
+        shell: bash
+        working-directory: cli
+        run: |
+          set -eu
+          pkgs="$(go list ./internal/... | grep -E 'internal/(platform|runner|delivery|release|bootstrap)$' || true)"
+          if [ -z "$pkgs" ]; then
+            echo 'No OS-neutral contract packages present yet; nothing to test'
+          else
+            go test $pkgs -count=1
+          fi
