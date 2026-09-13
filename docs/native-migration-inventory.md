@@ -1,6 +1,13 @@
 # Карта миграции native-cross-platform-cli
 
-Дата: 2026-09-13. Живой трекер замещения PowerShell native Go-интерфейсами по спеке `openspec/changes/native-cross-platform-cli`. Статусы: **ported** (Go-эквивалент с тестами), **partial** (контрактный слой есть, runtime-исполнение ещё на PS), **pending** (замещение не начато), **retire-candidate** (удаление возможно после green native CI и переноса coverage).
+Дата: 2026-09-13 (обновление: волна 4). Приоритет владельца: **Windows-first** (macOS/Linux — потом; кросс-платформенные заготовки — build tags, host_other, CI matrix, 4-таргетный release — остаются заделом). Живой трекер замещения PowerShell native Go-интерфейсами по спеке `openspec/changes/native-cross-platform-cli`. Статусы: **ported** (Go-эквивалент с тестами), **partial** (контрактный слой есть, runtime-исполнение ещё на PS), **pending** (замещение не начато), **retire-candidate** (удаление возможно после green native CI и переноса coverage).
+
+## Волна 4 (2026-09-13, Windows-first runtime wiring)
+
+| Срез | Что | Статус |
+| --- | --- | --- |
+| Нативные spec-команды | `bsl-flow spec lint --project <path> [--change <id>] [--json]` и `bsl-flow spec final ...` — PowerShell-free, артефакт spec-lint.json байт-совместим с PS; differential на всех 5 реальных change'ах: native == PS (ошибки/предупреждения); Go final-валидатор поймал реальный дрейф binding-final-spec в repository-task-registry (правка спеки после reconciliation), подтверждён pwsh | **готово, в production CLI** |
+| Native spec-stage провайдер | `nativeSpecStageProvider` (композиция поверх PS-провайдера): spec-стадия исполняется в Go (specvalidate, byte-parity артефактов, та же blocked-семантика lint-ошибок, source-manifest gate); текст спеки приходит через инжектируемый `nativeSpecWorker` seam (fail-closed, без тихого fallback) | **готово, активация в production-маршрут — следующий слайс** (нужен controller-level differential до переключения) |
 
 ## Стадии спеки (requirement 2)
 
