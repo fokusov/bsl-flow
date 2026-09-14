@@ -41,14 +41,15 @@ func (p *compositeNativeProvider) Execute(ctx context.Context, input repository.
 	return p.inner.Execute(ctx, input)
 }
 
-// InvokeMemory keeps the packaged memory helper on the compatibility path;
-// the controller degrades memory to an advisory disabled envelope when the
-// helper is unavailable, which is the documented non-Windows behavior.
+// InvokeMemory routes the advisory memory helper through the native stage
+// host binary (`__memory`), which needs no PowerShell and therefore works on
+// every platform; the controller still degrades memory to an advisory
+// disabled envelope when the helper fails.
 func (p *compositeNativeProvider) InvokeMemory(ctx context.Context, input map[string]any) (map[string]any, error) {
-	if p == nil || p.inner == nil {
+	if p == nil || p.native == nil {
 		return nil, fmt.Errorf("memory helper is unavailable on this host")
 	}
-	helper, ok := p.inner.(repository.MemoryProvider)
+	helper, ok := p.native.(repository.MemoryProvider)
 	if !ok {
 		return nil, fmt.Errorf("memory helper is unavailable on this host")
 	}

@@ -27,8 +27,7 @@ func TestCompositeProviderRouting(t *testing.T) {
 	measured := repository.MeasureObservation{SchemaVersion: 1, Contract: nativeProviderContract, TaskID: "t", Operation: "measure", RequestValid: true}
 	completed := repository.ExecuteObservation{SchemaVersion: 1, Contract: nativeProviderContract, Status: "completed"}
 	routes := &routingRecorder{measureResult: measured, executeResult: completed, executeStages: map[string]int{}}
-	inner := &stubMemoryProvider{Provider: routes}
-	composite := &compositeNativeProvider{native: routes, inner: inner}
+	composite := &compositeNativeProvider{native: &stubMemoryProvider{Provider: routes}, inner: routes}
 	if _, err := composite.Measure(context.Background(), compositeInput("measure", "")); err != nil {
 		t.Fatalf("measure routing: %v", err)
 	}
@@ -73,9 +72,9 @@ func (p *stubMemoryProvider) InvokeMemory(ctx context.Context, input map[string]
 }
 
 func TestCompositeProviderMemoryDegradation(t *testing.T) {
-	composite := &compositeNativeProvider{inner: nil}
+	composite := &compositeNativeProvider{native: nil, inner: nil}
 	if _, err := composite.InvokeMemory(context.Background(), map[string]any{}); err == nil {
-		t.Fatal("memory without the compatibility provider must fail closed")
+		t.Fatal("memory without the native helper must fail closed")
 	}
 }
 

@@ -20,11 +20,13 @@ func (p *nativeProvider) InvokeMemory(ctx context.Context, input map[string]any)
 	if err != nil {
 		return nil, err
 	}
-	script := filepath.Join(filepath.Dir(p.script), "Invoke-BFNativeMemory.ps1")
-	if err := checkPath(script); err != nil {
-		return nil, err
+	if !p.selfHost {
+		script := filepath.Join(filepath.Dir(p.script), "Invoke-BFNativeMemory.ps1")
+		if err := checkPath(script); err != nil {
+			return nil, err
+		}
 	}
-	args := []string{"-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script}
+	args := p.memoryArgs()
 	result, err := p.runProcess(ctx, shell, args, data, providerEnvironment(p.hostPath), 1<<20)
 	if err != nil {
 		return nil, err
@@ -36,4 +38,15 @@ func (p *nativeProvider) InvokeMemory(ctx context.Context, input map[string]any)
 		return nil, fmt.Errorf("memory output exceeds its bound")
 	}
 	return repository.DecodeObject(result.Stdout)
+}
+
+// memoryArgs returns the fixed invocation argv for the memory helper: the
+// packaged PowerShell bridge or the hidden native subcommand of this same
+// trusted binary. The script file stays hash-bound as part of the persisted
+// engine identity in both modes.
+func (p *nativeProvider) memoryArgs() []string {
+	if p.selfHost {
+		return []string{"__memory"}
+	}
+	return []string{"-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", filepath.Join(filepath.Dir(p.script), "Invoke-BFNativeMemory.ps1")}
 }

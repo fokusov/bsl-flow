@@ -213,10 +213,14 @@ func newPackagedNativeResolver() *repository.ControllerHost {
 
 func run(args []string, out, errOut io.Writer) int {
 	// Hidden provider-mode subcommands are only ever invoked by this same
-	// trusted binary: the native stage host and its sandbox filesystem probe.
-	// They are deliberately absent from help output and rejected with options.
+	// trusted binary: the native stage host, its sandbox filesystem probe and
+	// the native memory helper. They are deliberately absent from help output
+	// and rejected with options.
 	if len(args) == 1 && args[0] == "__provider" {
 		return runProviderMode(context.Background(), os.Stdin, out, errOut)
+	}
+	if len(args) == 1 && args[0] == "__memory" {
+		return runMemoryMode(os.Stdin, out)
 	}
 	if len(args) == 2 && args[0] == "__fs-probe" {
 		if err := stagehost.FSProbe(args[1], out); err != nil {
