@@ -50,7 +50,6 @@ Task может хранить `origin_worktree` и текущий execution bin
 - `task history --task ... [--json]`
 - `task overview [filters] [--json]`
 - `task archive|unarchive --task ... --expected-revision ...`
-- `task registry adopt --source <worktree>|--all --preview|--apply`
 
 JSON schemas разделены на write inputs и read envelopes. Cursor содержит version, repository ID, filter/sort hash и last stable key; изменение filters/repository делает cursor invalid. Default sort: `updated_at desc`, затем UUID ordinal.
 
@@ -102,4 +101,4 @@ Discovery перечисляет `.bsl-flow/tasks` в verified worktree roots т
 
 ## Стратегия проверки
 
-Golden fixtures покрывают v1/v2 canonical JSON, hash chains и redaction. Temporary Git repositories создают main plus two worktrees и отдельный clone. Fault injection прерывает каждый durability step, включая rename→directory-sync uncertainty. Concurrency tests проверяют expected-revision conflicts, встречные dependency edges и dispatch drift. Adoption tests сохраняют source bytes plus portable artifact manifest, выполняют canonical continuation/repeated discovery, удаляют worktree и различают historical completed от current freshness. JSON schemas и human output сравниваются по membership/order, но human formatting не является API.
+Golden fixtures покрывают v1/v2 canonical JSON, hash chains и redaction. Temporary Git repositories создают main plus two worktrees и отдельный clone. Fault injection прерывает каждый durability step, включая rename→directory-sync uncertainty. Concurrency tests проверяют expected-revision conflicts, встречные dependency edges и dispatch drift. Adoption tests — скоуп отдельной спецификации `native-task-activation-adoption` (source bytes plus portable artifact manifest, canonical continuation/repeated discovery, удаление worktree, различение historical completed от current freshness); в стратегию проверки этой версии они не входят. JSON schemas и human output сравниваются по membership/order, но human formatting не является API.
