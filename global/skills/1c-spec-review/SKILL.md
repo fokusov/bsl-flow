@@ -1,6 +1,6 @@
 ---
 name: 1c-spec-review
-description: Run lint and an independent read-only OpenCode critique for an OpenSpec 1C specification, reconcile findings, and validate the final spec.
+description: Run lint and an independent review for an OpenSpec 1C specification — the API council (chair plus independent critics) where project config enables it, otherwise the isolated single-reviewer OpenCode compatibility route — reconcile findings, and validate the final spec.
 ---
 
 # 1c-spec-review
@@ -16,7 +16,8 @@ Read project `bsl-flow.yaml` and classify the change as S/M/L plus low/medium/hi
 - Always run spec lint when a spec exists.
 - Run external review for M, L, or high-risk changes.
 - For S low/medium-risk changes, do not run external review unless the user or project routing explicitly requests it.
-- Never silently waive a required review because OpenCode or the configured model is unavailable. Report the blocker.
+- The review route comes from the same `bsl-flow.yaml`: `review.council.enabled: true` dispatches the API council (chair plus independent critics, budget ledger, council final gate); without it the script uses the isolated single-reviewer OpenCode route. Never silently switch routes to satisfy a review requirement.
+- Never silently waive a required review because the council providers or the configured model are unavailable. Report the blocker.
 
 ## Inputs and artifacts
 
@@ -29,11 +30,11 @@ review-reconciliation.json
 final-validation.json
 ```
 
-They are evidence, not OpenSpec schema artifacts. Do not add `tasks.md`.
+They are evidence, not OpenSpec schema artifacts. Do not add `tasks.md`. Council reviews write `review.json` schema v2 with reconciliation inline; the single-reviewer route writes schema v1 and requires the `review-reconciliation.json` sidecar. `Test-1CSpecFinal.ps1` accepts both.
 
 ## Workflow
 
-1. Run `scripts/Invoke-1CSpecReview.ps1`. It always lints and applies routing; when required it invokes the isolated OpenCode agent with `--pure`, with snapshots disabled in the packaged reviewer profile, validates the JSONL response, recalculates derived metrics and the gate verdict, and writes `review.json` only after all checks pass.
+1. Run `scripts/Invoke-1CSpecReview.ps1`. It always lints and applies routing. With the council route enabled it dispatches the configured council roles (chair plus independent critics) through the budget ledger and publishes through the council final gate; otherwise it invokes the isolated single-reviewer OpenCode agent with `--pure`, with snapshots disabled in the packaged reviewer profile. Both routes validate the response, recalculate derived metrics and the gate verdict, and write `review.json` only after all checks pass.
 2. Read every finding. Verify it against the original task and real project evidence.
 3. Create `review-reconciliation.json` according to [references/reconciliation-contract.md](references/reconciliation-contract.md). Accept or reject every finding exactly once. Never apply a finding merely because the reviewer proposed it.
 4. Make one minimal targeted revision for accepted findings. Preserve every justified `do_not_change` item.
