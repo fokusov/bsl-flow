@@ -1,6 +1,9 @@
 package repository
 
-import "path/filepath"
+import (
+	"os"
+	"path/filepath"
+)
 
 func recordedNativeResult(repository *Repository, task *Task, payload map[string]any, attemptID, inputPath string, hosts ...*ControllerHost) (any, error) {
 	var evidence map[string]any
@@ -151,10 +154,178 @@ func recordNativeObservation(repository *Repository, task *Task, payload map[str
 		return nil, err
 	}
 	payload = asMap(state["controller"])
+	if observation.Stage == "verify" && outcome == "PASS" {
+		// Task.Engine.ps1 Record flow: a verified native PASS completes its own
+		// pending latch from the retained result and raw evidence. The scan
+		// no-ops for source-only verifications.
+		if err := Native1CCompleteRecordedSuccess(payload, attemptID, path, nativeRecoveryRuntime(hosts...)); err != nil {
+			return nil, err
+		}
+	}
 	invokeNativeMemory(state, payload, "extract-attempt", "", terminal, hash, nil, "", nil, hosts...)
 	next, err := controllerNext(state, payload)
 	if err != nil {
 		return nil, err
 	}
 	return controllerEnvelope(state, payload, next), nil
+}
+
+// recordRecoveredNativeSuccess mirrors the Resume saved-success branch of
+// Task.Engine.ps1: a retained runtime-success.json re-validates offline and
+// completes its own pending latch without repeating any database operation.
+func recordRecoveredNativeSuccess(repository *Repository, task *Task, payload map[string]any, start map[string]any, attemptPath, artifactRoot string, criterion map[string]any, hosts ...*ControllerHost) (any, error) {
+	attemptID := asStringOr(start["attempt_id"])
+	rawRoot := filepath.Join(artifactRoot, "raw")
+	rawDir := filepath.Join(rawRoot, asStringOr(criterion["id"]))
+	manifest, err := sourceManifestWithBaseline(asStringOr(payload["worker_path"]), asStringOr(payload["baseline"]), []string{"."})
+	if err != nil {
+		return nil, err
+	}
+	current, err := currentNativeDependencies(payload, "verify", manifest)
+	if err != nil {
+		return nil, err
+	}
+	currentHash, err := Hash(current)
+	if err != nil {
+		return nil, err
+	}
+	startDepsHash, err := Hash(asMap(start["dependencies"]))
+	if err != nil {
+		return nil, err
+	}
+	if currentHash != startDepsHash {
+		return nil, blocked("saved native verification dependencies changed.")
+	}
+	taskDir := filepath.Join(repository.StorePath, "tasks", task.ID)
+	observation, err := Native1CSavedObservation(payload, criterion, rawDir, attemptID, taskDir, manifest)
+	if err != nil {
+		return nil, err
+	}
+	observationsPath := filepath.Join(rawRoot, "observations.json")
+	observations := map[string]any{"criteria": []any{observation}}
+	if nativeDependencyRegularFile(observationsPath) {
+		saved, err := native1CReadJSON(observationsPath)
+		if err != nil {
+			return nil, err
+		}
+		savedHash, err := Hash(saved)
+		if err != nil {
+			return nil, err
+		}
+		observationsHash, err := Hash(observations)
+		if err != nil {
+			return nil, err
+		}
+		if savedHash != observationsHash {
+			return nil, blocked("saved native observations differ from original reports.")
+		}
+	} else if err := AtomicWriteCanonical(observationsPath, observations); err != nil {
+		return nil, err
+	}
+	artifacts, err := native1CRawArtifacts(artifactRoot)
+	if err != nil {
+		return nil, err
+	}
+	wire := ExecuteObservation{
+		SchemaVersion:    1,
+		Contract:         NativeProviderContract,
+		TaskID:           task.ID,
+		AttemptID:        attemptID,
+		Stage:            "verify",
+		Status:           "completed",
+		Summary:          "Recovered original completed native verification without repeating database operations.",
+		SideEffects:      "none",
+		Dependencies:     current,
+		SourceManifest:   manifest,
+		Artifacts:        artifacts,
+		ProviderContract: providerContract(engineFromMap(asMap(payload["engine"]))),
+	}
+	outcome := "PASS"
+	evidence := makeEvidence(wire, current, artifacts, "", outcome)
+	terminal, err := normalizedTerminalResult(wire, outcome)
+	if err != nil {
+		return nil, err
+	}
+	terminalHash, err := Hash(terminal)
+	if err != nil {
+		return nil, err
+	}
+	evidence["result_sha256"] = terminalHash
+	if err := applyObservation(payload, wire, evidence, false); err != nil {
+		return nil, err
+	}
+	if err := persistProviderArtifacts(attemptPath, artifactRoot, artifacts); err != nil {
+		return nil, err
+	}
+	if _, err := writeImmutableJSON(filepath.Join(attemptPath, "result.json"), toExecuteObservation(wire)); err != nil {
+		return nil, err
+	}
+	if _, err := writeImmutableJSON(filepath.Join(attemptPath, "terminal.json"), terminal); err != nil {
+		return nil, err
+	}
+	state, err := appendControllerRevision(repository, task, payload, task.Revision)
+	if err != nil {
+		return nil, err
+	}
+	payload = asMap(state["controller"])
+	if err := Native1CCompleteSavedSuccess(task.ID, attemptID, rawDir, nativeRecoveryRuntime(hosts...)); err != nil {
+		return nil, err
+	}
+	invokeNativeMemory(state, payload, "extract-attempt", "", terminal, terminalHash, nil, "", nil, hosts...)
+	next, err := controllerNext(state, payload)
+	if err != nil {
+		return nil, err
+	}
+	return controllerEnvelope(state, payload, next), nil
+}
+
+// native1CRawArtifacts walks the retained raw evidence of one attempt and
+// projects it into the provider artifact shape (paths relative to the
+// artifact root), mirroring Get-BFRawHashes on the native path.
+func native1CRawArtifacts(artifactRoot string) ([]ArtifactRef, error) {
+	refs := []ArtifactRef{}
+	if err := filepath.WalkDir(artifactRoot, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() || !entry.Type().IsRegular() {
+			return nil
+		}
+		relative, err := filepath.Rel(artifactRoot, path)
+		if err != nil {
+			return err
+		}
+		data, err := ReadFileBytes(path)
+		if err != nil {
+			return err
+		}
+		refs = append(refs, ArtifactRef{Path: filepath.ToSlash(relative), SHA256: fileSHA256(data), SizeBytes: int64(len(data)), Kind: "raw"})
+		return nil
+	}); err != nil {
+		return nil, blocked("retained raw evidence cannot be bound: %v", err)
+	}
+	return refs, nil
+}
+
+// native1CRawHashes projects the retained raw evidence into the absolute
+// path+hash shape of the PS recovery ledger.
+func native1CRawHashes(root string) ([]any, error) {
+	rows := []any{}
+	if err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() || !entry.Type().IsRegular() {
+			return nil
+		}
+		data, err := ReadFileBytes(path)
+		if err != nil {
+			return err
+		}
+		rows = append(rows, map[string]any{"path": path, "sha256": fileSHA256(data)})
+		return nil
+	}); err != nil {
+		return nil, blocked("retained raw evidence cannot be bound: %v", err)
+	}
+	return rows, nil
 }

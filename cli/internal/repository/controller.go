@@ -2110,7 +2110,7 @@ func applyObservation(payload map[string]any, observation ExecuteObservation, ev
 	payload["unresolved_effect"] = nil
 	payload["blockers"] = []any{}
 	if observation.SideEffects == "unknown" {
-		payload["unresolved_effect"] = map[string]any{"attempt_id": observation.AttemptID, "stage": observation.Stage, "source_before_sha256": asStringOr(dependenciesValue(evidence, "source")), "state": "unknown", "scope": "source_only"}
+		payload["unresolved_effect"] = map[string]any{"attempt_id": observation.AttemptID, "stage": observation.Stage, "source_before_sha256": asStringOr(dependenciesValue(evidence, "source")), "state": "unknown", "scope": native1CUnresolvedScope(payload, observation.Stage)}
 	}
 	switch outcome {
 	case "PASS":
@@ -2702,6 +2702,35 @@ func taskFromOuter(state map[string]any) *Task {
 	return task
 }
 
+// native1CUnresolvedScope mirrors Task.Engine.ps1:289-290: an uncertain
+// verify attempt over a native 1C criterion is scoped native_1c and requires
+// the native control-read recovery instead of a source-only reconciliation.
+func native1CUnresolvedScope(payload map[string]any, stage string) string {
+	if stage != "verify" {
+		return "source_only"
+	}
+	request := asMap(payload["request"])
+	for _, raw := range anyItems(request["criteria"]) {
+		criterion, ok := raw.(map[string]any)
+		if ok && criterion != nil && criterion["native_1c"] != nil {
+			return "native_1c"
+		}
+	}
+	return "source_only"
+}
+
+// nativeRecoveryRuntime resolves the recovery seams from the host or falls
+// back to the trusted production defaults (local app data journal, in-binary
+// control read wired by the CLI host).
+func nativeRecoveryRuntime(hosts ...*ControllerHost) Native1CRecoveryRuntime {
+	for _, host := range hosts {
+		if host != nil && host.Native1CRecovery != nil {
+			return *host.Native1CRecovery
+		}
+	}
+	return Native1CRecoveryRuntime{}
+}
+
 func asIntOr(value any) int64 {
 	parsed, _ := asInt(value)
 	return parsed
@@ -2969,6 +2998,27 @@ func commandControllerResume(project, id string, host *ControllerHost) (any, err
 				return nil, err
 			}
 			return recordNativeObservation(repository, task, payload, observation, start, artifactRoot, host)
+		}
+		// Retained completed native verification (Task.Engine.ps1 Resume
+		// saved-success branch): the raw evidence re-validates offline and
+		// completes its own pending latch without repeating database
+		// operations.
+		start, err := readStoredAttempt(attemptPath)
+		if err == nil && asStringOr(start["stage"]) == "verify" {
+			criteria := anyItems(asMap(payload["request"])["criteria"])
+			if len(criteria) == 1 {
+				criterion, criterionOK := criteria[0].(map[string]any)
+				if criterionOK && criterion != nil && criterion["native_1c"] != nil {
+					artifactRoot, artifactErr := artifactDirectory(repository, id, active)
+					if artifactErr != nil {
+						return nil, artifactErr
+					}
+					rawDir := filepath.Join(artifactRoot, "raw", asStringOr(criterion["id"]))
+					if nativeDependencyRegularFile(filepath.Join(rawDir, "runtime-success.json")) {
+						return recordRecoveredNativeSuccess(repository, task, payload, start, attemptPath, artifactRoot, criterion, host)
+					}
+				}
+			}
 		}
 		// A running attempt with no retained terminal result is intentionally not
 		// dispatched again. The operator must reconcile the exact effect first.

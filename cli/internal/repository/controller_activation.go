@@ -142,15 +142,18 @@ func commandControllerUpdateNew(project, id, inputPath string, host *ControllerH
 	if err != nil {
 		return nil, blocked("invalid controller state: %v", err)
 	}
+	request, err := readInput(inputPath)
+	if err != nil {
+		return nil, err
+	}
+	if kind, _ := request["kind"].(string); kind == "recovery" {
+		return commandControllerNativeRecovery(repository, task, previous, request, host)
+	}
 	if previous["active_attempt"] != nil || previous["unresolved_effect"] != nil {
 		return nil, blocked("reconcile the active or uncertain attempt before changing task input")
 	}
 	if rebind, ok := migrationRequiresRebind(task.State); ok && rebind {
 		return nil, blocked("task %s requires explicit execution rebind before update", id)
-	}
-	request, err := readInput(inputPath)
-	if err != nil {
-		return nil, err
 	}
 	if err := validateNativeActivationRequest(request, id); err != nil {
 		return nil, err
@@ -897,4 +900,185 @@ func migrationRequiresRebind(state map[string]any) (bool, bool) {
 		return false, true
 	}
 	return rebind, true
+}
+
+// commandControllerNativeRecovery mirrors the 'recovery' branch of
+// Update-BFTask for runtime attempts: one authorized control read against
+// the pending ledger, the retained receipt, and the latch completion. The
+// runtime credential arrives through the private reader exactly like a
+// dispatch does.
+func commandControllerNativeRecovery(repository *Repository, task *Task, payload map[string]any, event map[string]any, host *ControllerHost) (any, error) {
+	if _, err := nativeObject(event, []string{"kind", "input_event_id", "resolution"}, nil, "recovery_event"); err != nil {
+		return nil, err
+	}
+	eventID := asStringOr(event["input_event_id"])
+	if !isUUID(eventID) {
+		return nil, invalid("recovery event identity must be a lowercase UUID")
+	}
+	resolutionRaw, err := nativeObject(event["resolution"], []string{"attempt_id", "scope", "source_sha256", "observation"}, []string{"target", "inventory_sha256", "retry_authorized"}, "resolution")
+	if err != nil {
+		return nil, err
+	}
+	wasCancelled := payload["status"] == "cancelled"
+	var unresolvedID string
+	if payload["active_attempt"] != nil {
+		unresolvedID = asStringOr(payload["active_attempt"])
+	} else if asMap(payload["unresolved_effect"])["attempt_id"] != nil {
+		unresolvedID = asStringOr(asMap(payload["unresolved_effect"])["attempt_id"])
+	}
+	if unresolvedID == "" {
+		return nil, conflict("no unresolved effect or interrupted attempt.")
+	}
+	if asStringOr(resolutionRaw["attempt_id"]) != unresolvedID {
+		return nil, blocked("recovery must identify the exact unresolved attempt.")
+	}
+	attemptDir := filepath.Join(repository.StorePath, "tasks", task.ID, "attempts", unresolvedID)
+	start, err := native1CReadJSON(filepath.Join(attemptDir, "start.json"))
+	if err != nil {
+		return nil, err
+	}
+	runtimeAttempt := asStringOr(start["stage"]) == "verify" && native1CRequestHasNative(payload)
+	requiredScope := "source_only"
+	if runtimeAttempt {
+		requiredScope = "native_1c"
+	}
+	if asStringOr(resolutionRaw["scope"]) != requiredScope {
+		return nil, blocked("this attempt requires %s control-read recovery.", requiredScope)
+	}
+	if !runtimeAttempt {
+		return nil, blocked("this attempt requires source_only control-read recovery.")
+	}
+	if payload["active_attempt"] != nil {
+		if nativeDependencyRegularFile(filepath.Join(attemptDir, "result.json")) {
+			return nil, blocked("saved terminal result must be imported with Resume before recovery.")
+		}
+		owner := asMap(start["controller_process"])
+		if owner != nil && !native1CProcessDead(asIntOr(owner["pid"]), asStringOr(owner["start_time_utc"])) {
+			return nil, blocked("attempt controller is still running; cancel or wait before recovery.")
+		}
+	}
+	artifactRoot, err := artifactDirectory(repository, task.ID, unresolvedID)
+	if err != nil {
+		return nil, err
+	}
+	for _, root := range []string{attemptDir, artifactRoot} {
+		if err := native1CWalkFiles(root, func(path string) error {
+			if !strings.EqualFold(filepath.Base(path), "process.json") {
+				return nil
+			}
+			document, err := native1CReadJSON(path)
+			if err != nil {
+				return err
+			}
+			if !native1CProcessDead(asIntOr(document["pid"]), asStringOr(document["start_time_utc"])) {
+				return blocked("owned child is still running; cancel or wait before recovery.")
+			}
+			return nil
+		}); err != nil {
+			return nil, err
+		}
+	}
+	if strings.TrimSpace(asStringOr(resolutionRaw["observation"])) == "" {
+		return nil, invalid("invalid resolution.observation.")
+	}
+	manifest, err := sourceManifestWithBaseline(asStringOr(payload["worker_path"]), asStringOr(payload["baseline"]), []string{"."})
+	if err != nil {
+		return nil, err
+	}
+	if asStringOr(resolutionRaw["source_sha256"]) != asStringOr(manifest["sha256"]) {
+		return nil, conflict("recovery control-read source hash is stale.")
+	}
+	if host == nil || host.RuntimeAuthReader == nil {
+		return nil, blocked("native credential must be supplied through private controller input for this process.")
+	}
+	credential, err := host.RuntimeAuthReader()
+	if err != nil {
+		return nil, invalid("%v", err)
+	}
+	runtimeRead, err := Native1CResolveRecovery(context.Background(), payload, resolutionRaw, attemptDir, manifest, credential, nativeRecoveryRuntime(host))
+	if err != nil {
+		return nil, err
+	}
+	rawHashes, err := native1CRawHashes(artifactRoot)
+	if err != nil {
+		return nil, err
+	}
+	recovery := map[string]any{
+		"resolution":             resolutionRaw,
+		"actual_source_manifest": manifest,
+		"abandoned_attempt":      payload["active_attempt"],
+		"retained_raw_hashes":    rawHashes,
+		"runtime_control_read":   runtimeRead,
+	}
+	inputsDir := filepath.Join(repository.StorePath, "tasks", task.ID, "inputs")
+	if err := SafeMkdir(inputsDir); err != nil {
+		return nil, blocked("%v", err)
+	}
+	recoveryPath := filepath.Join(inputsDir, "recovery-"+eventID+".json")
+	if nativeDependencyRegularFile(recoveryPath) {
+		saved, err := native1CReadJSON(recoveryPath)
+		if err != nil {
+			return nil, err
+		}
+		savedResolutionHash, err := Hash(asMap(saved["resolution"]))
+		if err != nil {
+			return nil, err
+		}
+		resolutionHash, err := Hash(resolutionRaw)
+		if err != nil {
+			return nil, err
+		}
+		if savedResolutionHash != resolutionHash || asStringOr(asMap(saved["actual_source_manifest"])["sha256"]) != asStringOr(manifest["sha256"]) {
+			return nil, conflict("conflicting recovery receipt.")
+		}
+	} else if err := AtomicWriteCanonical(recoveryPath, recovery); err != nil {
+		return nil, err
+	}
+	payload["active_attempt"] = nil
+	payload["unresolved_effect"] = nil
+	eventHash, err := Hash(event)
+	if err != nil {
+		return nil, err
+	}
+	payload["events"] = append(anyItems(payload["events"]), map[string]any{
+		"input_event_id":    eventID,
+		"sha256":            eventHash,
+		"kind":              "recovery",
+		"accepted_revision": asIntOr(task.Revision) + 1,
+	})
+	payload["question"] = nil
+	payload["blockers"] = []any{}
+	payload["status"] = "ready"
+	if wasCancelled {
+		payload["status"] = "cancelled"
+		payload["blockers"] = []any{"Effects reconciled. An explicit resume authorization is still required after cancellation."}
+	}
+	if err := AtomicWriteCanonical(filepath.Join(inputsDir, eventID+".json"), event); err != nil {
+		return nil, err
+	}
+	state, err := appendControllerRevision(repository, task, payload, task.Revision)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := Native1CCompleteRecovery(asMap(state["controller"]), resolutionRaw, nativeRecoveryRuntime(host)); err != nil {
+		return nil, err
+	}
+	next, err := controllerNext(state, asMap(state["controller"]))
+	if err != nil {
+		return nil, err
+	}
+	return controllerEnvelope(state, asMap(state["controller"]), next), nil
+}
+
+// native1CRequestHasNative reports whether any criterion of the request
+// carries a native 1C runtime contract.
+func native1CRequestHasNative(payload map[string]any) bool {
+	request := asMap(payload["request"])
+	for _, raw := range anyItems(request["criteria"]) {
+		criterion, ok := raw.(map[string]any)
+		if ok && criterion != nil && criterion["native_1c"] != nil {
+			return true
+		}
+	}
+	return false
 }

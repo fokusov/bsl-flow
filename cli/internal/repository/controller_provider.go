@@ -181,6 +181,10 @@ type ControllerHost struct {
 	// when a dispatched stage actually needs the native 1C credential. The
 	// legacy engine path never consumes it.
 	RuntimeAuthReader func() (*Native1CRuntimeAuth, error)
+	// Native1CRecovery carries the native recovery seams (journal root and
+	// the COM control read). The production host wires the trusted local app
+	// data journal and the in-binary inventory; tests substitute fixtures.
+	Native1CRecovery *Native1CRecoveryRuntime
 }
 
 // NewControllerHost returns a host with an already available provider.  A

@@ -234,6 +234,11 @@ func run(args []string, out, errOut io.Writer) int {
 	if runtimeAuthRequested(args) {
 		host.RuntimeAuthReader = readRuntimeAuthStdin
 	}
+	host.Native1CRecovery = &repository.Native1CRecoveryRuntime{
+		ControlRead: func(ctx context.Context, target, executable string, credential repository.Native1CRuntimeAuth, directory string) (map[string]any, error) {
+			return stagehost.Native1CRuntimeControlRead(ctx, stagehost.Deps{}, target, executable, stagehost.Native1CCredential{Username: credential.Username, Password: credential.Password}, directory)
+		},
+	}
 	if handled, code := repository.DispatchWithHost(args, out, errOut, host); handled {
 		return code
 	}

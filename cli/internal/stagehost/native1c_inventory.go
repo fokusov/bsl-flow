@@ -33,3 +33,18 @@ func readNative1CInventory(ctx context.Context, deps Deps, target, executable st
 	}
 	return inventory, nil
 }
+
+// Native1CCredential is the exported runtime auth pair of the native 1C
+// adapter. The controller relays it for recovery control reads only; it never
+// reaches argv, logs or persisted evidence.
+type Native1CCredential struct {
+	Username string
+	Password string
+}
+
+// Native1CRuntimeControlRead is the exported control-read seam the controller
+// uses for native recovery: the same in-process COM inventory the provider
+// runs, dispatched from the CLI binary itself (no pwsh helper).
+func Native1CRuntimeControlRead(ctx context.Context, deps Deps, target, executable string, credential Native1CCredential, directory string) (map[string]any, error) {
+	return readNative1CInventory(ctx, deps, target, executable, native1cCredential{username: credential.Username, password: credential.Password}, directory)
+}
