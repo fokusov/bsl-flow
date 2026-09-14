@@ -16,7 +16,7 @@ Read project `bsl-flow.yaml` and classify the change as S/M/L plus low/medium/hi
 - Always run spec lint when a spec exists.
 - Run external review for M, L, or high-risk changes.
 - For S low/medium-risk changes, do not run external review unless the user or project routing explicitly requests it.
-- The review route comes from the same `bsl-flow.yaml`: `review.council.enabled: true` dispatches the API council (chair plus independent critics, budget ledger, council final gate); without it the script uses the isolated single-reviewer OpenCode route. Never silently switch routes to satisfy a review requirement.
+- The review route comes from the same `bsl-flow.yaml`: `review.council.enabled: true` dispatches the API council (chair plus independent critics, budget ledger, council final gate); without it the command uses the isolated single-reviewer OpenCode route. Never silently switch routes to satisfy a review requirement. The whole review runs through the installed `bsl-flow` binary without PowerShell.
 - Never silently waive a required review because the council providers or the configured model are unavailable. Report the blocker.
 
 ## Inputs and artifacts
@@ -34,12 +34,12 @@ They are evidence, not OpenSpec schema artifacts. Do not add `tasks.md`. Council
 
 ## Workflow
 
-1. Run `scripts/Invoke-1CSpecReview.ps1`. It always lints and applies routing. With the council route enabled it dispatches the configured council roles (chair plus independent critics) through the budget ledger and publishes through the council final gate; otherwise it invokes the isolated single-reviewer OpenCode agent with `--pure`, with snapshots disabled in the packaged reviewer profile. Both routes validate the response, recalculate derived metrics and the gate verdict, and write `review.json` only after all checks pass.
+1. Run `bsl-flow spec review --project <root> --change <change>`. It always lints and applies routing. With the council route enabled it dispatches the configured council roles (chair plus independent critics) through the budget ledger and publishes through the council final gate; otherwise it invokes the isolated single-reviewer OpenCode agent with `--pure`, with snapshots disabled in the packaged reviewer profile. Both routes validate the response, recalculate derived metrics and the gate verdict, and write `review.json` only after all checks pass. This runs natively without PowerShell; the council route never silently falls back to the single-reviewer route.
 2. Read every finding. Verify it against the original task and real project evidence.
 3. Create `review-reconciliation.json` according to [references/reconciliation-contract.md](references/reconciliation-contract.md). Accept or reject every finding exactly once. Never apply a finding merely because the reviewer proposed it.
 4. Make one minimal targeted revision for accepted findings. Preserve every justified `do_not_change` item.
-5. Run `scripts/Test-1CSpecFinal.ps1`. This is an invariant check, not a second LLM review.
-6. After final validation passes, run `scripts/Add-1CSpecRunMetric.ps1` to append the privacy-minimized cross-project record.
+5. Run `bsl-flow spec final --project <root> --change <change>`. This is an invariant check, not a second LLM review.
+6. After final validation passes, run `bsl-flow spec metric --project <root> --change <change>` to append the privacy-minimized cross-project record.
 
 The invocation snapshots the exact `original-task.md`, `spec.md`, and optional `design.md` bytes and hashes before starting the provider, then rejects publication if any live input changes during the run. It keeps an ignored, project-local run directory under
 `.bsl-flow/reports/spec-review/<run-id>/`. Provider events and the raw response are

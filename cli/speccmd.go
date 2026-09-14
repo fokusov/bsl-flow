@@ -27,14 +27,23 @@ import (
 // directory and exits 0 only when every final check passes.  Usage problems
 // keep the BF_INVALID envelope of parse(); unusable inputs report BF_BLOCKED.
 
-// parseSpecInvocation parses the `spec lint` / `spec final` argument forms
-// with the same strict option discipline as parse(): unknown or repeated
-// options are rejected, option values may not be empty, start with "--", or
-// carry control characters, and --json is a valueless flag.
+// parseSpecInvocation parses the `spec lint` / `spec final` / `spec review` /
+// `spec metric` argument forms with the same strict option discipline as
+// parse(): unknown or repeated options are rejected, option values may not be
+// empty, start with "--", or carry control characters, and --json is a
+// valueless flag.
 func parseSpecInvocation(args []string) (invocation, error) {
+	if len(args) >= 2 {
+		switch args[1] {
+		case "review":
+			return parseSpecReviewInvocation(args)
+		case "metric":
+			return parseSpecMetricInvocation(args)
+		}
+	}
 	in := invocation{command: "spec", options: map[string]string{}}
 	if args[1] != "lint" && args[1] != "final" {
-		return in, errors.New("expected spec lint or spec final")
+		return in, errors.New("expected spec lint, spec final, spec review, or spec metric")
 	}
 	in.action = args[1]
 	allowed := map[string]bool{"--project": true, "--change": true, "--json": true}
@@ -76,13 +85,22 @@ func validChangeID(id string) bool {
 }
 
 // runSpecCommand dispatches a parsed spec invocation; it never touches the
-// embedded bundle or PowerShell.
+// embedded bundle or PowerShell for lint/final/metric; review resolves the
+// bundle only for the single-reviewer reviewer assets.
 func runSpecCommand(in invocation, out io.Writer) int {
 	asJSON := in.options["--json"] != ""
-	if in.action == "lint" {
+	switch in.action {
+	case "lint":
 		return runSpecLint(in.options["--project"], in.options["--change"], asJSON, out)
+	case "final":
+		return runSpecFinal(in.options["--project"], in.options["--change"], asJSON, out)
+	case "review":
+		return runSpecReview(in, out)
+	case "metric":
+		return runSpecMetric(in, out)
+	default:
+		return hostError(out, 2, "", errors.New("expected spec lint, spec final, spec review, or spec metric"))
 	}
-	return runSpecFinal(in.options["--project"], in.options["--change"], asJSON, out)
 }
 
 // specChangeDir is the change directory under <project>/openspec/changes.
