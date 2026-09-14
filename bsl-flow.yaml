@@ -1,0 +1,37 @@
+llm:
+  providers:
+    deepseek:
+      protocol: openai_compatible
+      base_url: https://api.deepseek.com
+      token_env: DEEPSEEK_API_KEY
+  models:
+    reviewer:
+      provider: deepseek
+      model: deepseek-v4-pro
+      effort: medium
+review:
+  enabled: true
+  council:
+    enabled: true
+    legacy_mode: block
+    roles:
+      intent_critic:
+        enabled: true
+        required: true
+        model: reviewer
+        fallback: block
+      architecture_critic:
+        enabled: true
+        required: true
+        model: reviewer
+        fallback: block
+      executability_critic:
+        enabled: true
+        required: true
+        model: reviewer
+        fallback: block
+      chair:
+        enabled: true
+        required: true
+        model: reviewer
+        fallback: block
