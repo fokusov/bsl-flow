@@ -29,9 +29,21 @@ type Deps struct {
 	HostPolicyPath string
 	// RunProcess launches managed child processes with immutable receipts.
 	RunProcess ProcessRunner
+	// Native1CInventory reads the live extension inventory through the
+	// platform COM connector. The production host wires the Windows COM
+	// implementation; tests inject a deterministic reader.
+	Native1CInventory Native1CInventoryReader
+	// Native1CJournalRoot resolves the runtime journal directory for a target
+	// key. The production host uses the trusted local app data journal; tests
+	// inject an isolated directory.
+	Native1CJournalRoot func(key string) (string, error)
 	// Now supplies the current time; tests inject a deterministic clock.
 	Now func() time.Time
 }
+
+// Native1CInventoryReader is the seam behind Read-BFNativeInventory: one
+// read-only extension inventory for an authorized FILE target.
+type Native1CInventoryReader func(ctx context.Context, target, executable string, credential native1cCredential, directory string) (map[string]any, error)
 
 func (d Deps) now() time.Time {
 	if d.Now != nil {

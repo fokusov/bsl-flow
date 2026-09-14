@@ -2,21 +2,20 @@ package stagehost
 
 import (
 	"math"
-	"path/filepath"
 	"regexp"
 	"strings"
+
+	"bsl-flow/cli/internal/repository"
 )
 
-// This file ports the closed request/state contracts of Task.Contracts.ps1,
-// Task.Coverage.ps1 and the native criterion shape of Task.Runtime.ps1 with
-// their exact diagnostics, so a legacy and a native provider classify the
-// same input identically.
+// This file ports the closed request/state contracts of Task.Contracts.ps1
+// and Task.Coverage.ps1 with their exact diagnostics; the native criterion
+// shape (Task.Runtime.ps1) is delegated to the shared repository validator so
+// a legacy and a native provider classify the same input identically.
 
 var criterionIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 var modelPattern = regexp.MustCompile(`^[A-Za-z0-9._:-]+$`)
 var threePartVersion = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
-var nativeNamePattern = regexp.MustCompile(`^[A-Za-z\x{0410}-\x{042F}\x{0430}-\x{044F}_][A-Za-z\x{0410}-\x{042F}\x{0430}-\x{044F}0-9_]{0,127}$`)
-var nativeTestIDPattern = regexp.MustCompile(`^[^\.\s]+(?:\.[^\.\s]+)+$`)
 
 func assertProvenance(value any) error {
 	provenance, err := assertFields(value, []string{"source", "reference", "text"}, nil, "provenance")
@@ -76,108 +75,17 @@ func assertImpactFlags(value any) error {
 	return nil
 }
 
+// assertNativeCriterion mirrors Assert-BFNativeCriterion through the shared
+// repository validator, so the controller and the provider classify the same
+// criterion with the same diagnostics.
 func assertNativeCriterion(criterion map[string]any) error {
-	native, err := assertFields(getValue(criterion, "native_1c", nil), []string{"source_root", "extension", "module", "platform_version", "executable_sha256", "authorized_operations", "authorization_reference"}, []string{"reuse_load_attempt"}, "criterion.native_1c")
-	if err != nil {
-		return err
-	}
-	if native == nil {
-		return invalidf("native_1c contract is required.")
-	}
-	if criterion["kind"] != "integration" {
-		return invalidf("native_1c is supported only for integration criteria.")
-	}
-	if err := assertRelativePath(asStringOr(native["source_root"])); err != nil {
-		return err
-	}
-	for _, name := range []string{"extension", "module", "platform_version", "authorization_reference"} {
-		if err := assertText(native[name], "criterion.native_1c."+name); err != nil {
-			return err
+	if err := repository.StageHostNative1CCriterion(criterion); err != nil {
+		if kind, ok := err.(*repository.KindError); ok {
+			return &Error{Class: kind.Kind, Message: kind.Message}
 		}
-	}
-	if !nativeNamePattern.MatchString(asStringOr(native["extension"])) || !nativeNamePattern.MatchString(asStringOr(native["module"])) {
-		return invalidf("unsafe native 1C extension or module name.")
-	}
-	if !regexp.MustCompile(`^8\.3\.\d+\.\d+$`).MatchString(asStringOr(native["platform_version"])) {
-		return invalidf("invalid native 1C platform version.")
-	}
-	if err := assertSHA256(native["executable_sha256"], "criterion.native_1c.executable_sha256"); err != nil {
-		return invalidf("native executable SHA-256 must be lowercase hexadecimal.")
-	}
-	executable, ok := criterion["executable"].(string)
-	if !ok || !isAbsolutePath(executable) || !strings.EqualFold(filepath.Base(executable), "1cv8.exe") {
-		return invalidf("native executable must be an absolute 1cv8.exe path.")
-	}
-	arguments, ok := asArray(criterion["arguments"])
-	if !ok || len(arguments) != 0 {
-		return invalidf("native 1C criteria do not accept free arguments.")
-	}
-	protected, ok := asArray(criterion["protected_paths"])
-	if !ok || len(protected) == 0 {
-		return invalidf("native 1C criteria require protected_paths for declared tests and fixtures.")
-	}
-	for _, raw := range protected {
-		if err := assertRelativePath(asStringOr(raw)); err != nil {
-			return err
-		}
-	}
-	target, ok := criterion["target"].(string)
-	if !ok || !isAbsolutePath(target) {
-		return invalidf("native 1C target must be an absolute FILE directory.")
-	}
-	if _, err := assertRuntimeTargetKey(target); err != nil {
-		return err
-	}
-	operations := "inventory,load,update,test"
-	if reuse := getValue(native, "reuse_load_attempt", nil); reuse != nil {
-		if err := assertUUID(reuse); err != nil {
-			return err
-		}
-		operations = "inventory,test"
-	}
-	authorized, ok := asArray(native["authorized_operations"])
-	if !ok || strings.Join(anyToStrings(authorized), ",") != operations {
-		return invalidf("authorized_operations must be exactly %s.", operations)
-	}
-	expected, ok := asArray(criterion["expected_tests"])
-	if !ok || len(expected) == 0 {
-		return invalidf("unique class-qualified expected tests are required.")
-	}
-	seen := map[string]bool{}
-	for _, raw := range expected {
-		id, isString := raw.(string)
-		if !isString || !nativeTestIDPattern.MatchString(id) {
-			return invalidf("expected native test IDs must be classname.name.")
-		}
-		if seen[id] {
-			return invalidf("unique class-qualified expected tests are required.")
-		}
-		seen[id] = true
+		return invalidf("%v", err)
 	}
 	return nil
-}
-
-// assertRuntimeTargetKey mirrors the observable gates of
-// Get-BFRuntimeTargetKey: the target must be rooted and carry the FILE
-// database marker. The physical identity resolution behind it is a
-// Windows-only runtime concern and never runs in the source-only provider.
-func assertRuntimeTargetKey(target string) (string, error) {
-	if !isAbsolutePath(target) {
-		return "", invalidf("native 1C target must be an absolute FILE directory.")
-	}
-	resolved, err := safePath(target)
-	if err != nil {
-		return "", err
-	}
-	marker := filepath.Join(resolved, "1Cv8.1CD")
-	if !isRegularFile(marker) {
-		return "", blockedf("FILE target marker is required to resolve physical target identity.")
-	}
-	hash, err := hashValue(strings.ToLower(resolved))
-	if err != nil {
-		return "", err
-	}
-	return hash, nil
 }
 
 func anyToStrings(values []any) []string {

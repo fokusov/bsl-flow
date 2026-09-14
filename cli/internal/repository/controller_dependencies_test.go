@@ -79,16 +79,43 @@ func TestCurrentNativeDependenciesBindsStageSpecificInputs(t *testing.T) {
 	}
 }
 
-func TestCurrentNativeDependenciesRejectsNative1CWithoutRuntimeBinding(t *testing.T) {
+func TestCurrentNativeDependenciesBindsNativePlatformForNativeCriterion(t *testing.T) {
 	_, payload := dependencyPackageFixture(t)
-	payload["request"].(map[string]any)["criteria"] = []any{map[string]any{
-		"id": "native", "kind": "native_1c", "observation": "requires 1C", "native_1c": map[string]any{"mode": "runtime"},
-	}}
-	_, err := currentNativeDependencies(payload, "verify", map[string]any{"sha256": "source"})
-	if err == nil {
-		t.Fatal("native_1c criterion was accepted")
+	nativeCriterion := func(kind string) map[string]any {
+		return map[string]any{
+			"id": "native", "kind": kind, "observation": "requires 1C",
+			"executable":       filepath.Join(t.TempDir(), "1cv8.exe"),
+			"arguments":        []any{},
+			"protected_paths":  []any{"tests"},
+			"target":           t.TempDir(),
+			"expected_tests":   []any{"Suite.Test"},
+			"native_1c": map[string]any{
+				"source_root": "src", "extension": "Ext", "module": "Tests",
+				"platform_version": "8.3.25.1445",
+				"executable_sha256": strings.Repeat("a", 64),
+				"authorized_operations": []any{"inventory", "load", "update", "test"},
+				"authorization_reference": "operator",
+			},
+		}
 	}
+	// A native criterion on a kind other than integration keeps the exact
+	// legacy shape diagnostic.
+	payload["request"].(map[string]any)["criteria"] = []any{nativeCriterion("static")}
+	_, err := currentNativeDependencies(payload, "verify", map[string]any{"sha256": "source"})
+	requireNativeKind(t, err, "BF_INVALID")
+	if err == nil || !strings.Contains(err.Error(), "native_1c is supported only for integration criteria.") {
+		t.Fatalf("unexpected shape error: %v", err)
+	}
+	// A valid-shape native criterion without an authorized FILE target blocks
+	// the dependency computation on windows, and every non-windows platform
+	// surfaces the typed capability blocker.
+	payload["request"].(map[string]any)["criteria"] = []any{nativeCriterion("integration")}
+	_, err = currentNativeDependencies(payload, "verify", map[string]any{"sha256": "source"})
 	requireNativeKind(t, err, "BF_BLOCKED")
+	if err == nil || (!strings.Contains(err.Error(), "FILE target marker is required to resolve physical target identity.") &&
+		!strings.Contains(err.Error(), "BLOCKED_UNSUPPORTED_PLATFORM")) {
+		t.Fatalf("unexpected blocker: %v", err)
+	}
 }
 
 func TestNativeArchitectureBundleHashesMatchFrozenPowerShellGolden(t *testing.T) {

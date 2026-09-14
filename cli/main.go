@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"embed"
 	"encoding/json"
@@ -229,7 +230,11 @@ func run(args []string, out, errOut io.Writer) int {
 		}
 		return 0
 	}
-	if handled, code := repository.DispatchWithHost(args, out, errOut, newPackagedNativeResolver()); handled {
+	host := newPackagedNativeResolver()
+	if runtimeAuthRequested(args) {
+		host.RuntimeAuthReader = readRuntimeAuthStdin
+	}
+	if handled, code := repository.DispatchWithHost(args, out, errOut, host); handled {
 		return code
 	}
 	in, err := parse(args)
@@ -304,6 +309,27 @@ func run(args []string, out, errOut io.Writer) int {
 }
 
 func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
+
+// runtimeAuthRequested reports whether the invocation carries the private
+// runtime auth channel; the reader is attached but consumed lazily by the
+// native dispatch path only.
+func runtimeAuthRequested(args []string) bool {
+	for _, arg := range args {
+		if arg == "--runtime-auth" {
+			return true
+		}
+	}
+	return false
+}
+
+// readRuntimeAuthStdin reads one bounded private line and delegates the
+// contract validation to the shared controller parser.
+func readRuntimeAuthStdin() (*repository.Native1CRuntimeAuth, error) {
+	reader := bufio.NewReader(io.LimitReader(os.Stdin, 16386))
+	line, _ := reader.ReadBytes('\n')
+	trimmed := strings.TrimRight(string(line), "\r\n")
+	return repository.ParseRuntimeAuthLine([]byte(trimmed))
+}
 
 // The legacy PowerShell engine exists only on Windows. On every other
 // platform a legacy-bound request is rejected before any cache or task

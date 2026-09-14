@@ -103,7 +103,18 @@ func currentNativeDependencies(payload map[string]any, stage string, manifest ma
 				continue
 			}
 			if native, present := criterion["native_1c"]; present && native != nil {
-				return nil, blocked("native_1c criteria require an unsupported runtime capability")
+				// Task.Gates.ps1:131: native_platform binds the authorized
+				// platform/target identity; a non-windows platform surfaces the
+				// typed blocker through the dependency computation itself.
+				dependencies, err := Native1CDependencies(criterion)
+				if err != nil {
+					return nil, err
+				}
+				nativePlatformHash, err := Hash([]any{dependencies})
+				if err != nil {
+					return nil, err
+				}
+				inputs["native_platform"] = nativePlatformHash
 			}
 		}
 		inputs["correction_round"] = payload["correction_rounds"]

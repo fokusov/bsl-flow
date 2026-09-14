@@ -718,7 +718,12 @@ func validateNativeCriteria(request map[string]any) error {
 			}
 		}
 		if native, present := criterion["native_1c"]; present && native != nil {
-			return blocked("native_1c criteria require an unsupported runtime capability")
+			// The shared validator mirrors Assert-BFNativeCriterion; on every
+			// non-windows platform it surfaces the typed
+			// BLOCKED_UNSUPPORTED_PLATFORM blocker for this criterion.
+			if err := ValidateNative1CCriterionShape(criterion); err != nil {
+				return err
+			}
 		}
 		if nativeUnsupportedKinds[kind] {
 			return blocked("criterion kind %s requires an unsupported native capability", kind)
@@ -2303,7 +2308,7 @@ func prepareProviderRoots(repository *Repository, taskID, attemptID string) (str
 	return contextRoot, artifactRoot, cancelSignal, nil
 }
 
-func providerInput(repository *Repository, outer, payload, attempt map[string]any, engine EngineIdentity, operation, contextRoot, artifactRoot, cancelSignal string, prior []ArtifactRef) (ProviderInput, error) {
+func providerInput(repository *Repository, outer, payload, attempt map[string]any, engine EngineIdentity, operation, contextRoot, artifactRoot, cancelSignal string, prior []ArtifactRef, credential *Native1CRuntimeAuth) (ProviderInput, error) {
 	if prior == nil {
 		prior = []ArtifactRef{}
 	}
@@ -2317,7 +2322,33 @@ func providerInput(repository *Repository, outer, payload, attempt map[string]an
 		ContextRoot: contextRoot, ArtifactRoot: artifactRoot,
 		CanonicalStoreRoot: repository.StorePath, CancelSignal: cancelSignal,
 		ProviderContract: providerContract(engine), PriorArtifacts: prior,
+		Native1CCredential: credential,
 	}, nil
+}
+
+// runtimeCredential resolves the private native 1C runtime auth for a
+// dispatched stage: only a request with native 1C criteria consumes the
+// reader, and its absence is a typed blocker, never an empty credential.
+func runtimeCredential(host *ControllerHost, payload map[string]any) (*Native1CRuntimeAuth, error) {
+	request := asMap(payload["request"])
+	needs := false
+	for _, raw := range anyItems(request["criteria"]) {
+		criterion, ok := raw.(map[string]any)
+		if ok && criterion != nil && criterion["native_1c"] != nil {
+			needs = true
+		}
+	}
+	if !needs {
+		return nil, nil
+	}
+	if host == nil || host.RuntimeAuthReader == nil {
+		return nil, blocked("native credential must be supplied through private controller input for this process.")
+	}
+	credential, err := host.RuntimeAuthReader()
+	if err != nil {
+		return nil, invalid("%v", err)
+	}
+	return credential, nil
 }
 
 // stagePriorArtifacts projects only verified immutable artifacts from previous
@@ -2642,7 +2673,11 @@ func controllerRun(project, id string, host *ControllerHost) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	input, err := providerInput(repository, runningOuter, runningPayload, attempt, engine, "execute", contextRoot, artifactRoot, cancelSignal, priorRefs)
+	credential, err := runtimeCredential(host, payload)
+	if err != nil {
+		return nil, err
+	}
+	input, err := providerInput(repository, runningOuter, runningPayload, attempt, engine, "execute", contextRoot, artifactRoot, cancelSignal, priorRefs, credential)
 	if err != nil {
 		return nil, err
 	}

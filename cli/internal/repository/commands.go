@@ -197,6 +197,9 @@ func parseControllerActionOptions(action string, args []string) (*options, error
 	switch action {
 	case "status", "context", "next", "run", "resume", "cancel", "accept":
 		allowedValues["--engine"] = true
+		if action == "run" || action == "resume" {
+			allowedValues["--runtime-auth"] = true
+		}
 	case "record":
 		allowedValues["--engine"] = true
 		allowedValues["--attempt"] = true
@@ -204,6 +207,7 @@ func parseControllerActionOptions(action string, args []string) (*options, error
 	case "update":
 		allowedValues["--engine"] = true
 		allowedValues["--input"] = true
+		allowedValues["--runtime-auth"] = true
 	case "rebind":
 		allowedValues["--expected-revision"] = true
 		allowedValues["--input"] = true
@@ -214,6 +218,9 @@ func parseControllerActionOptions(action string, args []string) (*options, error
 	}
 	if err := opts.require("--project", "--task"); err != nil {
 		return nil, err
+	}
+	if value := opts.values["--runtime-auth"]; value != "" && value != "stdin" {
+		return nil, invalid("--runtime-auth accepts only stdin; credentials must not appear in arguments")
 	}
 	if engine := opts.values["--engine"]; engine != "" {
 		switch engine {

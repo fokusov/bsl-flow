@@ -15,8 +15,9 @@ import (
 
 // This file ports Invoke-BFVerification, Invoke-BFExecutionCheck,
 // Assert-BFProviderCoverageAccepted and Stop-BFVerificationFailure for the
-// native stage host. The 1C runtime routes stay blocked: the source-only
-// provider never dispatches native 1C criteria.
+// native stage host. Native 1C criteria dispatch through the runtime adapter
+// (native1c_verify.go); the un-adapted integration/ui/external_artifact
+// kinds stay blocked.
 
 // permissionProfileUnmanaged mirrors Get-BFPermissionProfile (Codex.ps1) for
 // the legacy non-profiled verification route.
@@ -94,7 +95,11 @@ func runVerification(ctx context.Context, deps Deps, state map[string]any, raw, 
 				"sha256": hash, "outcome": "PASS",
 			})
 		} else if hasProperty(criterion, "native_1c") {
-			return nil, blockedf("%s requires a native 1C runtime adapter; the compatibility provider is source-only.", id)
+			observation, err := runNativeVerification(ctx, deps, state, criterion, checkDir, run.providerContext.nativeCredential, run)
+			if err != nil {
+				return nil, err
+			}
+			observations = append(observations, observation)
 		} else if kind == "integration" || kind == "ui" || kind == "external_artifact" {
 			return nil, blockedf("%s requires a confirmed 1C runtime adapter and exact authorized target. The temporary runtime restriction remains active.", id)
 		} else {

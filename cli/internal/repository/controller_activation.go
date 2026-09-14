@@ -444,7 +444,7 @@ func runFreshActivationMeasure(repository *Repository, task *Task, request, prov
 		resultErr = blocked("cannot freeze activation policy rules: %v", err)
 		return resultErr
 	}
-	input, err := providerInput(repository, outer, provisional, nil, engine, "measure", measureContext, measureArtifact, cancelSignal, nil)
+	input, err := providerInput(repository, outer, provisional, nil, engine, "measure", measureContext, measureArtifact, cancelSignal, nil, nil)
 	if err != nil {
 		resultErr = err
 		return resultErr

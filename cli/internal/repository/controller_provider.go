@@ -1,6 +1,9 @@
 package repository
 
-import "context"
+import (
+	"context"
+	"strings"
+)
 
 // NativeProviderContract is the closed contract identity exchanged between
 // the Go controller and a compatibility provider.  The controller persists
@@ -65,6 +68,42 @@ type ProviderInput struct {
 	CancelSignal       string                   `json:"cancel_signal"`
 	ProviderContract   ProviderContractIdentity `json:"provider_contract"`
 	PriorArtifacts     []ArtifactRef            `json:"prior_artifacts"`
+	// Native1CCredential relays the private runtime auth of a native 1C
+	// criterion. It travels only through the trusted provider input channel,
+	// never through argv, logs or persisted evidence.
+	Native1CCredential *Native1CRuntimeAuth `json:"native_1c_credential,omitempty"`
+}
+
+// Native1CRuntimeAuth is the private native 1C runtime credential pair.
+type Native1CRuntimeAuth struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+// ParseRuntimeAuthLine mirrors the -RuntimeAuth stdin contract of the legacy
+// entrypoint: one private JSON line with username and password.
+func ParseRuntimeAuthLine(line []byte) (*Native1CRuntimeAuth, error) {
+	trimmed := strings.TrimSpace(string(line))
+	if trimmed == "" || len(trimmed) > 16384 {
+		return nil, invalid("missing or oversized runtime auth input.")
+	}
+	object, err := DecodeObject([]byte(trimmed))
+	if err != nil {
+		return nil, invalid("malformed runtime auth input.")
+	}
+	auth, err := nativeObject(object, []string{"username", "password"}, nil, "runtime_auth")
+	if err != nil {
+		return nil, invalid("%v", err)
+	}
+	username := asStringOr(auth["username"])
+	if strings.TrimSpace(username) == "" || len([]rune(username)) > 1024 {
+		return nil, invalid("invalid runtime_auth.username.")
+	}
+	password, ok := auth["password"].(string)
+	if !ok || len([]rune(password)) > 8192 {
+		return nil, invalid("invalid runtime auth password.")
+	}
+	return &Native1CRuntimeAuth{Username: username, Password: password}, nil
 }
 
 type MeasureInput = ProviderInput
@@ -138,6 +177,10 @@ type ControllerHost struct {
 	Provider Provider
 	Engine   EngineIdentity
 	Resolve  func() (Provider, EngineIdentity, error)
+	// RuntimeAuthReader reads the private runtime auth input lazily, only
+	// when a dispatched stage actually needs the native 1C credential. The
+	// legacy engine path never consumes it.
+	RuntimeAuthReader func() (*Native1CRuntimeAuth, error)
 }
 
 // NewControllerHost returns a host with an already available provider.  A

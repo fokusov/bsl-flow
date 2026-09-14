@@ -16,13 +16,14 @@ import (
 // every stage keeps one failure/catch contract.
 
 type providerContextInfo struct {
-	taskID         string
-	contextRoot    string
-	artifactRoot   string
-	cancelSignal   string
-	canonicalStore string
-	priorArtifacts map[string]map[string]any
-	attemptID      string
+	taskID           string
+	contextRoot      string
+	artifactRoot     string
+	cancelSignal     string
+	canonicalStore   string
+	priorArtifacts   map[string]map[string]any
+	attemptID        string
+	nativeCredential *native1cCredential
 }
 
 // providerExecute mirrors Invoke-BFProviderExecute.
@@ -61,13 +62,14 @@ func providerExecute(ctx context.Context, deps Deps, input *providerInput) (map[
 			return providerCancelled(input.cancelSignal, input.taskID, asStringOr(attempt["attempt_id"]))
 		},
 		providerContext: &providerContextInfo{
-			taskID:         input.taskID,
-			contextRoot:    input.contextRoot,
-			artifactRoot:   input.artifactRoot,
-			cancelSignal:   input.cancelSignal,
-			canonicalStore: input.canonicalStore,
-			priorArtifacts: input.priorArtifacts,
-			attemptID:      asStringOr(attempt["attempt_id"]),
+			taskID:           input.taskID,
+			contextRoot:      input.contextRoot,
+			artifactRoot:     input.artifactRoot,
+			cancelSignal:     input.cancelSignal,
+			canonicalStore:   input.canonicalStore,
+			priorArtifacts:   input.priorArtifacts,
+			attemptID:        asStringOr(attempt["attempt_id"]),
+			nativeCredential: input.nativeCredential,
 		},
 	}
 	terminal, err := stageObservation(ctx, deps, run, input)

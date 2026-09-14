@@ -3,6 +3,7 @@ package repository
 import (
 	"encoding/json"
 	"path/filepath"
+	"time"
 )
 
 // Exported seams consumed by the native Go stage host provider process
@@ -122,3 +123,69 @@ func StageHostPackageRootOfSkillsRoot(skillsRoot string) (string, error) {
 // json.Number representation the canonical encoder preserves, so callers can
 // rebuild state values without changing their hash.
 func StageHostCanonicalNumber(text string) any { return json.Number(text) }
+
+// The native 1C runtime adapter bindings below are shared read-only
+// computations: the controller computes stage dependencies and recovery
+// control reads, the stage host re-binds the same identities before dispatch.
+// Messages and hashes must stay byte-identical across both surfaces.
+
+// StageHostNative1CPlatformBlocker mirrors the typed Windows-only capability
+// gate: nil on windows, BLOCKED_UNSUPPORTED_PLATFORM everywhere else.
+func StageHostNative1CPlatformBlocker(goos string) error {
+	return Native1CPlatformBlocker(goos)
+}
+
+// StageHostNative1CCriterion mirrors Assert-BFNativeCriterion.
+func StageHostNative1CCriterion(criterion map[string]any) error {
+	return ValidateNative1CCriterionShape(criterion)
+}
+
+// StageHostNative1CTargetIdentity mirrors Get-BFRuntimeTargetIdentity.
+func StageHostNative1CTargetIdentity(target string) (string, error) {
+	return Native1CTargetIdentity(target)
+}
+
+// StageHostNative1CTargetKey mirrors Get-BFRuntimeTargetKey.
+func StageHostNative1CTargetKey(target string) (string, error) {
+	return Native1CTargetKey(target)
+}
+
+// StageHostNative1CJournalRoot mirrors Get-BFNativeJournalRoot.
+func StageHostNative1CJournalRoot(key string) (string, error) {
+	return Native1CJournalRoot(key)
+}
+
+// StageHostNative1CSourceSnapshot mirrors Get-BFNativeSource.
+func StageHostNative1CSourceSnapshot(root string) (map[string]any, error) {
+	return Native1CSourceSnapshot(root)
+}
+
+// StageHostNative1CSnapshotCopy mirrors Copy-BFNativeSnapshot.
+func StageHostNative1CSnapshotCopy(source map[string]any, destination string) (map[string]any, error) {
+	return Native1CSnapshotCopy(source, destination)
+}
+
+// StageHostNative1CDependencies mirrors Get-BFNativeDependencies.
+func StageHostNative1CDependencies(criterion map[string]any) (map[string]any, error) {
+	return Native1CDependencies(criterion)
+}
+
+// StageHostNative1CInventoryHash mirrors Get-BFNativeInventoryHash.
+func StageHostNative1CInventoryHash(inventory map[string]any) (string, error) {
+	return Native1CInventoryHash(inventory)
+}
+
+// StageHostNative1CNormalizeInventoryRow mirrors ConvertTo-BFNativeInventoryRow.
+func StageHostNative1CNormalizeInventoryRow(item map[string]any) (map[string]any, error) {
+	return Native1CNormalizeInventoryRow(item)
+}
+
+// StageHostNative1CInventoryTransition mirrors Assert-BFNativeInventoryTransition.
+func StageHostNative1CInventoryTransition(before, after, source map[string]any) error {
+	return Native1CInventoryTransition(before, after, source)
+}
+
+// StageHostNative1CJUnit mirrors Test-BFNativeJUnit.
+func StageHostNative1CJUnit(path string, expected []string, started, finished time.Time) (map[string]any, error) {
+	return Native1CJUnit(path, expected, started, finished)
+}

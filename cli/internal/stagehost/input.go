@@ -34,12 +34,13 @@ type providerInput struct {
 	cancelSignal     string
 	providerContract map[string]any
 	priorArtifacts   map[string]map[string]any
+	nativeCredential *native1cCredential
 }
 
 func validateProviderInput(deps Deps, object map[string]any) (*providerInput, error) {
 	if _, err := assertFields(object,
 		[]string{"schema_version", "contract", "operation", "task_id", "state_view", "attempt", "context_root", "artifact_root", "canonical_store_root", "cancel_signal", "provider_contract", "prior_artifacts"},
-		nil, "provider_input"); err != nil {
+		[]string{"native_1c_credential"}, "provider_input"); err != nil {
 		return nil, err
 	}
 	version, ok := asInteger(object["schema_version"])
@@ -139,12 +140,38 @@ func validateProviderInput(deps Deps, object map[string]any) (*providerInput, er
 	if err != nil {
 		return nil, err
 	}
+	credential, err := assertNative1CCredential(getValue(object, "native_1c_credential", nil))
+	if err != nil {
+		return nil, err
+	}
 	return &providerInput{
 		object: object, operation: operation, taskID: taskID, stateView: stateView,
 		attempt: attempt, contextRoot: contextRoot, artifactRoot: artifactRoot,
 		canonicalStore: canonicalStore, cancelSignal: cancelSignal,
-		providerContract: identity, priorArtifacts: prior,
+		providerContract: identity, priorArtifacts: prior, nativeCredential: credential,
 	}, nil
+}
+
+// assertNative1CCredential validates the private native 1C runtime auth
+// channel of the provider input. The credential never appears in argv,
+// receipts or logs.
+func assertNative1CCredential(value any) (*native1cCredential, error) {
+	if value == nil {
+		return nil, nil
+	}
+	raw, err := assertFields(value, []string{"username", "password"}, nil, "native_1c_credential")
+	if err != nil {
+		return nil, err
+	}
+	username := asStringOr(raw["username"])
+	if strings.TrimSpace(username) == "" || len([]rune(username)) > 1024 {
+		return nil, invalidf("invalid native_1c_credential.username.")
+	}
+	password, ok := raw["password"].(string)
+	if !ok || len([]rune(password)) > 8192 {
+		return nil, invalidf("invalid native_1c_credential.password.")
+	}
+	return &native1cCredential{username: username, password: password}, nil
 }
 
 func assertStateObject(value any) (map[string]any, error) {
