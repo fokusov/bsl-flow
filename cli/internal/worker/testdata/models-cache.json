@@ -1,0 +1,37 @@
+{
+  "models": [
+    {
+      "slug": "gpt-5.6-sol",
+      "use_responses_lite": true,
+      "shell_type": "unified_exec",
+      "apply_patch_tool_type": "freeform",
+      "tool_mode": "code_mode_only",
+      "experimental_supported_tools": ["web_search"]
+    },
+    {
+      "slug": "gpt-5.6-luna",
+      "use_responses_lite": true,
+      "shell_type": "unified_exec",
+      "apply_patch_tool_type": "freeform",
+      "tool_mode": "code_mode_only",
+      "experimental_supported_tools": [],
+      "multi_agent_version": "v1"
+    },
+    {
+      "slug": "gpt-6-astra",
+      "use_responses_lite": true,
+      "shell_type": "unified_exec",
+      "apply_patch_tool_type": "freeform",
+      "tool_mode": "code_mode_only",
+      "experimental_supported_tools": ["clock", "send_user_message_async"],
+      "multi_agent_version": "v2",
+      "multi_agent_reasoning_effort": "xhigh",
+      "supported_reasoning_levels": [
+        {"effort": "low"},
+        {"effort": "medium"},
+        {"effort": "high"},
+        {"effort": "xhigh"}
+      ]
+    }
+  ]
+}
