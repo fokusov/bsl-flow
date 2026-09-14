@@ -204,3 +204,43 @@ func mustReadNativeTransportTestFile(t *testing.T, path string) []byte {
 	}
 	return data
 }
+
+// The native Go stage host receipt re-executes this trusted host binary with
+// the fixed __provider subcommand; its identity branch must accept that exact
+// shape and reject any other non-PowerShell transport.
+func TestNativeTransportHostIdentity(t *testing.T) {
+	fixture := newNativeTransportTestFixture(t)
+	hostReceipt := map[string]any{
+		"schema_version": float64(1),
+		"executable":     fixture.engine.HostPath,
+		"argv":           []any{"__provider"},
+		"started":        true,
+		"terminal":       true,
+		"exit_code":      float64(0),
+		"stop_reason":    "",
+		"stdout_bytes":   float64(len(fixture.transport.Stdout)),
+		"stderr_bytes":   float64(len(fixture.transport.Stderr)),
+		"stdout_sha256":  fileSHA256(fixture.transport.Stdout),
+		"stderr_sha256":  fileSHA256(fixture.transport.Stderr),
+		"duration_ms":    float64(4),
+	}
+	if err := validateNativeTransportIdentity(hostReceipt, fixture.engine); err != nil {
+		t.Fatalf("host transport identity rejected: %v", err)
+	}
+	badArgv := map[string]any{}
+	for key, value := range hostReceipt {
+		badArgv[key] = value
+	}
+	badArgv["argv"] = []any{"__provider", "extra"}
+	if err := validateNativeTransportIdentity(badArgv, fixture.engine); err == nil {
+		t.Fatal("host transport with extra argv must be rejected")
+	}
+	wrongHost := map[string]any{}
+	for key, value := range hostReceipt {
+		wrongHost[key] = value
+	}
+	wrongHost["executable"] = filepath.Join(tempDir(t), "other-host.exe")
+	if err := validateNativeTransportIdentity(wrongHost, fixture.engine); err == nil {
+		t.Fatal("host transport from a different binary must be rejected")
+	}
+}

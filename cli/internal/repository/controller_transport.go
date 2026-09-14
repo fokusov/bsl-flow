@@ -354,7 +354,7 @@ func validateNativeTransportIdentity(receipt map[string]any, engine EngineIdenti
 	}
 	executable, _ := receipt["executable"].(string)
 	if !strings.EqualFold(filepath.Base(filepath.Clean(executable)), "pwsh.exe") {
-		return blocked("native transport executable is not PowerShell 7")
+		return validateNativeHostTransportIdentity(receipt, engine, executable)
 	}
 	argv, _ := nativeTransportStrings(receipt["argv"])
 	if len(argv) != 7 || argv[0] != "-NoLogo" || argv[1] != "-NoProfile" ||
@@ -381,6 +381,24 @@ func validateNativeTransportIdentity(receipt map[string]any, engine EngineIdenti
 		if err := verifyNativeTransportFile(engine.HostPath, engine.HostSHA256, "host executable"); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// validateNativeHostTransportIdentity accepts the native Go stage host
+// receipt: the provider process is the same trusted host binary re-executed
+// with the fixed `__provider` subcommand, so its bytes must hash exactly to
+// the persisted host identity.
+func validateNativeHostTransportIdentity(receipt map[string]any, engine EngineIdentity, executable string) error {
+	argv, _ := nativeTransportStrings(receipt["argv"])
+	if len(argv) != 1 || argv[0] != "__provider" {
+		return blocked("native transport host argv is not the fixed provider subcommand")
+	}
+	if engine.HostPath != "" && !sameNativeTransportPath(executable, engine.HostPath) {
+		return blocked("native transport host path differs from the engine binding")
+	}
+	if err := verifyNativeTransportFile(executable, engine.HostSHA256, "host executable"); err != nil {
+		return err
 	}
 	return nil
 }

@@ -1457,10 +1457,17 @@ func localPolicy(repository *Repository, engine EngineIdentity) ([]any, map[stri
 // files are represented by null so a provider cannot turn an omitted input
 // into an indistinguishable empty string.
 func localSpecInputs(repository *Repository, taskID string) (map[string]any, error) {
+	return specInputsAt(repository.Worktree, taskID)
+}
+
+// specInputsAt computes the Get-BFSpecInputs projection for an arbitrary
+// project root. The controller and the native stage host share it so both
+// sides bind identical specification input hashes.
+func specInputsAt(projectPath, taskID string) (map[string]any, error) {
 	if !isUUID(taskID) {
 		return nil, invalid("task id must be a lowercase UUID")
 	}
-	changeRoot := filepath.Join(repository.Worktree, "openspec", "changes", "bsl-flow-"+taskID)
+	changeRoot := filepath.Join(projectPath, "openspec", "changes", "bsl-flow-"+taskID)
 	if _, err := SafePath(changeRoot); err != nil {
 		return nil, err
 	}

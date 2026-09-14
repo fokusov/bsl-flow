@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
 	"errors"
@@ -16,6 +17,7 @@ import (
 
 	"bsl-flow/cli/internal/platform"
 	"bsl-flow/cli/internal/repository"
+	"bsl-flow/cli/internal/stagehost"
 )
 
 //go:embed internal/resources/*
@@ -196,7 +198,12 @@ func newPackagedNativeResolver() *repository.ControllerHost {
 					resolveErr = err
 					return
 				}
-				provider = packaged
+				native, err := newGoNativeProvider(root, b, self)
+				if err != nil {
+					resolveErr = err
+					return
+				}
+				provider = &compositeNativeProvider{native: native, inner: packaged}
 				identity = packaged.engineIdentity()
 			})
 			return provider, identity, resolveErr
@@ -205,6 +212,19 @@ func newPackagedNativeResolver() *repository.ControllerHost {
 }
 
 func run(args []string, out, errOut io.Writer) int {
+	// Hidden provider-mode subcommands are only ever invoked by this same
+	// trusted binary: the native stage host and its sandbox filesystem probe.
+	// They are deliberately absent from help output and rejected with options.
+	if len(args) == 1 && args[0] == "__provider" {
+		return runProviderMode(context.Background(), os.Stdin, out, errOut)
+	}
+	if len(args) == 2 && args[0] == "__fs-probe" {
+		if err := stagehost.FSProbe(args[1], out); err != nil {
+			fmt.Fprintln(errOut, err.Error())
+			return 1
+		}
+		return 0
+	}
 	if handled, code := repository.DispatchWithHost(args, out, errOut, newPackagedNativeResolver()); handled {
 		return code
 	}

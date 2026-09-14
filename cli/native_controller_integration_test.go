@@ -84,7 +84,7 @@ func newNativeControllerIntegrationFixture(t *testing.T, options nativeControlle
 	repositoryRoot := nativeControllerRepositoryRoot(t)
 	powerShell, err := systemPowerShell()
 	if err != nil {
-		t.Fatalf("resolve PowerShell 7 for native provider: %v", err)
+		t.Skipf("the PowerShell 7 fixture provider is unavailable on this platform: %v", err)
 	}
 	hostPath, err := os.Executable()
 	if err != nil {

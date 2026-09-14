@@ -8,11 +8,22 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
 
-const pwshLintScript = `C:\DEV\BSL Flow\global\skills\1c-spec-review\scripts\Test-1CSpec.ps1`
+// pwshScriptPath locates a packaged review script relative to this package so
+// the crosscheck runs from any clone location and platform.
+func pwshScriptPath(name string) string {
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		return ""
+	}
+	// internal/specvalidate/<file> → repository root
+	root := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(thisFile))))
+	return filepath.Join(root, "global", "skills", "1c-spec-review", "scripts", name)
+}
 
 // TestPwshLintParity replays every lint fixture through the real
 // Test-1CSpec.ps1 and compares the emitted errors/warnings (including their
@@ -21,6 +32,7 @@ const pwshLintScript = `C:\DEV\BSL Flow\global\skills\1c-spec-review\scripts\Tes
 //
 //	go test -tags crosscheck ./internal/specvalidate -run TestPwshLintParity -count=1
 func TestPwshLintParity(t *testing.T) {
+	pwshLintScript := pwshScriptPath("Test-1CSpec.ps1")
 	if _, err := exec.LookPath("pwsh"); err != nil {
 		t.Skip("pwsh is not available")
 	}
@@ -101,7 +113,7 @@ func TestPwshLintParity(t *testing.T) {
 	}
 }
 
-const pwshFinalScript = `C:\DEV\BSL Flow\global\skills\1c-spec-review\scripts\Test-1CSpecFinal.ps1`
+var pwshFinalScript = pwshScriptPath("Test-1CSpecFinal.ps1")
 
 // TestPwshFinalV1Parity runs the real Test-1CSpecFinal.ps1 over the same
 // schema v1 fixtures the unit tests use (kept consistent with the

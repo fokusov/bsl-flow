@@ -18,9 +18,9 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode"
 
 	"bsl-flow/cli/internal/repository"
+	"bsl-flow/cli/internal/strictjson"
 )
 
 const (
@@ -41,9 +41,9 @@ const (
 	// Provider JSON is bounded independently of the process stream limit. The
 	// limits keep validation stack- and allocation-bounded for untrusted output
 	// while leaving room for ordinary source manifests and dependency maps.
-	nativeProviderJSONMaxDepth         = 128
-	nativeProviderJSONMaxObjectMembers = 100000
-	nativeProviderJSONMaxKeyBytes      = 1 << 20
+	nativeProviderJSONMaxDepth         = strictjson.MaxDepth
+	nativeProviderJSONMaxObjectMembers = strictjson.MaxObjectMembers
+	nativeProviderJSONMaxKeyBytes      = strictjson.MaxKeyBytes
 )
 
 // nativeProcessReceipt is the Go-owned terminal observation for the outer
@@ -133,7 +133,14 @@ type nativeProcessRunner func(context.Context, string, []string, []byte, []strin
 // nativeProvider is a packaged, fixed-entrypoint provider adapter. Its
 // command runner is injectable only from package-private tests; production
 // callers cannot select an arbitrary provider executable or fixture.
+//
+// selfHost selects the native Go stage host mode: instead of launching
+// PowerShell with the packaged provider script, the adapter re-executes the
+// trusted host binary itself with the fixed `__provider` subcommand. The
+// script file is still hash-bound (it stays part of the persisted engine
+// identity) but it is never executed from this mode.
 type nativeProvider struct {
+	selfHost    bool
 	shell       string
 	script      string
 	hostPath    string
@@ -193,6 +200,18 @@ func newNativeProvider(root string, b bundle, hostPath string) (*nativeProvider,
 		outputLimit: nativeProviderOutputLimit,
 		runProcess:  runNativeProcess,
 	}, nil
+}
+
+// newGoNativeProvider builds the adapter for the native Go stage host: the
+// provider process is this same binary running the hidden `__provider`
+// subcommand, so execution never needs PowerShell.
+func newGoNativeProvider(root string, b bundle, hostPath string) (*nativeProvider, error) {
+	packaged, err := newNativeProvider(root, b, hostPath)
+	if err != nil {
+		return nil, err
+	}
+	packaged.selfHost = true
+	return packaged, nil
 }
 
 // newNativeProviderForTest is deliberately unexported. It supports process
@@ -519,6 +538,12 @@ func (p *nativeProvider) executable() (string, error) {
 	if p.runProcess == nil {
 		return "", errors.New("native provider process runner is missing")
 	}
+	if p.selfHost {
+		if p.hostPath == "" {
+			return "", errors.New("native provider host path is missing")
+		}
+		return p.hostPath, nil
+	}
 	if p.script == "" {
 		return "", errors.New("native provider script is missing")
 	}
@@ -533,6 +558,15 @@ func (p *nativeProvider) executable() (string, error) {
 	}
 	p.shell = shell
 	return shell, nil
+}
+
+// providerArgs returns the fixed invocation argv for the selected provider
+// mode: the packaged PowerShell entrypoint or the hidden native subcommand.
+func (p *nativeProvider) providerArgs() []string {
+	if p.selfHost {
+		return []string{"__provider"}
+	}
+	return []string{"-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", p.script}
 }
 
 func (p *nativeProvider) invoke(ctx context.Context, operation string, input any) ([]byte, nativeProcessReceipt, []byte, []byte, error) {
@@ -550,7 +584,7 @@ func (p *nativeProvider) invoke(ctx context.Context, operation string, input any
 	if err != nil {
 		return nil, nativeProcessReceipt{SchemaVersion: 1, StopReason: "capability"}, nil, nil, err
 	}
-	args := []string{"-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", p.script}
+	args := p.providerArgs()
 	env := providerEnvironment(p.hostPath)
 	limit := p.outputLimit
 	if limit <= 0 || limit > nativeProviderOutputLimit {
@@ -653,135 +687,7 @@ func canonicalJSONMap(object map[string]json.RawMessage) ([]byte, error) {
 }
 
 func strictJSONDocument(data []byte) ([]byte, error) {
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.UseNumber()
-	var value json.RawMessage
-	if err := decoder.Decode(&value); err != nil {
-		return nil, err
-	}
-	if len(bytes.TrimSpace(value)) == 0 {
-		return nil, errors.New("empty JSON document")
-	}
-	var trailing any
-	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-		if err == nil {
-			return nil, errors.New("trailing JSON document")
-		}
-		return nil, fmt.Errorf("trailing data: %w", err)
-	}
-	if first := bytes.TrimSpace(value); len(first) == 0 || (first[0] != '{' && first[0] != '[') {
-		return nil, errors.New("JSON document must be an object or array")
-	}
-	if err := rejectDuplicateJSONKeys(value); err != nil {
-		return nil, err
-	}
-	return append([]byte(nil), bytes.TrimSpace(value)...), nil
-}
-
-// rejectDuplicateJSONKeys walks the decoded JSON token stream and rejects
-// duplicate object members, including members which differ only by case. The
-// latter matters because encoding/json matches struct fields case-insensitively
-// and would otherwise accept an ambiguous provider response.
-func rejectDuplicateJSONKeys(data []byte) error {
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.UseNumber()
-	if err := walkJSONValue(decoder, 0); err != nil {
-		return err
-	}
-	var trailing any
-	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-		if err == nil {
-			return errors.New("trailing JSON document")
-		}
-		return fmt.Errorf("trailing data: %w", err)
-	}
-	return nil
-}
-
-func walkJSONValue(decoder *json.Decoder, depth int) error {
-	token, err := decoder.Token()
-	if err != nil {
-		return err
-	}
-	delim, isDelim := token.(json.Delim)
-	if !isDelim {
-		return nil
-	}
-	if depth >= nativeProviderJSONMaxDepth {
-		return fmt.Errorf("JSON nesting exceeds %d levels", nativeProviderJSONMaxDepth)
-	}
-	switch delim {
-	case '{':
-		keys := make(map[string]string, 8)
-		memberCount := 0
-		for decoder.More() {
-			memberCount++
-			if memberCount > nativeProviderJSONMaxObjectMembers {
-				return fmt.Errorf("JSON object exceeds %d members", nativeProviderJSONMaxObjectMembers)
-			}
-			keyToken, err := decoder.Token()
-			if err != nil {
-				return err
-			}
-			key, ok := keyToken.(string)
-			if !ok {
-				return errors.New("JSON object member name is not a string")
-			}
-			if len(key) > nativeProviderJSONMaxKeyBytes {
-				return fmt.Errorf("JSON object member name exceeds %d bytes", nativeProviderJSONMaxKeyBytes)
-			}
-			folded := foldJSONKey(key)
-			if prior, exists := keys[folded]; exists && strings.EqualFold(prior, key) {
-				return fmt.Errorf("duplicate JSON object member %q", key)
-			}
-			keys[folded] = key
-			if err := walkJSONValue(decoder, depth+1); err != nil {
-				return err
-			}
-		}
-		closeToken, err := decoder.Token()
-		if err != nil {
-			return err
-		}
-		if closeToken != json.Delim('}') {
-			return errors.New("malformed JSON object")
-		}
-	case '[':
-		for decoder.More() {
-			if err := walkJSONValue(decoder, depth+1); err != nil {
-				return err
-			}
-		}
-		closeToken, err := decoder.Token()
-		if err != nil {
-			return err
-		}
-		if closeToken != json.Delim(']') {
-			return errors.New("malformed JSON array")
-		}
-	default:
-		return errors.New("malformed JSON delimiter")
-	}
-	return nil
-}
-
-// foldJSONKey returns a canonical representative for Unicode simple-fold
-// equivalence, the same equivalence relation used by strings.EqualFold. It
-// lets duplicate detection stay O(number of members) while retaining the
-// previous case-insensitive collision policy.
-func foldJSONKey(value string) string {
-	var folded strings.Builder
-	folded.Grow(len(value))
-	for _, runeValue := range value {
-		canonical := runeValue
-		for next := unicode.SimpleFold(runeValue); next != runeValue; next = unicode.SimpleFold(next) {
-			if next < canonical {
-				canonical = next
-			}
-		}
-		folded.WriteRune(canonical)
-	}
-	return folded.String()
+	return strictjson.Document(data)
 }
 
 func providerEnvironment(hostPath string) []string {

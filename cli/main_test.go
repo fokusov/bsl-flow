@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -359,6 +360,9 @@ func TestErrorEnvelope(t *testing.T) {
 }
 
 func TestSystemPowerShellUsesKnownProgramFilesPowerShell7(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("the trusted machine-wide PowerShell 7 location is Windows-only")
+	}
 	programFiles, err := knownProgramFiles()
 	if err != nil {
 		t.Fatal(err)
@@ -379,6 +383,9 @@ func TestSystemPowerShellUsesKnownProgramFilesPowerShell7(t *testing.T) {
 }
 
 func TestSystemPowerShellFailsWithoutPowerShell7(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("the pinned pwsh.exe contract is Windows-only; other platforms reject the legacy engine earlier")
+	}
 	missing := t.TempDir()
 	shell, err := powerShell7At(missing)
 	if err == nil || shell != "" {
