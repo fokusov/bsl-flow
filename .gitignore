@@ -6,6 +6,9 @@ outputs/
 *.zip
 *.log
 
+# Local tool scratch caches
+.tmp-*/
+
 # OS/editor noise
 .DS_Store
 Thumbs.db
