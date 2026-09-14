@@ -6,7 +6,7 @@
 
 | Срез | Что | Статус |
 | --- | --- | --- |
-| Worker-библиотека `cli/internal/worker` | порт адаптеров: `Invoke-BFManagedWorker`/`Invoke-BFProfiledCodexWorker`/`Invoke-BFOpenCodeWorker` (спавн argv-as-data, дерево-kill, бюджетные хуки в PS-порядке, critic-каталог/контракты, app-server RPC/skills inventory, rollout identity); типизированные `BF_BLOCKED` refusal'ы | **готово как библиотека с тестами** (e2e через fake codex/opencode-бинарник); wiring в stagehost execute — следующий срез |
+| Worker-библиотека `cli/internal/worker` | порт адаптеров: `Invoke-BFManagedWorker`/`Invoke-BFProfiledCodexWorker`/`Invoke-BFOpenCodeWorker` (спавн argv-as-data, дерево-kill, бюджетные хуки в PS-порядке, critic-каталог/контракты, app-server RPC/skills inventory, rollout identity); типизированные `BF_BLOCKED` refusal'ы | **готово, wired в stagehost (см. следующий срез)** |
 | Native memory helper `cli/internal/memoryhost` | порт `Invoke-BFNativeMemory.ps1` + достижимое подмножество `Task.Memory.ps1` (bind / extract-attempt / extract-acceptance / projection; fingerprints, event journal/replay, bundle selection, writer-lock); live differential против реального pwsh: конверты/события/индекс byte-identical | **готово, в production CLI** |
 | Memory wiring | скрытая субкоманда `__memory` (self-host ре-экзекьют собственного бинарника, как `__provider`); композит маршрутизирует InvokeMemory на native — memory больше не требует pwsh и работает на всех платформах (degrade остаётся только при ошибке хелпера) | **готово** |
 
@@ -58,7 +58,7 @@
 | Группа | Файлы | Статус |
 | --- | --- | --- |
 | Task engine/process/stages/gates/contracts | Task.Engine/Process/Stages/Gates/Contracts.ps1 | partial: transitions/gates в Go (repository); measure/verify стадии — нативно в `cli/internal/stagehost`; worker-исполнение стадий через windows-ps provider |
-| Provider/worker adapters | Task.Provider.ps1, Invoke-BFNativeProvider.ps1, adapters/Codex*.ps1, OpenCode*.ps1 | partial: measure/verify портированы в `cli/internal/stagehost` (native stage host, волна 5); worker-dispatch (inspect/spec/implement/code_review/diagnose/spec_review) остаётся на PS; парсинг/identity/usage/capability/спавн/бюджет/critic в Go (`internal/worker`, волна 6 — библиотека готова, wiring pending); memory-хелпер портирован (`internal/memoryhost`, волна 6) |
+| Provider/worker adapters | Task.Provider.ps1, Invoke-BFNativeProvider.ps1, adapters/Codex*.ps1, OpenCode*.ps1 | partial: measure/verify портированы в `cli/internal/stagehost` (native stage host, волна 5); вся execute-цепочка (measure + inspect/spec/spec_review/implement/code_review/diagnose/verify) портирована в `cli/internal/stagehost`+`cli/internal/worker` (волна 6, differential есть); memory-хелпер портирован (`internal/memoryhost`, волна 6); на native-пути остаются типизированными BLOCKED: live council engine, unmanaged codex (без execution_profile); 1С runtime adapter — pending (Windows-only capability) |
 | Review/council | Invoke-CouncilReview.ps1, Council.*.ps1, Invoke-1CSpecReview.ps1, Review.Common.ps1, Test-1CSpec*.ps1 | partial: council v2 валидация в Go (controller_spec_review); транспорт в Go (`internal/counciltransport`); lint/final правила в Go (`internal/specvalidate`, byte-parity); цикл/budget/admission в контроллере пока за PS |
 | Memory | Task.Memory.ps1, Invoke-BFNativeMemory.ps1, Task.NativeReuse.ps1 | helper ported (`cli/internal/memoryhost`, волна 6, live differential byte-identical); Task.NativeReuse.ps1 — pending (reader reuse-контрактов) |
 | Publication/delivery | Task.Publication*.ps1, Task.Delivery.ps1 | partial: контракты в Go (`internal/delivery`); runtime-исполнение pending |
@@ -78,5 +78,5 @@
 
 - Clean-install smoke и native hosted CI на macOS/Linux не выполнялись (требуют реальных runner'ов — push); `native-cli.yml` на удалённых runner'ах тоже ещё не прогонялся.
 - Стадия 7 (удаление runtime PowerShell и `.ps1` из репозитория) всё ещё запрещена до differential parity (req 20–21) и green native CI.
-- Следующий срез: wiring worker-библиотеки в stagehost execute (worker-ветка `Invoke-BFStageObservation` + расчёт стадий `Task.Stages.ps1` + `Task.ManagedReview.ps1`) с differential-доказательством до переключения роутинга композита.
+- Native-путь (композит) больше не запускает pwsh: measure/verify/worker-стадии/memory — native. Следующие срезы: live council engine в Go (сейчас типизированный BLOCKED на native), runner-петля/delivery git-адаптер/bootstrap wiring (стадия 5), `.exe`-релаксация путей (req 8), default-native switch + process-audit/no-pwsh smoke (req 22), затем retirement.
 - `native-cross-platform-cli/verification.md` не создаётся до реального evidence на всех target OS.
