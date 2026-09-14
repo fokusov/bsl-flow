@@ -1,6 +1,6 @@
 # Карта миграции native-cross-platform-cli
 
-Дата: 2026-09-14 (обновление: волна 6). Приоритет владельца: **Windows-first** (macOS/Linux — потом; кросс-платформенные заготовки — build tags, host_other, CI matrix, 4-таргетный release — остаются заделом). Живой трекер замещения PowerShell native Go-интерфейсами по спеке `openspec/changes/native-cross-platform-cli`. Статусы: **ported** (Go-эквивалент с тестами), **partial** (контрактный слой есть, runtime-исполнение ещё на PS), **pending** (замещение не начато), **retire-candidate** (удаление возможно после green native CI и переноса coverage).
+Дата: 2026-09-14 (обновление: волна 6). Приоритет владельца: **Windows-first** (macOS/Linux — потом; кросс-платформенные заготовки — build tags, host_other, CI matrix, 4-таргетный release — остаются заделом). Живой трекер замещения PowerShell native Go-интерфейсами по спеке `openspec/changes/native-cross-platform-cli`. Очередь задач для агентов (карточки-брифы W7–W12 + retirement, оценки) — [NATIVE_MIGRATION_ROADMAP_RU.md](NATIVE_MIGRATION_ROADMAP_RU.md). Статусы: **ported** (Go-эквивалент с тестами), **partial** (контрактный слой есть, runtime-исполнение ещё на PS), **pending** (замещение не начато), **retire-candidate** (удаление возможно после green native CI и переноса coverage).
 
 ## Волна 6 (2026-09-14, native worker library + native memory helper)
 
