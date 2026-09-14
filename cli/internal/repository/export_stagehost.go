@@ -99,6 +99,13 @@ func StageHostArchitectureBundlePrompt(stage, root, packageRoot string) (string,
 	return nativeArchitectureBundlePrompt(stage, root, packageRoot)
 }
 
+// StageHostArchitectureBundleContent mirrors Get-BFArchitectureBundle: the
+// full deterministic bundle content (identity, decisions, missing_context,
+// excluded) the council evidence text embeds and hashes.
+func StageHostArchitectureBundleContent(stage, root, packageRoot string) (map[string]any, error) {
+	return nativeArchitectureBundleContent(stage, root, packageRoot)
+}
+
 // StageHostPackageRootOfSkillsRoot derives the trusted package root from the
 // extracted skill root (<package>/global/skills), matching
 // Get-BFArchitectureRoot's four-level walk above the 1c-task scripts.

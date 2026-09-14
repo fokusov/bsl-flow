@@ -11,6 +11,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"bsl-flow/cli/internal/councilengine"
 	"bsl-flow/cli/internal/repository"
 	"bsl-flow/cli/internal/specvalidate"
 )
@@ -490,7 +491,7 @@ func runSpecReviewStage(ctx context.Context, deps Deps, run *stageRun, raw strin
 		}
 	}
 	if version, ok := asInteger(review["schema_version"]); ok && version == 2 {
-		return nil, blockedf("council review publications are not served by the native stage host yet.")
+		return runCouncilReviewSidecar(deps, state, run, raw, change, review)
 	}
 	reconcileDir := filepath.Join(raw, "reconciler")
 	reviewText, err := readRawText(reviewPath)
@@ -581,6 +582,60 @@ func readRawText(path string) (string, error) {
 	return string(data), nil
 }
 
+// runCouncilReviewSidecar ports the schema v2 branch of Invoke-BFSpecReviewStage:
+// the chair reconciliation is inline in review.json v2, so the stage
+// materializes the controller-owned reconciliation sidecar and re-runs the
+// deterministic final validator before the route transition.
+func runCouncilReviewSidecar(deps Deps, state map[string]any, run *stageRun, raw, change string, review map[string]any) (map[string]any, error) {
+	chair := asMap(review["chair"])
+	if chair == nil {
+		return nil, blockedf("council review has no chair reconciliation record.")
+	}
+	reviewPath := filepath.Join(change, "review.json")
+	reviewHash, err := hashFile(reviewPath)
+	if err != nil {
+		return nil, err
+	}
+	reconciliation := asMap(review["reconciliation"])
+	reconciliationSidecar := map[string]any{
+		"schema_version":       int64(2),
+		"review_sha256":        reviewHash,
+		"draft_spec_sha256":    reconciliation["draft_spec_sha256"],
+		"final_spec_sha256":    reconciliation["final_spec_sha256"],
+		"draft_design_sha256":  reconciliation["draft_design_sha256"],
+		"final_design_sha256":  reconciliation["final_design_sha256"],
+		"reconciled_at_utc":    deps.now().UTC().Format("2006-01-02T15:04:05.0000000Z"),
+		"summary":              "Chair reconciliation recorded inline by the council engine.",
+		"decisions":            chair["decisions"],
+		"do_not_change_checks": chair["protected_decisions"],
+	}
+	if err := writeJSON(filepath.Join(change, "review-reconciliation.json"), reconciliationSidecar, true); err != nil {
+		return nil, err
+	}
+	projectPath := asStringOr(state["project_path"])
+	if _, err := councilFinalValidation(change, projectPath); err != nil {
+		return nil, err
+	}
+	for _, name := range []string{"review-reconciliation.json", "final-validation.json"} {
+		path := filepath.Join(change, name)
+		if !isRegularFile(path) {
+			return nil, blockedf("council review did not produce %s.", name)
+		}
+		if err := copyRawFile(path, filepath.Join(raw, name)); err != nil {
+			return nil, err
+		}
+	}
+	bound, err := stageDependencies(state, "spec_review")
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"outcome":            "PASS",
+		"summary":            "Council spec review published with chair reconciliation inline.",
+		"bound_dependencies": bound,
+	}, nil
+}
+
 // runSpecFinal runs Test-1CSpecFinal natively: the deterministic invariant
 // checks are ported; the derived-value recompute stays a documented
 // migration boundary of the specvalidate slice.
@@ -668,7 +723,15 @@ func invokeProfileSpecCritic(ctx context.Context, deps Deps, run *stageRun, raw 
 	if enabled, err := councilRouteEnabled(configText); err != nil {
 		return nil, err
 	} else if enabled {
-		return nil, blockedf("managed council spec review is not served by the native stage host yet.")
+		policy, err := councilengine.ParseCouncilPolicy(configText)
+		if err != nil {
+			return nil, blockedf("%s", unwrapMessage(err))
+		}
+		review, err := invokeCouncilReview(ctx, deps, run, raw, change, configText, int(maxInput), policy)
+		if err != nil {
+			return nil, err
+		}
+		return councilengine.OrderedToMap(review), nil
 	}
 	specBytes, err := repository.StageHostReadFileBytes(filepath.Join(change, "spec.md"))
 	if err != nil {
