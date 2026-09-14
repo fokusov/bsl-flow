@@ -7,11 +7,13 @@ import (
 	"strings"
 )
 
-// This file ports the verify path: Invoke-BFProviderExecute,
-// Invoke-BFStageObservation (verify branch), Invoke-BFVerification,
-// Invoke-BFExecutionCheck and Stop-BFVerificationFailure. Worker-dispatching
-// stages are rejected with a typed blocker; they remain on the packaged
-// compatibility provider during this migration increment.
+// This file ports the shared observation envelope: Invoke-BFProviderExecute
+// and Invoke-BFStageObservation (try/catch, dependency rebinding, per-stage
+// post-PASS binding rules), plus the deterministic verify path
+// (Invoke-BFVerification, Invoke-BFExecutionCheck,
+// Stop-BFVerificationFailure). The worker-dispatching stages dispatch through
+// stage_worker.go and managed_review.go; the envelope below stays shared so
+// every stage keeps one failure/catch contract.
 
 type providerContextInfo struct {
 	taskID         string
@@ -20,6 +22,7 @@ type providerContextInfo struct {
 	cancelSignal   string
 	canonicalStore string
 	priorArtifacts map[string]map[string]any
+	attemptID      string
 }
 
 // providerExecute mirrors Invoke-BFProviderExecute.
@@ -64,6 +67,7 @@ func providerExecute(ctx context.Context, deps Deps, input *providerInput) (map[
 			cancelSignal:   input.cancelSignal,
 			canonicalStore: input.canonicalStore,
 			priorArtifacts: input.priorArtifacts,
+			attemptID:      asStringOr(attempt["attempt_id"]),
 		},
 	}
 	terminal, err := stageObservation(ctx, deps, run, input)
@@ -82,8 +86,8 @@ type stageRun struct {
 	providerContext *providerContextInfo
 }
 
-// stageObservation mirrors Invoke-BFStageObservation for the verify stage:
-// the stage host owns the try/catch envelope, dependency rebinding and
+// stageObservation mirrors Invoke-BFStageObservation for every provider
+// stage: the stage host owns the try/catch envelope, dependency rebinding and
 // failure receipt, never a task transition.
 func stageObservation(ctx context.Context, deps Deps, run *stageRun, input *providerInput) (map[string]any, error) {
 	state := run.state
@@ -143,17 +147,32 @@ func stageObservation(ctx context.Context, deps Deps, run *stageRun, input *prov
 		}
 	} else if result != nil {
 		summary = asStringOr(result["summary"])
-		switch asStringOr(result["status"]) {
-		case "needs_input":
-			outcome = "NEEDS_INPUT"
-		case "failed":
-			outcome = "FAIL"
-		case "blocked":
-			outcome = "BLOCKED"
-		case "completed":
-			outcome = "PASS"
-		default:
-			return nil, invalidf("invalid worker stage status.")
+		if _, folded := result["outcome"]; folded {
+			// Worker-dispatching stages fold their outcome inside the stage
+			// body (the PowerShell switch runs inside the same try-block).
+			outcome = asStringOr(result["outcome"])
+			if value := result["summary"]; value != nil {
+				summary = asStringOr(value)
+			}
+			if value, present := result["proposal"]; present {
+				proposal = value
+			}
+			if sideEffect, present := result["side_effects"]; present {
+				sideEffects = asStringOr(sideEffect)
+			}
+		} else {
+			switch asStringOr(result["status"]) {
+			case "needs_input":
+				outcome = "NEEDS_INPUT"
+			case "failed":
+				outcome = "FAIL"
+			case "blocked":
+				outcome = "BLOCKED"
+			case "completed":
+				outcome = "PASS"
+			default:
+				return nil, invalidf("invalid worker stage status.")
+			}
 		}
 	}
 	dependencies := run.attempt["dependencies"]
@@ -166,13 +185,50 @@ func stageObservation(ctx context.Context, deps Deps, run *stageRun, input *prov
 		if err != nil {
 			return nil, err
 		}
-		attemptHash, err := hashValue(dependencies)
-		if err != nil {
-			return nil, err
-		}
-		if currentHash != attemptHash {
-			outcome = "BLOCKED"
-			summary = "Inputs changed during a read-only stage."
+		if stage == "implement" || stage == "spec" {
+			// The declared stage output legitimately changes during execution;
+			// every other input must stay bound (Task.Stages.ps1:468-472).
+			outputKey := "source"
+			if stage == "spec" {
+				outputKey = "spec"
+			}
+			adjusted := map[string]any{}
+			for key, value := range current {
+				adjusted[key] = value
+			}
+			adjusted[outputKey] = getValue(asMap(dependencies), outputKey, nil)
+			attemptHash, err := hashValue(dependencies)
+			if err != nil {
+				return nil, err
+			}
+			adjustedHash, err := hashValue(adjusted)
+			if err != nil {
+				return nil, err
+			}
+			if adjustedHash != attemptHash {
+				outcome = "BLOCKED"
+				summary = "Inputs other than the declared stage output changed during execution."
+			} else {
+				dependencies = current
+			}
+		} else if stage == "spec_review" {
+			bound := getValue(asMap(result), "bound_dependencies", nil)
+			boundHash, boundErr := hashValue(bound)
+			if bound == nil || boundErr != nil || boundHash != currentHash {
+				outcome = "BLOCKED"
+				summary = "Missing or stale trusted spec reconciliation binding."
+			} else {
+				dependencies = bound
+			}
+		} else {
+			attemptHash, err := hashValue(dependencies)
+			if err != nil {
+				return nil, err
+			}
+			if currentHash != attemptHash {
+				outcome = "BLOCKED"
+				summary = "Inputs changed during a read-only stage."
+			}
 		}
 	}
 	if stage != "implement" {
@@ -241,10 +297,13 @@ func runStageBody(ctx context.Context, deps Deps, run *stageRun, raw string) (ma
 	if boundHash != attemptDependencyHash {
 		return nil, blockedf("inputs changed before dispatch.")
 	}
-	if stage != "verify" {
-		return nil, blockedf("stage %s is not served by the native provider process yet.", stage)
+	if stage == "verify" {
+		return runVerification(ctx, deps, state, raw, asStringOr(run.attempt["executable"]), run)
 	}
-	return runVerification(ctx, deps, state, raw, asStringOr(run.attempt["executable"]), run)
+	if stage == "spec_review" {
+		return runSpecReviewStage(ctx, deps, run, raw)
+	}
+	return runStageWorkerBody(ctx, deps, run, raw)
 }
 
 // failureMarker renders the BF_VerificationFailure exception data the

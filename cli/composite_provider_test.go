@@ -31,13 +31,15 @@ func TestCompositeProviderRouting(t *testing.T) {
 	if _, err := composite.Measure(context.Background(), compositeInput("measure", "")); err != nil {
 		t.Fatalf("measure routing: %v", err)
 	}
-	for _, stage := range []string{"verify", "inspect", "implement"} {
+	for _, stage := range []string{"verify", "inspect", "spec", "spec_review", "implement", "code_review", "diagnose"} {
 		if _, err := composite.Execute(context.Background(), compositeInput("execute", stage)); err != nil {
 			t.Fatalf("%s routing: %v", stage, err)
 		}
 	}
-	if routes.executeStages["verify"] != 1 || routes.executeStages["inspect"] != 1 || routes.executeStages["implement"] != 1 {
-		t.Fatalf("unexpected routing: %v", routes.executeStages)
+	for _, stage := range []string{"verify", "inspect", "spec", "spec_review", "implement", "code_review", "diagnose"} {
+		if routes.executeStages[stage] != 1 {
+			t.Fatalf("unexpected routing: %v", routes.executeStages)
+		}
 	}
 	if _, err := composite.InvokeMemory(context.Background(), map[string]any{}); err != nil {
 		t.Fatalf("memory delegation: %v", err)
@@ -50,8 +52,9 @@ type stubMemoryProvider struct {
 }
 
 // routingRecorder exercises the routing contract without launching any
-// process: the composite must send measure and verify to the native host and
-// every other stage to the packaged compatibility provider.
+// process: every stage and the measure operation must reach the native host
+// only — the composite no longer routes to the packaged compatibility
+// provider.
 type routingRecorder struct {
 	measureResult repository.MeasureObservation
 	executeResult repository.ExecuteObservation
@@ -75,6 +78,23 @@ func TestCompositeProviderMemoryDegradation(t *testing.T) {
 	composite := &compositeNativeProvider{native: nil, inner: nil}
 	if _, err := composite.InvokeMemory(context.Background(), map[string]any{}); err == nil {
 		t.Fatal("memory without the native helper must fail closed")
+	}
+}
+
+// TestCompositeProviderFailsClosedWithoutNative asserts the composite fails
+// closed when the native host is unavailable: execute must never reroute to
+// the packaged PowerShell provider.
+func TestCompositeProviderFailsClosedWithoutNative(t *testing.T) {
+	recorder := &routingRecorder{executeStages: map[string]int{}}
+	composite := &compositeNativeProvider{native: nil, inner: recorder}
+	if _, err := composite.Execute(context.Background(), compositeInput("execute", "inspect")); err == nil {
+		t.Fatal("execute without the native host must fail closed")
+	}
+	if _, err := composite.Measure(context.Background(), compositeInput("measure", "")); err == nil {
+		t.Fatal("measure without the native host must fail closed")
+	}
+	if len(recorder.executeStages) != 0 {
+		t.Fatalf("the packaged provider must not be consulted: %v", recorder.executeStages)
 	}
 }
 

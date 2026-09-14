@@ -1,5 +1,10 @@
 package repository
 
+import (
+	"encoding/json"
+	"path/filepath"
+)
+
 // Exported seams consumed by the native Go stage host provider process
 // (cli/internal/stagehost). The stage host is the in-binary port of the
 // packaged PowerShell provider; it must compute exactly the same bindings the
@@ -79,3 +84,34 @@ func StageHostToolsetAggregateHash(skills []any) (string, error) {
 
 // StageHostNowUTC returns the controller timestamp format.
 func StageHostNowUTC() string { return nowUTC() }
+
+// StageHostArchitectureContextRoot mirrors Resolve-BFArchitectureContext for
+// the provider side: a project index wins, then the package root, then the
+// project itself as the missing-scope fallback.
+func StageHostArchitectureContextRoot(projectPath, packageRoot string) (string, error) {
+	return nativeArchitectureContextRoot(map[string]any{"project_path": projectPath}, packageRoot)
+}
+
+// StageHostArchitectureBundlePrompt mirrors Get-BFArchitectureBundle +
+// Format-BFArchitectureBundlePrompt: the exact prompt text a stage prompt
+// embeds for its architecture context.
+func StageHostArchitectureBundlePrompt(stage, root, packageRoot string) (string, error) {
+	return nativeArchitectureBundlePrompt(stage, root, packageRoot)
+}
+
+// StageHostPackageRootOfSkillsRoot derives the trusted package root from the
+// extracted skill root (<package>/global/skills), matching
+// Get-BFArchitectureRoot's four-level walk above the 1c-task scripts.
+func StageHostPackageRootOfSkillsRoot(skillsRoot string) (string, error) {
+	root, err := SafePath(skillsRoot)
+	if err != nil {
+		return "", err
+	}
+	// skills -> global -> package
+	return SafePath(filepath.Dir(filepath.Dir(root)))
+}
+
+// StageHostCanonicalNumber converts a canonical JSON number token into the
+// json.Number representation the canonical encoder preserves, so callers can
+// rebuild state values without changing their hash.
+func StageHostCanonicalNumber(text string) any { return json.Number(text) }

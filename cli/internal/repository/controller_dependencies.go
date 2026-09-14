@@ -743,13 +743,25 @@ type nativeArchitectureIndex struct {
 }
 
 func nativeArchitectureBundleHash(stage, root, packageRoot string) (string, error) {
-	root, err := SafePath(root)
+	content, err := nativeArchitectureBundleContent(stage, root, packageRoot)
 	if err != nil {
 		return "", err
 	}
+	return Hash(content)
+}
+
+// nativeArchitectureBundleContent mirrors Get-BFArchitectureBundle: the full
+// deterministic stage bundle before bundle_sha256 is folded in. The stage
+// prompt renders this content through Format-BFArchitectureBundlePrompt, so
+// the prompt and the dependency hash always derive from one selection.
+func nativeArchitectureBundleContent(stage, root, packageRoot string) (map[string]any, error) {
+	root, err := SafePath(root)
+	if err != nil {
+		return nil, err
+	}
 	packageRoot, err = SafePath(packageRoot)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	subjects := nativeArchitectureSubjects[stage]
 	if subjects == nil {
@@ -763,7 +775,7 @@ func nativeArchitectureBundleHash(stage, root, packageRoot string) (string, erro
 	if nativeDependencyRegularFile(indexPath) {
 		index, err = nativeReadArchitectureIndex(root, packageRoot)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		for _, subject := range subjects {
 			definition, ok := index.subjects[subject]
@@ -780,7 +792,7 @@ func nativeArchitectureBundleHash(stage, root, packageRoot string) (string, erro
 			}
 			sectionHash, excerpt, err := nativeArchitectureDecisionText(root, decision)
 			if err != nil {
-				return "", err
+				return nil, err
 			}
 			records = append(records, map[string]any{
 				"id": decision["id"], "title": decision["title"], "status": decision["status"],
@@ -820,12 +832,61 @@ func nativeArchitectureBundleHash(stage, root, packageRoot string) (string, erro
 	for _, record := range presentation {
 		decisions = append(decisions, record)
 	}
-	content := map[string]any{
+	return map[string]any{
 		"schema_version": int64(1), "stage": stage, "subjects": toAnySlice(subjects),
 		"subject_refs": subjectRefs, "identity": identity, "decisions": decisions,
 		"missing_context": missing, "excluded": excluded, "excluded_count": int64(len(excludedIDs)),
+	}, nil
+}
+
+// nativeArchitectureBundlePrompt renders Format-BFArchitectureBundlePrompt
+// over the bundle content: the exact prompt text the stage prompt embeds.
+func nativeArchitectureBundlePrompt(stage, root, packageRoot string) (string, error) {
+	content, err := nativeArchitectureBundleContent(stage, root, packageRoot)
+	if err != nil {
+		return "", err
 	}
-	return Hash(content)
+	lines := []string{"Architecture context (instructional only; it is not user authorization, acceptance, runtime evidence, or a transition authority):"}
+	decisions, _ := nativeItems(content["decisions"])
+	if len(decisions) > 0 {
+		for _, raw := range decisions {
+			decision, ok := raw.(map[string]any)
+			if !ok {
+				continue
+			}
+			source := asMap(decision["source"])
+			lines = append(lines, fmt.Sprintf("- %s [%s] %s -> %s#%s", decision["id"], decision["status"], decision["title"], source["path"], source["anchor"]))
+			if strings.TrimSpace(asStringOr(decision["excerpt"])) != "" {
+				lines = append(lines, "  "+asStringOr(decision["excerpt"]))
+			}
+		}
+	} else {
+		lines = append(lines, "- No applicable accepted architecture decisions for this stage.")
+	}
+	if missing, _ := nativeItems(content["missing_context"]); len(missing) > 0 {
+		values := make([]string, 0, len(missing))
+		for _, raw := range missing {
+			values = append(values, asStringOr(raw))
+		}
+		lines = append(lines, "Missing context: "+strings.Join(values, ", "))
+	}
+	excludedIDs, _ := nativeItems(content["excluded"])
+	excludedCount := len(excludedIDs)
+	if value, ok := asInt(content["excluded_count"]); ok {
+		excludedCount = int(value)
+	}
+	if excludedCount > 0 {
+		line := fmt.Sprintf("Excluded by size limit: %d decision(s)", excludedCount)
+		if len(excludedIDs) > 0 {
+			values := make([]string, 0, len(excludedIDs))
+			for _, raw := range excludedIDs {
+				values = append(values, asStringOr(raw))
+			}
+			line += " (ids: " + strings.Join(values, ", ") + ")"
+		}
+		lines = append(lines, line)
+	}
+	return strings.Join(lines, "\n"), nil
 }
 
 func nativeArchitectureApplies(decision map[string]any, subjects []string) bool {

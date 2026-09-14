@@ -7,13 +7,13 @@ import (
 	"bsl-flow/cli/internal/repository"
 )
 
-// compositeNativeProvider routes each operation to the narrowest provider
-// implementation the migration has already ported: activation measures and
-// the verify stage run through the native Go stage host (the same binary
-// re-executed with `__provider`), while every worker-dispatching stage stays
-// on the packaged compatibility provider. A native failure never falls back
-// automatically to PowerShell, and the memory helper keeps its current
-// compatibility behavior.
+// compositeNativeProvider routes every operation to the native Go stage
+// host: activation measures, the deterministic verify stage and every
+// worker-dispatching stage (inspect, spec, spec_review, implement,
+// code_review, diagnose) run through the same trusted binary re-executed
+// with `__provider`. The packaged PowerShell provider stays in the tree for
+// the legacy engine, but this composite no longer routes to it: a native
+// failure is an error, never an automatic PowerShell reroute.
 type compositeNativeProvider struct {
 	native repository.Provider
 	inner  repository.Provider
@@ -30,15 +30,7 @@ func (p *compositeNativeProvider) Execute(ctx context.Context, input repository.
 	if p == nil || p.native == nil {
 		return repository.ExecuteObservation{}, fmt.Errorf("native stage host is unavailable")
 	}
-	if input.Attempt["stage"] == "verify" {
-		return p.native.Execute(ctx, input)
-	}
-	if p.inner == nil {
-		return repository.ExecuteObservation{}, &nativeProviderError{
-			Message: fmt.Sprintf("BF_BLOCKED: native provider does not serve stage %q without the packaged compatibility provider.", fmt.Sprintf("%v", input.Attempt["stage"])),
-		}
-	}
-	return p.inner.Execute(ctx, input)
+	return p.native.Execute(ctx, input)
 }
 
 // InvokeMemory routes the advisory memory helper through the native stage

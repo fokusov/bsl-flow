@@ -625,7 +625,9 @@ func dispatchProfiledCodex(ctx context.Context, req ProfiledCodexRequest, profil
 	if unica && containsString(mcpNames, "unica") {
 		return ProcessResult{}, blocked("global MCP alias unica collides with the managed registration.")
 	}
-	namesValue := any(nil)
+	// `@(Get-BFCodexMcpServerNames ...)` always materializes an array, so an
+	// empty inventory persists as [] (never null) exactly like the adapter.
+	namesValue := any([]any{})
 	if mcpNames != nil {
 		namesValue = mcpNames
 	}

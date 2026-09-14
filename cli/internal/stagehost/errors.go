@@ -5,12 +5,12 @@
 // on stdin and emits one canonical observation on stdout. PowerShell is never
 // launched from this path.
 //
-// Migration boundary: this increment serves the read-only activation measure
-// and the deterministic verify stage natively. Worker-dispatching stages
-// (inspect, spec, spec_review, implement, code_review, diagnose) remain on the
-// packaged compatibility provider and are rejected here with a typed blocker;
-// the composing host adapter routes them explicitly and never falls back
-// automatically from a native failure.
+// Migration boundary: this host serves the activation measure, the
+// deterministic verify stage and every worker-dispatching stage (inspect,
+// spec, spec_review, implement, code_review, diagnose) through the native
+// worker library. The live council spec_review route stays a typed blocker
+// until the council engine is ported; a native failure is never rerouted to
+// PowerShell.
 package stagehost
 
 import "fmt"
