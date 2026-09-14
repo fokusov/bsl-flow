@@ -1,6 +1,24 @@
 # Карта миграции native-cross-platform-cli
 
-Дата: 2026-09-13 (обновление: волна 4). Приоритет владельца: **Windows-first** (macOS/Linux — потом; кросс-платформенные заготовки — build tags, host_other, CI matrix, 4-таргетный release — остаются заделом). Живой трекер замещения PowerShell native Go-интерфейсами по спеке `openspec/changes/native-cross-platform-cli`. Статусы: **ported** (Go-эквивалент с тестами), **partial** (контрактный слой есть, runtime-исполнение ещё на PS), **pending** (замещение не начато), **retire-candidate** (удаление возможно после green native CI и переноса coverage).
+Дата: 2026-09-14 (обновление: волна 6). Приоритет владельца: **Windows-first** (macOS/Linux — потом; кросс-платформенные заготовки — build tags, host_other, CI matrix, 4-таргетный release — остаются заделом). Живой трекер замещения PowerShell native Go-интерфейсами по спеке `openspec/changes/native-cross-platform-cli`. Статусы: **ported** (Go-эквивалент с тестами), **partial** (контрактный слой есть, runtime-исполнение ещё на PS), **pending** (замещение не начато), **retire-candidate** (удаление возможно после green native CI и переноса coverage).
+
+## Волна 6 (2026-09-14, native worker library + native memory helper)
+
+| Срез | Что | Статус |
+| --- | --- | --- |
+| Worker-библиотека `cli/internal/worker` | порт адаптеров: `Invoke-BFManagedWorker`/`Invoke-BFProfiledCodexWorker`/`Invoke-BFOpenCodeWorker` (спавн argv-as-data, дерево-kill, бюджетные хуки в PS-порядке, critic-каталог/контракты, app-server RPC/skills inventory, rollout identity); типизированные `BF_BLOCKED` refusal'ы | **готово как библиотека с тестами** (e2e через fake codex/opencode-бинарник); wiring в stagehost execute — следующий срез |
+| Native memory helper `cli/internal/memoryhost` | порт `Invoke-BFNativeMemory.ps1` + достижимое подмножество `Task.Memory.ps1` (bind / extract-attempt / extract-acceptance / projection; fingerprints, event journal/replay, bundle selection, writer-lock); live differential против реального pwsh: конверты/события/индекс byte-identical | **готово, в production CLI** |
+| Memory wiring | скрытая субкоманда `__memory` (self-host ре-экзекьют собственного бинарника, как `__provider`); композит маршрутизирует InvokeMemory на native — memory больше не требует pwsh и работает на всех платформах (degrade остаётся только при ошибке хелпера) | **готово** |
+
+## Волна 5 (2026-09-14, native stage host: measure/verify)
+
+| Срез | Что | Статус |
+| --- | --- | --- |
+| Native stage host `cli/internal/stagehost` | порт `Invoke-BFNativeProvider.ps1`: контракты, measure, verify, process-квитанции, capability/permission-профили | **готово, в production CLI** |
+| Self-host транспорт | скрытые субкоманды `__provider`/`__fs-probe`: CLI ре-экзекьютит собственный доверенный бинарник вместо pwsh (in-sandbox fs-probe — тоже host-бинарник); контракт `windows-ps.v1` сохранён намеренно | **готово** |
+| Композит-провайдер | `cli/composite_provider.go`: measure+verify → native stage host; worker-стадии → packaged Windows PS provider (на macOS/Linux — typed blocked envelope, без pwsh fallback); memory → native `__memory` (волна 6) | **готово** |
+| strictjson + экспортные швы | пакет `cli/internal/strictjson`; экспортные швы `cli/internal/repository/export_stagehost.go` | **готово** |
+| CI-матрица native | `.github/workflows/native-cli.yml`: windows-2025/macos-14/ubuntu-24.04, `go vet` + `go test ./... -timeout 20m` | **добавлена; удалённый прогон ожидает push (решение владельца)** |
 
 ## Волна 4 (2026-09-13, Windows-first runtime wiring)
 
@@ -39,10 +57,10 @@
 
 | Группа | Файлы | Статус |
 | --- | --- | --- |
-| Task engine/process/stages/gates/contracts | Task.Engine/Process/Stages/Gates/Contracts.ps1 | partial: transitions/gates в Go (repository); исполнение стадий через windows-ps provider |
-| Provider/worker adapters | Task.Provider.ps1, Invoke-BFNativeProvider.ps1, adapters/Codex*.ps1, OpenCode*.ps1 | partial: парсинг/identity/usage/capability в Go (`internal/worker`); процессный спавн и OpenCode pending |
+| Task engine/process/stages/gates/contracts | Task.Engine/Process/Stages/Gates/Contracts.ps1 | partial: transitions/gates в Go (repository); measure/verify стадии — нативно в `cli/internal/stagehost`; worker-исполнение стадий через windows-ps provider |
+| Provider/worker adapters | Task.Provider.ps1, Invoke-BFNativeProvider.ps1, adapters/Codex*.ps1, OpenCode*.ps1 | partial: measure/verify портированы в `cli/internal/stagehost` (native stage host, волна 5); worker-dispatch (inspect/spec/implement/code_review/diagnose/spec_review) остаётся на PS; парсинг/identity/usage/capability/спавн/бюджет/critic в Go (`internal/worker`, волна 6 — библиотека готова, wiring pending); memory-хелпер портирован (`internal/memoryhost`, волна 6) |
 | Review/council | Invoke-CouncilReview.ps1, Council.*.ps1, Invoke-1CSpecReview.ps1, Review.Common.ps1, Test-1CSpec*.ps1 | partial: council v2 валидация в Go (controller_spec_review); транспорт в Go (`internal/counciltransport`); lint/final правила в Go (`internal/specvalidate`, byte-parity); цикл/budget/admission в контроллере пока за PS |
-| Memory | Task.Memory.ps1, Invoke-BFNativeMemory.ps1, Task.NativeReuse.ps1 | partial: Go memory hooks + canonical journal есть; PS extraction helper в provider |
+| Memory | Task.Memory.ps1, Invoke-BFNativeMemory.ps1, Task.NativeReuse.ps1 | helper ported (`cli/internal/memoryhost`, волна 6, live differential byte-identical); Task.NativeReuse.ps1 — pending (reader reuse-контрактов) |
 | Publication/delivery | Task.Publication*.ps1, Task.Delivery.ps1 | partial: контракты в Go (`internal/delivery`); runtime-исполнение pending |
 | Runner/queue | Task.Runner.ps1, Invoke-BSLFlowTask.ps1 | partial: replay/decisions в Go (`internal/runner`); петля pending |
 | Runtime 1С/native adapter | Task.Runtime.ps1 | pending (Windows-only capability; на unix — BLOCKED_UNSUPPORTED_PLATFORM) |
@@ -54,8 +72,11 @@
 
 `offline.yml`: job `native-matrix` (macos-14/macos-13/ubuntu-24.04, bash, без pwsh: vet + build + кросс-compile + OS-neutral suites). Проверка: `scripts/Check-CIMatrix.ps1` → `CI_MATRIX_OK`. Windows jobs не менялись. **Не запускался** — удалённый CI требует push (решение владельца).
 
+`native-cli.yml` (волна 5): матрица windows-2025/macos-14/ubuntu-24.04, `go vet` + `go test ./... -timeout 20m`. **Не запускался** на удалённых runner'ах — ожидает push (решение владельца).
+
 ## Открытые границы
 
-- Clean-install smoke и native hosted CI на macOS/Linux не выполнялись (требуют реальных runner'ов — push).
-- Стадия 7 (удаление runtime PowerShell и `.ps1` из репозитория) запрещена до differential parity (req 20–21) и green native CI.
+- Clean-install smoke и native hosted CI на macOS/Linux не выполнялись (требуют реальных runner'ов — push); `native-cli.yml` на удалённых runner'ах тоже ещё не прогонялся.
+- Стадия 7 (удаление runtime PowerShell и `.ps1` из репозитория) всё ещё запрещена до differential parity (req 20–21) и green native CI.
+- Следующий срез: wiring worker-библиотеки в stagehost execute (worker-ветка `Invoke-BFStageObservation` + расчёт стадий `Task.Stages.ps1` + `Task.ManagedReview.ps1`) с differential-доказательством до переключения роутинга композита.
 - `native-cross-platform-cli/verification.md` не создаётся до реального evidence на всех target OS.
