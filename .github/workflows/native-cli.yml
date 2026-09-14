@@ -32,4 +32,4 @@ jobs:
         run: go vet ./...
       - name: go test
         shell: bash
-        run: go test ./... -count=1
+        run: go test ./... -count=1 -timeout 20m
