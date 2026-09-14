@@ -414,8 +414,26 @@ function Get-BSLFlowJsonFromOpenCodeEvents {
         if ($event.type -eq 'text' -and $event.part -and $event.part.text) { $parts.Add([string]$event.part.text) }
         elseif ($event.type -eq 'error') { throw "OpenCode returned an error event: $line" }
     }
-    $text = ($parts -join '').Trim()
-    if (-not $text) { throw 'OpenCode returned no completed text event.' }
+    if ($parts.Count -eq 0) { throw 'OpenCode returned no completed text event.' }
+
+    # Chunked providers split one JSON document across several text parts and
+    # must reassemble without separators; block providers emit prose and the
+    # fenced review as separate parts, whose boundary needs a newline to keep
+    # the fence on its own line. Try both joins; every extraction guard runs
+    # unchanged for each candidate, so ambiguity is never weakened.
+    $joinErrors = [System.Collections.Generic.List[string]]::new()
+    foreach ($joined in @(($parts -join ''), ($parts -join "`n"))) {
+        $text = $joined.Trim()
+        if (-not $text) { continue }
+        try { return Get-BSLFlowReviewPayloadFromOpenCodeText -Text $text } catch { $joinErrors.Add([string]$_.Exception.Message) }
+    }
+    if ($joinErrors.Count -eq 0) { throw 'OpenCode returned no completed text event.' }
+    throw "OpenCode text was not one JSON object: $($joinErrors[0])"
+}
+
+function Get-BSLFlowReviewPayloadFromOpenCodeText {
+    param([Parameter(Mandatory)][string]$Text)
+    $text = $Text
 
     # OpenCode may surround its final response with prose. Accept one complete,
     # unambiguous fenced block only; schema validation remains the caller's gate.
