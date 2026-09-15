@@ -276,6 +276,15 @@ func assertRequirements(request map[string]any) error {
 	return nil
 }
 
+// hasNativeExecutableExtension relaxes the historical .exe-only executable
+// contract for platform-native paths: extensionless unix/darwin binaries are
+// accepted beside the historical Windows .exe, while script extensions
+// (.sh, .bat, .ps1, ...) keep their rejection.
+func hasNativeExecutableExtension(path string) bool {
+	extension := pathExtension(path)
+	return extension == ".exe" || extension == ""
+}
+
 func assertRuntimePin(runtime any) error {
 	object, err := assertFields(runtime, []string{"executable", "sha256", "version", "packages"}, nil, "execution_profile.runtime")
 	if err != nil {
@@ -285,7 +294,7 @@ func assertRuntimePin(runtime any) error {
 		return err
 	}
 	executable := asStringOr(object["executable"])
-	if !isAbsolutePath(executable) || pathExtension(executable) != ".exe" || !sha256Pattern.MatchString(asStringOr(object["sha256"])) {
+	if !isAbsolutePath(executable) || !hasNativeExecutableExtension(executable) || !sha256Pattern.MatchString(asStringOr(object["sha256"])) {
 		return invalidf("pinned runtime requires an absolute native executable and SHA-256.")
 	}
 	if !threePartVersion.MatchString(asStringOr(object["version"])) {
@@ -342,7 +351,7 @@ func assertExecutionProfile(profile any) error {
 		return err
 	}
 	executable := asStringOr(object["executable"])
-	if !isAbsolutePath(executable) || pathExtension(executable) != ".exe" || !sha256Pattern.MatchString(asStringOr(object["executable_sha256"])) {
+	if !isAbsolutePath(executable) || !hasNativeExecutableExtension(executable) || !sha256Pattern.MatchString(asStringOr(object["executable_sha256"])) {
 		return invalidf("provider requires an absolute native executable and SHA-256.")
 	}
 	sandbox, err := assertFields(object["sandbox"], []string{"executable", "sha256"}, nil, "sandbox")
@@ -353,7 +362,7 @@ func assertExecutionProfile(profile any) error {
 		return err
 	}
 	sandboxExecutable := asStringOr(sandbox["executable"])
-	if !isAbsolutePath(sandboxExecutable) || pathExtension(sandboxExecutable) != ".exe" || !sha256Pattern.MatchString(asStringOr(sandbox["sha256"])) {
+	if !isAbsolutePath(sandboxExecutable) || !hasNativeExecutableExtension(sandboxExecutable) || !sha256Pattern.MatchString(asStringOr(sandbox["sha256"])) {
 		return invalidf("sandbox requires an absolute native executable and SHA-256.")
 	}
 	toolset, err := assertFields(object["toolset"], []string{"name", "root", "sha256"}, nil, "toolset")

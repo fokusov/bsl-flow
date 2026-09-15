@@ -788,3 +788,67 @@ func TestNativeSpecRequiresCurrentSpecificationProof(t *testing.T) {
 		requireNativeKind(t, err, "BF_BLOCKED")
 	}
 }
+
+func TestNativeExecutionProfileExecutablePathPolicy(t *testing.T) {
+	root := t.TempDir()
+	profile := func(providerExecutable string) map[string]any {
+		return map[string]any{
+			"provider": "codex", "executable": providerExecutable, "executable_sha256": strings.Repeat("1", 64),
+			"codex_skills_sha256": strings.Repeat("2", 64),
+			"sandbox":             map[string]any{"executable": filepath.Join(root, "sandbox.exe"), "sha256": strings.Repeat("3", 64)},
+			"toolset":             map[string]any{"name": "cc-1c-skills", "root": filepath.Join(root, "toolset"), "sha256": strings.Repeat("4", 64)},
+			"runtime": map[string]any{
+				"executable": filepath.Join(root, "runtime.exe"), "sha256": strings.Repeat("5", 64), "version": "3.12.14",
+				"packages": []any{map[string]any{"name": "lxml", "version": "6.1.1"}},
+			},
+			"denied_read_roots": []any{filepath.Join(root, "denied")},
+		}
+	}
+	// Historical Windows v1 requests keep parsing byte-identically.
+	if err := validateNativeExecutionProfile(profile(filepath.Join(root, "codex.exe"))); err != nil {
+		t.Fatalf("historical .exe profile rejected: %v", err)
+	}
+	// Platform-native extensionless executables are accepted.
+	for _, name := range []string{"codex", "codex-native"} {
+		if err := validateNativeExecutionProfile(profile(filepath.Join(root, name))); err != nil {
+			t.Fatalf("extensionless profile executable %q rejected: %v", name, err)
+		}
+	}
+	// Script/library extensions stay rejected with the unchanged diagnostic.
+	for _, name := range []string{"codex.sh", "codex.bat", "codex.ps1", "codex.dylib"} {
+		err := validateNativeExecutionProfile(profile(filepath.Join(root, name)))
+		if err == nil || err.Error() != "execution_profile.executable must be an absolute .exe path" {
+			t.Fatalf("script extension %q diagnostic: %v", name, err)
+		}
+	}
+	if err := validateNativeExecutable("codex/relative", "execution_profile.executable"); err == nil || err.Error() != "execution_profile.executable must be an absolute path" {
+		t.Fatalf("relative executable diagnostic: %v", err)
+	}
+	// The sandbox and runtime pins follow the same relaxed policy.
+	relaxed := profile(filepath.Join(root, "codex"))
+	relaxed["sandbox"] = map[string]any{"executable": filepath.Join(root, "sandbox-exec"), "sha256": strings.Repeat("3", 64)}
+	relaxed["runtime"] = map[string]any{
+		"executable": filepath.Join(root, "python3"), "sha256": strings.Repeat("5", 64), "version": "3.12.14",
+		"packages": []any{map[string]any{"name": "lxml", "version": "6.1.1"}},
+	}
+	if err := validateNativeExecutionProfile(relaxed); err != nil {
+		t.Fatalf("extensionless sandbox/runtime pins rejected: %v", err)
+	}
+	for field, name := range map[string]string{
+		"sandbox": "sandbox.sh", "runtime": "python3.sh",
+	} {
+		scripted := profile(filepath.Join(root, "codex.exe"))
+		if field == "sandbox" {
+			scripted["sandbox"] = map[string]any{"executable": filepath.Join(root, name), "sha256": strings.Repeat("3", 64)}
+		} else {
+			scripted["runtime"] = map[string]any{
+				"executable": filepath.Join(root, name), "sha256": strings.Repeat("5", 64), "version": "3.12.14",
+				"packages": []any{map[string]any{"name": "lxml", "version": "6.1.1"}},
+			}
+		}
+		err := validateNativeExecutionProfile(scripted)
+		if err == nil || err.Error() != "execution_profile."+field+".executable must be an absolute .exe path" {
+			t.Fatalf("%s script extension diagnostic: %v", field, err)
+		}
+	}
+}

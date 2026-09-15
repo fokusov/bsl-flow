@@ -7,10 +7,43 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
 )
+
+// isLaunchableExecutable keeps the managed-process boundary while accepting
+// platform-native binaries: a .exe name passes exactly as before, and an
+// extensionless file passes only where it is the native launchable form and
+// is not an interpreter script, so strict argv execution never routes
+// through a shell.
+func isLaunchableExecutable(path string) bool {
+	if !hasNativeExecutableExtension(path) {
+		return false
+	}
+	if pathExtension(path) == ".exe" {
+		return true
+	}
+	// Windows launches only its PATHEXT forms; an extensionless path there is
+	// rejected up front instead of failing later inside the os/exec lookup.
+	return runtime.GOOS != "windows" && !isInterpreterScript(path)
+}
+
+// isInterpreterScript reports a shebang line: the marker of an interpreter
+// launcher the kernel would execute instead of the file itself.
+func isInterpreterScript(path string) bool {
+	file, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer file.Close()
+	header := make([]byte, 2)
+	if _, err := io.ReadFull(file, header); err != nil {
+		return false
+	}
+	return header[0] == '#' && header[1] == '!'
+}
 
 // runManagedProcess is the Go port of Invoke-BFProcess (Task.Process.ps1):
 // one native executable, data-only arguments, bounded streamed output and
@@ -26,7 +59,7 @@ func runManagedProcess(ctx context.Context, opts ProcessOptions) (ProcessResult,
 	if err != nil {
 		return ProcessResult{}, err
 	}
-	if !isRegularFile(executable) || pathExtension(executable) != ".exe" {
+	if !isRegularFile(executable) || !isLaunchableExecutable(executable) {
 		return ProcessResult{}, blockedf("managed process launch requires an existing native .exe, not a shell launcher.")
 	}
 	workingDirectory, err := safePath(opts.WorkingDirectory)

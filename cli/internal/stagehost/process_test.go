@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -567,5 +568,48 @@ func TestRunManagedProcessTimeout(t *testing.T) {
 	}
 	if result.StopReason != "timeout" {
 		t.Fatalf("expected timeout stop reason, got %q", result.StopReason)
+	}
+}
+
+func TestRunManagedProcessExtensionlessNativeExecutable(t *testing.T) {
+	root := t.TempDir()
+	// Script extensions keep the unchanged shell-launcher rejection.
+	script := filepath.Join(root, "launcher.sh")
+	if err := os.WriteFile(script, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatalf("fixture: %v", err)
+	}
+	if _, err := runManagedProcess(context.Background(), ProcessOptions{
+		Executable: script, WorkingDirectory: root,
+		OutputDirectory: filepath.Join(root, "o-script"), TimeoutSeconds: 10,
+	}); err == nil || err.Error() != "BF_BLOCKED: managed process launch requires an existing native .exe, not a shell launcher." {
+		t.Fatalf("script extension diagnostic: %v", err)
+	}
+	helper := copyHelper(t, root, "helper-native")
+	if runtime.GOOS == "windows" {
+		// Windows launches only its PATHEXT forms: an extensionless binary is
+		// not a platform-native executable here and keeps the classified
+		// rejection instead of a later os/exec lookup failure.
+		if _, err := runManagedProcess(context.Background(), ProcessOptions{
+			Executable: helper, WorkingDirectory: root,
+			OutputDirectory: filepath.Join(root, "o-win"), TimeoutSeconds: 10,
+		}); err == nil || err.Error() != "BF_BLOCKED: managed process launch requires an existing native .exe, not a shell launcher." {
+			t.Fatalf("windows extensionless diagnostic: %v", err)
+		}
+		return
+	}
+	result, err := runManagedProcess(context.Background(), ProcessOptions{
+		Executable:       helper,
+		Arguments:        []string{"one"},
+		WorkingDirectory: root,
+		InputText:        "hello native helper",
+		OutputDirectory:  filepath.Join(root, "out"),
+		TimeoutSeconds:   60,
+		Environment:      map[string]string{"BF_STAGEHOST_PROCESS_HELPER": "echo"},
+	})
+	if err != nil {
+		t.Fatalf("extensionless native executable rejected: %v", err)
+	}
+	if result.ExitCode != 0 || result.StopReason != "" {
+		t.Fatalf("unexpected result: %+v", result)
 	}
 }

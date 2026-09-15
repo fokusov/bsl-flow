@@ -409,8 +409,11 @@ func validateNativeExecutable(value any, name string) error {
 	if err := validateNativeAbsolutePath(value, name); err != nil {
 		return err
 	}
+	// Historical Windows v1 requests carry .exe; platform-native executables
+	// outside Windows are extensionless. Any other extension stays outside
+	// the executable contract (script launchers, libraries, data files).
 	text := asStringOr(value)
-	if filepath.Ext(text) != ".exe" {
+	if extension := filepath.Ext(text); extension != ".exe" && extension != "" {
 		return invalid("%s must be an absolute .exe path", name)
 	}
 	return nil

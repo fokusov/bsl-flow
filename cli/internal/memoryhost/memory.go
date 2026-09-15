@@ -159,7 +159,9 @@ func packageIdentity(state map[string]any, packageRoot string) (map[string]any, 
 		}
 	}
 	files := asAnyArray(valueOr(state, "policy_files", []any{}))
-	hostPattern := regexp.MustCompile(`(?i)bsl-flow\.exe$`)
+	// The packaged host ships as bsl-flow.exe on Windows and extensionless on
+	// the other targets; both historical v1 and native inventories resolve it.
+	hostPattern := regexp.MustCompile(`(?i)bsl-flow(\.exe)?$`)
 	entryPattern := regexp.MustCompile(`(?i)Invoke-BSLFlowTask\.ps1$`)
 	for _, pattern := range []*regexp.Regexp{hostPattern, entryPattern} {
 		source := "host"

@@ -315,7 +315,7 @@ func assertProviderAttempt(object map[string]any, operation, taskID string, stat
 	if err != nil {
 		return nil, err
 	}
-	if !strings.HasSuffix(strings.ToLower(executable), ".exe") {
+	if !hasNativeExecutableExtension(executable) {
 		return nil, blockedf("provider execution requires a native executable.")
 	}
 	return attempt, nil

@@ -102,3 +102,41 @@ func TestRunProviderRoundTripRejectsGarbage(t *testing.T) {
 		t.Fatalf("expected classified error, got %q", stderr.String())
 	}
 }
+
+func TestExecutionProfileExecutableExtensions(t *testing.T) {
+	root := t.TempDir()
+	profile := func(providerExecutable, sandboxExecutable, runtimeExecutable string) map[string]any {
+		return map[string]any{
+			"provider": "codex", "executable": providerExecutable, "executable_sha256": strings.Repeat("1", 64),
+			"codex_skills_sha256": strings.Repeat("2", 64),
+			"sandbox":             map[string]any{"executable": sandboxExecutable, "sha256": strings.Repeat("3", 64)},
+			"toolset":             map[string]any{"name": "cc-1c-skills", "root": filepath.Join(root, "toolset"), "sha256": strings.Repeat("4", 64)},
+			"runtime": map[string]any{
+				"executable": runtimeExecutable, "sha256": strings.Repeat("5", 64), "version": "3.12.14",
+				"packages": []any{map[string]any{"name": "lxml", "version": "6.1.1"}},
+			},
+			"denied_read_roots": []any{filepath.Join(root, "denied")},
+		}
+	}
+	// Historical Windows v1 profiles keep parsing with unchanged diagnostics.
+	if err := assertExecutionProfile(profile(filepath.Join(root, "codex.exe"), filepath.Join(root, "sandbox.exe"), filepath.Join(root, "runtime.exe"))); err != nil {
+		t.Fatalf("historical .exe profile rejected: %v", err)
+	}
+	// Mixed-case .exe keeps the historical case-insensitive acceptance.
+	if err := assertExecutionProfile(profile(filepath.Join(root, "CODEX.EXE"), filepath.Join(root, "sandbox.exe"), filepath.Join(root, "runtime.exe"))); err != nil {
+		t.Fatalf("mixed-case .exe profile rejected: %v", err)
+	}
+	// Platform-native extensionless executables are accepted.
+	if err := assertExecutionProfile(profile(filepath.Join(root, "codex"), filepath.Join(root, "sandbox-exec"), filepath.Join(root, "python3"))); err != nil {
+		t.Fatalf("extensionless native profile rejected: %v", err)
+	}
+	if err := assertExecutionProfile(profile(filepath.Join(root, "codex.sh"), filepath.Join(root, "sandbox.exe"), filepath.Join(root, "runtime.exe"))); err == nil || err.Error() != "BF_INVALID: provider requires an absolute native executable and SHA-256." {
+		t.Fatalf("provider script diagnostic: %v", err)
+	}
+	if err := assertExecutionProfile(profile(filepath.Join(root, "codex.exe"), filepath.Join(root, "sandbox.sh"), filepath.Join(root, "runtime.exe"))); err == nil || err.Error() != "BF_INVALID: sandbox requires an absolute native executable and SHA-256." {
+		t.Fatalf("sandbox script diagnostic: %v", err)
+	}
+	if err := assertExecutionProfile(profile(filepath.Join(root, "codex.exe"), filepath.Join(root, "sandbox.exe"), filepath.Join(root, "python3.sh"))); err == nil || err.Error() != "BF_INVALID: pinned runtime requires an absolute native executable and SHA-256." {
+		t.Fatalf("runtime script diagnostic: %v", err)
+	}
+}

@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -465,5 +466,47 @@ func TestRunManagedProcessHelperVersion(t *testing.T) {
 	stdout, err := os.ReadFile(result.Stdout)
 	if err != nil || strings.TrimSpace(string(stdout)) != "codex-cli 0.154.0" {
 		t.Fatalf("version stream: %q err=%v", stdout, err)
+	}
+}
+
+func TestRunManagedProcessExtensionlessNativeExecutable(t *testing.T) {
+	root := t.TempDir()
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatalf("cannot resolve test binary: %v", err)
+	}
+	data, err := os.ReadFile(executable)
+	if err != nil {
+		t.Fatalf("cannot read test binary: %v", err)
+	}
+	native := filepath.Join(root, "worker-helper-native")
+	if err := os.WriteFile(native, data, 0o755); err != nil {
+		t.Fatalf("cannot copy helper: %v", err)
+	}
+	if runtime.GOOS == "windows" {
+		// Windows launches only its PATHEXT forms: an extensionless binary is
+		// not a platform-native executable here and keeps the classified
+		// rejection instead of a later os/exec lookup failure.
+		if _, err := RunManagedProcess(context.Background(), ProcessOptions{
+			Executable: native, WorkingDirectory: root,
+			OutputDirectory: filepath.Join(root, "o-win"), TimeoutSeconds: 10,
+		}); err == nil || err.Error() != "BF_BLOCKED: managed process launch requires an existing native .exe, not a shell launcher." {
+			t.Fatalf("windows extensionless diagnostic: %v", err)
+		}
+		return
+	}
+	result, err := RunManagedProcess(context.Background(), ProcessOptions{
+		Executable:       native,
+		Arguments:        []string{"--version"},
+		WorkingDirectory: root,
+		OutputDirectory:  filepath.Join(root, "out"),
+		TimeoutSeconds:   60,
+	})
+	if err != nil {
+		t.Fatalf("extensionless native executable rejected: %v", err)
+	}
+	stdout, readErr := os.ReadFile(result.Stdout)
+	if readErr != nil || strings.TrimSpace(string(stdout)) != "codex-cli 0.154.0" {
+		t.Fatalf("unexpected helper stdout: %q %v", stdout, readErr)
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -79,6 +80,38 @@ func (r ProcessResult) ExitObject() map[string]any {
 	return result
 }
 
+// isLaunchableExecutable keeps the managed-process launch boundary while
+// accepting platform-native executable paths beside the historical .exe.
+// Windows launches only its PATHEXT forms, so an extensionless path there is
+// rejected up front; elsewhere a shebang marks an interpreter launcher the
+// kernel would run instead of the file itself and stays rejected. Mirrors
+// cli/internal/stagehost/process.go.
+func isLaunchableExecutable(path string) bool {
+	extension := strings.ToLower(filepath.Ext(path))
+	if extension != ".exe" && extension != "" {
+		return false
+	}
+	if extension == ".exe" {
+		return true
+	}
+	return runtime.GOOS != "windows" && !isInterpreterScript(path)
+}
+
+// isInterpreterScript reports a shebang line: the marker of an interpreter
+// launcher the kernel would execute instead of the file itself.
+func isInterpreterScript(path string) bool {
+	file, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer file.Close()
+	header := make([]byte, 2)
+	if _, err := io.ReadFull(file, header); err != nil {
+		return false
+	}
+	return header[0] == '#' && header[1] == '!'
+}
+
 // RunManagedProcess launches one native executable with data-only arguments,
 // streams bounded output into immutable receipt files under OutputDirectory
 // (stdout.txt, stderr.txt, process.json, exit.json) and returns the terminal
@@ -100,7 +133,7 @@ func RunManagedProcess(ctx context.Context, opts ProcessOptions) (ProcessResult,
 	if err != nil {
 		return ProcessResult{}, err
 	}
-	if !isRegularFile(executable) || strings.ToLower(filepath.Ext(executable)) != ".exe" {
+	if !isRegularFile(executable) || !isLaunchableExecutable(executable) {
 		return ProcessResult{}, blocked("managed process launch requires an existing native .exe, not a shell launcher.")
 	}
 	workingDirectory, err := workerSafePath(opts.WorkingDirectory)

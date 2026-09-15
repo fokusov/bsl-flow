@@ -335,3 +335,52 @@ func TestBoundedTextTrimsEnd(t *testing.T) {
 		t.Fatalf("short text modified: %q", got)
 	}
 }
+
+func TestPackageIdentityHostResolution(t *testing.T) {
+	// No VERSION or package-manifest.json in this root, so the identity must
+	// come from the policy inventory and host resolution is observable.
+	root := t.TempDir()
+	hostHash := strings64hex()
+	entryHash := strings64hex()
+	// Historical Windows v1 inventory keeps resolving the .exe host.
+	identity, err := packageIdentity(map[string]any{"policy_files": []any{
+		map[string]any{"path": `C:\Program Files\bsl-flow\bsl-flow.exe`, "sha256": hostHash},
+	}}, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if identity["source"] != "host" || identity["sha256"] != hostHash {
+		t.Fatalf("historical host identity: %v", identity)
+	}
+	// The platform-native extensionless host resolves identically.
+	identity, err = packageIdentity(map[string]any{"policy_files": []any{
+		map[string]any{"path": "/usr/local/bin/bsl-flow", "sha256": hostHash},
+	}}, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if identity["source"] != "host" || identity["sha256"] != hostHash {
+		t.Fatalf("extensionless host identity: %v", identity)
+	}
+	// The host entry wins over the legacy entrypoint even when extensionless.
+	identity, err = packageIdentity(map[string]any{"policy_files": []any{
+		map[string]any{"path": "/usr/local/bin/bsl-flow", "sha256": hostHash},
+		map[string]any{"path": "/opt/bsl-flow/Invoke-BSLFlowTask.ps1", "sha256": entryHash},
+	}}, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if identity["source"] != "host" || identity["sha256"] != hostHash {
+		t.Fatalf("host precedence over entrypoint: %v", identity)
+	}
+	// Legacy-only inventories still resolve the entrypoint.
+	identity, err = packageIdentity(map[string]any{"policy_files": []any{
+		map[string]any{"path": "/opt/bsl-flow/Invoke-BSLFlowTask.ps1", "sha256": entryHash},
+	}}, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if identity["source"] != "entrypoint" || identity["sha256"] != entryHash {
+		t.Fatalf("entrypoint fallback: %v", identity)
+	}
+}
