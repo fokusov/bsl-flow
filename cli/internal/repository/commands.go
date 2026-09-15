@@ -24,17 +24,19 @@ var registryActions = map[string]bool{
 }
 
 var executionActions = map[string]bool{
-	"start":   true,
-	"status":  true,
-	"context": true,
-	"cancel":  true,
-	"update":  true,
-	"run":     true,
-	"resume":  true,
-	"next":    true,
-	"record":  true,
-	"accept":  true,
-	"deliver": true,
+	"start":          true,
+	"status":         true,
+	"context":        true,
+	"cancel":         true,
+	"update":         true,
+	"run":            true,
+	"resume":         true,
+	"next":           true,
+	"record":         true,
+	"accept":         true,
+	"deliver":        true,
+	"publish":        true,
+	"publish-resume": true,
 }
 
 const defaultListLimit = 100
@@ -178,6 +180,10 @@ func executeControllerAction(action, project, id string, args []string, host *Co
 		return commandControllerRebind(project, id, opts.values["--expected-revision"], opts.values["--input"], host)
 	case "deliver":
 		return nil, blocked("delivery is outside native controller activation")
+	case "publish":
+		return commandPublish(project, id, opts.values["--input"], false)
+	case "publish-resume":
+		return commandPublish(project, id, opts.values["--input"], true)
 	default:
 		return nil, invalid("unsupported controller action %s", action)
 	}
@@ -211,6 +217,8 @@ func parseControllerActionOptions(action string, args []string) (*options, error
 	case "rebind":
 		allowedValues["--expected-revision"] = true
 		allowedValues["--input"] = true
+	case "publish", "publish-resume":
+		allowedValues["--input"] = true
 	}
 	opts, err := parseOptions(args, allowedValues, allowedFlags)
 	if err != nil {
@@ -218,6 +226,11 @@ func parseControllerActionOptions(action string, args []string) (*options, error
 	}
 	if err := opts.require("--project", "--task"); err != nil {
 		return nil, err
+	}
+	if action == "publish" || action == "publish-resume" {
+		if err := opts.require("--input"); err != nil {
+			return nil, err
+		}
 	}
 	if value := opts.values["--runtime-auth"]; value != "" && value != "stdin" {
 		return nil, invalid("--runtime-auth accepts only stdin; credentials must not appear in arguments")

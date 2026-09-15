@@ -852,3 +852,77 @@ func TestNativeExecutionProfileExecutablePathPolicy(t *testing.T) {
 		}
 	}
 }
+
+func TestNativePublishPublishesAcceptedSourceToNewRef(t *testing.T) {
+	fixture := newNativeTestFixture(t, nil)
+	nativeTestRunUntilAccept(t, fixture)
+	if _, err := commandControllerAccept(fixture.project, fixture.taskID); err != nil {
+		t.Fatalf("accept fixture: %v", err)
+	}
+	payload, _, _ := nativeTestTaskPayload(t, fixture)
+	acceptances := anyItems(payload["acceptances"])
+	if len(acceptances) != 1 {
+		t.Fatalf("fixture acceptance count = %d", len(acceptances))
+	}
+	acceptanceID := asStringOr(asMap(acceptances[0])["sha256"])
+	remote := filepath.Join(tempDir(t), "remote.git")
+	runGit(t, tempDir(t), "init", "--bare", remote)
+	publicationID := "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+	inputPath := writeJSON(t, tempDir(t), "publication.json", map[string]any{
+		"schema_version": int64(1), "publication_id": publicationID, "task_id": fixture.taskID,
+		"acceptance_sha256": acceptanceID, "remote": remote, "ref": "refs/heads/codex/native-publish/fixture",
+		"auth":       "none",
+		"author":     map[string]any{"name": "BSL Flow Publish Fixture", "email": "publish@fixture.invalid"},
+		"message":    "native publish fixture",
+		"provenance": map[string]any{"source": "user", "reference": "publish-fixture", "text": "publish the accepted fixture source"},
+	})
+	published, err := commandPublish(fixture.project, fixture.taskID, inputPath, false)
+	if err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	envelope, _ := published.(map[string]any)
+	if asStringOr(envelope["status"]) != "published" {
+		t.Fatalf("publish did not complete: %#v", envelope)
+	}
+	if asStringOr(envelope["commit_oid"]) == "" {
+		t.Fatalf("published envelope lost the commit: %#v", envelope)
+	}
+	if runGit(t, tempDir(t), "ls-remote", remote, "refs/heads/codex/native-publish/fixture") == "" {
+		t.Fatal("remote ref is absent after publish")
+	}
+	rerun, err := commandPublish(fixture.project, fixture.taskID, inputPath, false)
+	if err != nil {
+		t.Fatalf("idempotent publish: %v", err)
+	}
+	rerunEnvelope, _ := rerun.(map[string]any)
+	if asStringOr(rerunEnvelope["status"]) != "published" || asBoolOr(rerunEnvelope["idempotent"]) != true {
+		t.Fatalf("idempotent publish diverged: %#v", rerunEnvelope)
+	}
+	if asStringOr(rerunEnvelope["commit_oid"]) != asStringOr(envelope["commit_oid"]) {
+		t.Fatal("idempotent publish changed the commit")
+	}
+	// A resume against the verified publication stays terminal and never
+	// redispatches.
+	resumed, err := commandPublish(fixture.project, fixture.taskID, inputPath, true)
+	if err != nil {
+		t.Fatalf("publish-resume: %v", err)
+	}
+	resumedEnvelope, _ := resumed.(map[string]any)
+	if asStringOr(resumedEnvelope["status"]) != "published" {
+		t.Fatalf("publish-resume diverged: %#v", resumedEnvelope)
+	}
+	// A second publication to the same ref under a different UUID is refused.
+	otherPath := writeJSON(t, tempDir(t), "publication-other.json", map[string]any{
+		"schema_version": int64(1), "publication_id": "0f0c1d63-8f27-4a5a-9f39-af0adef7b1a2", "task_id": fixture.taskID,
+		"acceptance_sha256": acceptanceID, "remote": remote, "ref": "refs/heads/codex/native-publish/fixture",
+		"auth":       "none",
+		"author":     map[string]any{"name": "BSL Flow Publish Fixture", "email": "publish@fixture.invalid"},
+		"message":    "native publish fixture",
+		"provenance": map[string]any{"source": "user", "reference": "publish-fixture", "text": "publish the accepted fixture source"},
+	})
+	if _, err := commandPublish(fixture.project, fixture.taskID, otherPath, false); err == nil {
+		t.Fatal("expected refusal for an existing published ref under a new UUID")
+	} else if !strings.Contains(err.Error(), "another OID") {
+		t.Fatalf("unexpected second-publication refusal: %v", err)
+	}
+}
