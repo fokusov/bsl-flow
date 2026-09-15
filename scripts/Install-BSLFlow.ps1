@@ -193,7 +193,7 @@ if (-not $SkipCliValidation) {
     if (-not $openCodeCommand) { throw 'OpenCode CLI is required but was not found in PATH.' }
 }
 
-$skillNames = @('1c-init-project', '1c-spec', '1c-spec-review', '1c-implement', '1c-verify', '1c-debug', '1c-task')
+$skillNames = @('1c-init-project', '1c-spec', '1c-spec-review', '1c-estimate', '1c-implement', '1c-verify', '1c-debug', '1c-task')
 foreach ($skillName in $skillNames) {
     if (-not (Test-Path -LiteralPath (Join-Path $sourceSkills "$skillName\SKILL.md") -PathType Leaf)) {
         throw "Package skill is incomplete: $skillName"

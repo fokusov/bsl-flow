@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "change": "task-estimation-skill",
+  "created": "2026-09-14T15:59:39Z",
+  "kind": "estimate",
+  "status": "final",
+  "inputs": {
+    "spec_sha256": "d49893ecfe51d240cf066a3960ac620328cbb2bfb9e94d72505181e05f31b91c",
+    "design_sha256": null,
+    "original_task_sha256": "428a592bf7e650d51197420fcaabc1c6bfe40448a70db6f441e1d653892d4b96"
+  },
+  "classification": {
+    "complexity": "M",
+    "risk": "medium"
+  },
+  "baseline": "middle_3y",
+  "ai_basis": {
+    "model": "gpt-6-astra",
+    "effort": "medium",
+    "attempts": {
+      "min": 2,
+      "max": 5
+    }
+  },
+  "blocks": [
+    {
+      "id": "B-01",
+      "title": "SKILL.md: процедура, preconditions, форматы выдачи",
+      "human": {
+        "min": 3,
+        "max": 6
+      },
+      "ai": {
+        "min": 0.5,
+        "max": 1
+      },
+      "justification": "Процедурный текст в стиле семейства 1c-*: гейты применимости, шаги, staleness, actuals; средний объём документации."
+    },
+    {
+      "id": "B-02",
+      "title": "References: закрытая JSON Schema, якоря S/M/L × риск, правила",
+      "human": {
+        "min": 4,
+        "max": 8
+      },
+      "ai": {
+        "min": 1,
+        "max": 2
+      },
+      "justification": "Проектирование closed schema с условной обязательностью по kind плюс калибровка якорных диапазонов и фаз полного цикла."
+    },
+    {
+      "id": "B-03",
+      "title": "Детерминированный валидатор Test-1CEstimate.ps1",
+      "human": {
+        "min": 10,
+        "max": 20
+      },
+      "ai": {
+        "min": 2,
+        "max": 4
+      },
+      "justification": "Шесть классов проверок: гейт применимости, schema, консервативные суммы, округление, хеши/staleness, порог якоря с контролем раздела объяснения.",
+      "drivers": [
+        "PowerShell 7.6: изменённые API Test-Json и семантика ErrorVariable требуют итераций"
+      ]
+    },
+    {
+      "id": "B-04",
+      "title": "Self-test suite: Static/Unit/Integration",
+      "human": {
+        "min": 8,
+        "max": 14
+      },
+      "ai": {
+        "min": 1.5,
+        "max": 3
+      },
+      "justification": "Фикстуры изменений, негативные документы, stale-переходы, интеграционный прогон на реальном change."
+    },
+    {
+      "id": "B-05",
+      "title": "Регистрация в Install-BSLFlow.ps1 и синк установленных копий",
+      "human": {
+        "min": 1,
+        "max": 2
+      },
+      "ai": {
+        "min": 0.25,
+        "max": 0.5
+      },
+      "justification": "Точечная правка списка скиллов и копирование в ~/.agents/skills."
+    }
+  ],
+  "totals": {
+    "human": {
+      "min": 26,
+      "max": 50
+    },
+    "ai": {
+      "min": 5.25,
+      "max": 10.5
+    }
+  },
+  "exclusions": [],
+  "confidence": "low",
+  "assumptions": [
+    "Окружение Windows с PowerShell 7 доступно; отдельные 1С-инструменты не требуются.",
+    "Изменения ограничены skills layer и списком скиллов установщика; controller-интеграция отсутствует по спеке.",
+    "Оценка выполняется на уже финализированной спеке (final-validation.json passed) и не влияет на её артефакты."
+  ],
+  "fork_drivers": [
+    "Якоря применяются впервые и не откалиброваны фактическими actuals — уверенность не выше low.",
+    "Закрытая JSON Schema и связка schema-валидатор-тесты требуют синхронной эволюции; изменения одного влекут переделку остальных.",
+    "PowerShell 7.6 API-особенности (Test-Json, ErrorVariable) уже потребовали дополнительных итераций при реализации."
+  ]
+}

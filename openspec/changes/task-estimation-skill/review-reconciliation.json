@@ -1,0 +1,281 @@
+{
+  "schema_version": 1,
+  "review_sha256": "efca234de9b3398c92b40b812240505ce645ed8f889b66aadb4c26ee817b55e8",
+  "draft_spec_sha256": "2c3040bd244b3315b5fe8160bf7f201c975d8a11c535d7fc7f0ad7be31784eaa",
+  "final_spec_sha256": "d49893ecfe51d240cf066a3960ac620328cbb2bfb9e94d72505181e05f31b91c",
+  "draft_design_sha256": null,
+  "final_design_sha256": null,
+  "reconciled_at_utc": "2026-09-14T15:20:35.7115116+00:00",
+  "summary": "Независимая сверка inline-реконсилиации council (schema v2): все 19 находок проверены против original-task.md и реальных артефактов проекта и приняты; 15 protected-пунктов сохранены. Четыре фактические поправки имён/маркеров для реализатора (spec-lint.json, review.json, маркер спайка, константа модели) записаны в review-advisory.md без изменения опубликованного финального текста.",
+  "decisions": [
+    {
+      "finding_id": "R-001",
+      "decision": "accepted",
+      "reason": "Противоречие реально: п.4 требовал декомпозицию для всех оценок, а п.9 допускал timebox без неё.",
+      "evidence": "original-task.md: спайки не оцениваются вилкой — только timebox; драфт п.4 запрещал оценку одним числом без исключения для timebox.",
+      "status": "addressed",
+      "resolution": "Финальный текст явно освобождает kind=timebox от blocks/totals/exclusions и вилок: записывается только timebox_hours (п.4, п.11, критерий приёмки timebox).",
+      "spec_ref_after": "Требуемое поведение / 4, 9, 11"
+    },
+    {
+      "finding_id": "R-002",
+      "decision": "accepted",
+      "reason": "Preliminary-режим не входит в согласованный объём: исходный запрос требует оценку после финализации спеки.",
+      "evidence": "original-task.md: «Вместе со спекой, после ее финализации, мы должны выдать пользователю… оценку»; preliminary нигде не согласован.",
+      "status": "addressed",
+      "resolution": "Preliminary-статус и режим удалены: без пройденной финальной валидации скилл отказывает с точной причиной.",
+      "spec_ref_after": "Требуемое поведение / 2; Критерии приёмки"
+    },
+    {
+      "finding_id": "R-003",
+      "decision": "accepted",
+      "reason": "Конфигурируемость якорей через bsl-flow.yaml не запрашивалась и тянет за собой риск несовместимости с существующим конфиг-валидатором.",
+      "evidence": "original-task.md не упоминает конфигурацию; архитектурный критик указал, что загрузчик bsl-flow.yaml может не принять новую секцию.",
+      "status": "addressed",
+      "resolution": "Секция estimate: в bsl-flow.yaml удалена полностью; применяются только встроенные якоря из references скилла (сверка: architecture_critic F-001, executability F-002).",
+      "spec_ref_after": "Требуемое поведение / 7"
+    },
+    {
+      "finding_id": "R-004",
+      "decision": "accepted",
+      "reason": "Термин material unknowns использовался как условие блокировки без определения.",
+      "evidence": "Драфт п.2/п.8: «material unknowns, влияющие на объём работ» без перечня или примеров.",
+      "status": "addressed",
+      "resolution": "В п.2 добавлено определение с примерами: неизвестное, влияющее на объём, архитектуру, состав объектов метаданных или требующее отдельного согласования (объём миграции, неопределённая интеграция, отсутствие требований к правам).",
+      "spec_ref_after": "Требуемое поведение / 2"
+    },
+    {
+      "finding_id": "R-005",
+      "decision": "accepted",
+      "reason": "Закрытая schema и детерминированная валидация нужны для машиночитаемого sidecar, но состав unit-требований был избыточен.",
+      "evidence": "original-task.md требует машиночитаемый estimate.json с привязкой к хешам; формальная схема — минимальная поддержка этого, а не расширение.",
+      "status": "addressed",
+      "resolution": "Формальная JSON Schema сохранена; unit-состав сокращён до staleness/null-семантики, округления и отсутствия декомпозиции у timebox.",
+      "spec_ref_after": "Требуемые проверки / Unit"
+    },
+    {
+      "finding_id": "R-006",
+      "decision": "accepted",
+      "reason": "Проблема загрузчика конфигурации реальна, но снята вместе с удалением самой секции (см. R-003).",
+      "evidence": "architecture_critic F-001: неизвестно, принимает ли валидатор bsl-flow.yaml новый ключ; секция удалена решением R-003.",
+      "status": "addressed",
+      "resolution": "Секция не вводится — вопрос совместимости загрузчика не возникает; якоря только встроенные.",
+      "spec_ref_after": "Требуемое поведение / 7"
+    },
+    {
+      "finding_id": "R-007",
+      "decision": "accepted",
+      "reason": "Источник BLOCK-находок не был указан: final-validation один не содержит деталей находок.",
+      "evidence": "Скилл 1c-spec-review публикует review.json (schema v1/v2, findings с severity) и final-validation.json в директории change.",
+      "status": "addressed",
+      "resolution": "Финальный текст указывает артефакт ревью в директории change как источник BLOCK-находок. Фактическое имя артефакта — review.json; имя review-findings.json из резолюции chair не существует и поправлено в review-advisory.md для реализатора.",
+      "spec_ref_after": "Требуемое поведение / 2; review-advisory.md"
+    },
+    {
+      "finding_id": "R-008",
+      "decision": "accepted",
+      "reason": "Условие «завершённый lint» для S-change без обязательного ревью не задавало артефакт и критерий.",
+      "evidence": "Test-1CSpec.ps1 пишет spec-lint.json с полем passed в директорию change; routing ревью определён в 1c-spec-review (внешнее ревью для M/L/high).",
+      "status": "addressed",
+      "resolution": "Для S-change без обязательного ревью финальной валидацией считается пройденный lint-артефакт в директории change. Фактическое имя — spec-lint.json; lint-results.json из резолюции chair поправлено в review-advisory.md.",
+      "spec_ref_after": "Требуемое поведение / 2; Критерии приёмки; review-advisory.md"
+    },
+    {
+      "finding_id": "R-009",
+      "decision": "accepted",
+      "reason": "Без минимальных полей actuals будущая сверка план/факт недетерминируема.",
+      "evidence": "Критерий приёмки actuals требовал заполнения, но п.11 не перечислял поля.",
+      "status": "addressed",
+      "resolution": "В п.11 перечислены минимальные зарезервированные поля: human_hours, ai_hours, attempts, source, recorded_at; в v1 автоматически не заполняются.",
+      "spec_ref_after": "Требуемое поведение / 11"
+    },
+    {
+      "finding_id": "R-010",
+      "decision": "accepted",
+      "reason": "Порог существенного расхождения с якорем не был формализован.",
+      "evidence": "Драфт п.7: «существенное расхождение объясняется явно» без числового порога.",
+      "status": "addressed",
+      "resolution": "Введён числовой порог: отклонение любой границы итоговой вилки от соответствующей границы якоря более чем на 30% требует явного объяснения.",
+      "spec_ref_after": "Требуемое поведение / 7"
+    },
+    {
+      "finding_id": "R-011",
+      "decision": "accepted",
+      "reason": "Без критерия распознавания спайка скилл не может выбрать kind=timebox.",
+      "evidence": "Драфт п.9 задавал только условие «без проверяемых критериев приёмки», без маркера.",
+      "status": "addressed",
+      "resolution": "П.9 задаёт критерии распознавания. Поправка реализатору в review-advisory.md: поля task_type=spike в метаданных change не существует — применяется явная пометка в original-task/spec.md либо явный запрос пользователя.",
+      "spec_ref_after": "Требуемое поведение / 9; review-advisory.md"
+    },
+    {
+      "finding_id": "R-012",
+      "decision": "accepted",
+      "reason": "Staleness был определён только для estimate.md-читателя через JSON.",
+      "evidence": "Драфт п.10 хранил хеши и дату только в estimate.json.",
+      "status": "addressed",
+      "resolution": "П.10 требует в estimate.md те же хеши и дату генерации; при последующем чтении скилл сверяет их и показывает предупреждение об устаревании.",
+      "spec_ref_after": "Требуемое поведение / 10"
+    },
+    {
+      "finding_id": "R-013",
+      "decision": "accepted",
+      "reason": "Чтение worker-модели из bsl-flow.yaml по умолчанию предполагало несуществующий ключ.",
+      "evidence": "В bsl-flow.yaml нет единого ключа worker-модели; council-конфиг использует review-модели, worker-модель живёт в request-манифесте задачи.",
+      "status": "addressed",
+      "resolution": "Значения по умолчанию для ai_basis фиксируются константами в references скилла, а не чтением из конфигурации. Конкретное имя модели из резолюции chair (bsl-flow-worker-default) — плейсхолдер, поправлен в review-advisory.md.",
+      "spec_ref_after": "Требуемое поведение / 6; review-advisory.md"
+    },
+    {
+      "finding_id": "R-014",
+      "decision": "accepted",
+      "reason": "Прямое противоречие: п.2 допускал финальную оценку по завершённому lint для S-change, а критерий приёмки отправлял тот же случай в preliminary.",
+      "evidence": "Сравнение драфта п.2 и критерия приёмки №2.",
+      "status": "addressed",
+      "resolution": "Критерий переписан: завершённый lint для S-change без обязательного ревью считается финальной валидацией (оценка final); без валидации — отказ; preliminary нет.",
+      "spec_ref_after": "Требуемое поведение / 2; Критерии приёмки"
+    },
+    {
+      "finding_id": "R-015",
+      "decision": "accepted",
+      "reason": "Схема секции estimate: была нужна только если секция остаётся; снята удалением секции (R-003).",
+      "evidence": "executability_critic F-002 ссылается на п.7 драфта; после R-003 секции нет.",
+      "status": "addressed",
+      "resolution": "YAML-схема не требуется: переопределений нет, действуют только встроенные якоря references.",
+      "spec_ref_after": "Требуемое поведение / 7"
+    },
+    {
+      "finding_id": "R-016",
+      "decision": "accepted",
+      "reason": "Дубль architecture_critic F-006: формальный критерий спайка отсутствовал.",
+      "evidence": "Тот же пункт п.9 драфта.",
+      "status": "addressed",
+      "resolution": "Закрыто вместе с R-011: критерии распознавания в п.9 + advisory-поправка про реальный маркер.",
+      "spec_ref_after": "Требуемое поведение / 9"
+    },
+    {
+      "finding_id": "R-017",
+      "decision": "accepted",
+      "reason": "Дубль architecture_critic F-005: порог неформализован.",
+      "evidence": "Тот же пункт п.7 драфта.",
+      "status": "addressed",
+      "resolution": "Закрыто вместе с R-010: порог 30% по любой границе внесён в п.7.",
+      "spec_ref_after": "Требуемое поведение / 7"
+    },
+    {
+      "finding_id": "R-018",
+      "decision": "accepted",
+      "reason": "Формат хранения хешей отсутствующих опциональных файлов не был определён.",
+      "evidence": "Драфт п.10: «при наличии» без правила null/отсутствия ключа.",
+      "status": "addressed",
+      "resolution": "Определена null-семантика: отсутствующий вход — null; null равен только null; появление файла вместо null считается изменением.",
+      "spec_ref_after": "Требуемое поведение / 10"
+    },
+    {
+      "finding_id": "R-019",
+      "decision": "accepted",
+      "reason": "Дубль intent_critic F-004/executability F-006: определение material unknowns отсутствовало.",
+      "evidence": "Те же пункты п.2/п.8 драфта.",
+      "status": "addressed",
+      "resolution": "Закрыто вместе с R-004: определение и примеры внесены в п.2.",
+      "spec_ref_after": "Требуемое поведение / 2"
+    }
+  ],
+  "do_not_change_checks": [
+    {
+      "item": "Использование baseline middle_3y для человеко-часов",
+      "decision": "preserved",
+      "reason": "Подтверждено против original-task.md и согласованных решений; финальный текст сохраняет пункт без изменений.",
+      "evidence": "Сверка финального spec.md (sha256 d49893ecfe51…) с protected-списком review.json: пункт остаётся в Требуемом поведении/Не делать."
+    },
+    {
+      "item": "Определение ИИ-часов как агентного wall-clock без ожидания пользователя",
+      "decision": "preserved",
+      "reason": "Подтверждено против original-task.md и согласованных решений; финальный текст сохраняет пункт без изменений.",
+      "evidence": "Сверка финального spec.md (sha256 d49893ecfe51…) с protected-списком review.json: пункт остаётся в Требуемом поведении/Не делать."
+    },
+    {
+      "item": "Создание estimate.md и estimate.json как sidecar-артефактов",
+      "decision": "preserved",
+      "reason": "Подтверждено против original-task.md и согласованных решений; финальный текст сохраняет пункт без изменений.",
+      "evidence": "Сверка финального spec.md (sha256 d49893ecfe51…) с protected-списком review.json: пункт остаётся в Требуемом поведении/Не делать."
+    },
+    {
+      "item": "Привязка оценки к хешам spec.md/design.md/original-task.md",
+      "decision": "preserved",
+      "reason": "Подтверждено против original-task.md и согласованных решений; финальный текст сохраняет пункт без изменений.",
+      "evidence": "Сверка финального spec.md (sha256 d49893ecfe51…) с protected-списком review.json: пункт остаётся в Требуемом поведении/Не делать."
+    },
+    {
+      "item": "Timebox для спайков вместо вилки",
+      "decision": "preserved",
+      "reason": "Подтверждено против original-task.md и согласованных решений; финальный текст сохраняет пункт без изменений.",
+      "evidence": "Сверка финального spec.md (sha256 d49893ecfe51…) с protected-списком review.json: пункт остаётся в Требуемом поведении/Не делать."
+    },
+    {
+      "item": "Не делать оценку обязательным stage/gate контроллером",
+      "decision": "preserved",
+      "reason": "Подтверждено против original-task.md и согласованных решений; финальный текст сохраняет пункт без изменений.",
+      "evidence": "Сверка финального spec.md (sha256 d49893ecfe51…) с protected-списком review.json: пункт остаётся в Требуемом поведении/Не делать."
+    },
+    {
+      "item": "Scope boundaries: assisted skill, not mandatory stage/gate, no auto drift report in v1",
+      "decision": "preserved",
+      "reason": "Подтверждено против original-task.md и согласованных решений; финальный текст сохраняет пункт без изменений.",
+      "evidence": "Сверка финального spec.md (sha256 d49893ecfe51…) с protected-списком review.json: пункт остаётся в Требуемом поведении/Не делать."
+    },
+    {
+      "item": "Dual estimate (human/AI) with conservative sum and required decomposition by blocks",
+      "decision": "preserved",
+      "reason": "Подтверждено против original-task.md и согласованных решений; финальный текст сохраняет пункт без изменений.",
+      "evidence": "Сверка финального spec.md (sha256 d49893ecfe51…) с protected-списком review.json: пункт остаётся в Требуемом поведении/Не делать."
+    },
+    {
+      "item": "Hash-based staleness and machine-readable JSON sidecar",
+      "decision": "preserved",
+      "reason": "Подтверждено против original-task.md и согласованных решений; финальный текст сохраняет пункт без изменений.",
+      "evidence": "Сверка финального spec.md (sha256 d49893ecfe51…) с protected-списком review.json: пункт остаётся в Требуемом поведении/Не делать."
+    },
+    {
+      "item": "Timebox instead of range for spikes without verifiable acceptance criteria",
+      "decision": "preserved",
+      "reason": "Подтверждено против original-task.md и согласованных решений; финальный текст сохраняет пункт без изменений.",
+      "evidence": "Сверка финального spec.md (sha256 d49893ecfe51…) с protected-списком review.json: пункт остаётся в Требуемом поведении/Не делать."
+    },
+    {
+      "item": "No 1C runtime invocation and no external service calls beyond authorized session model",
+      "decision": "preserved",
+      "reason": "Подтверждено против original-task.md и согласованных решений; финальный текст сохраняет пункт без изменений.",
+      "evidence": "Сверка финального spec.md (sha256 d49893ecfe51…) с protected-списком review.json: пункт остаётся в Требуемом поведении/Не делать."
+    },
+    {
+      "item": "Отсутствие денежной оценки (только часы)",
+      "decision": "preserved",
+      "reason": "Подтверждено против original-task.md и согласованных решений; финальный текст сохраняет пункт без изменений.",
+      "evidence": "Сверка финального spec.md (sha256 d49893ecfe51…) с protected-списком review.json: пункт остаётся в Требуемом поведении/Не делать."
+    },
+    {
+      "item": "Привязка оценки к хешам входных артефактов",
+      "decision": "preserved",
+      "reason": "Подтверждено против original-task.md и согласованных решений; финальный текст сохраняет пункт без изменений.",
+      "evidence": "Сверка финального spec.md (sha256 d49893ecfe51…) с protected-списком review.json: пункт остаётся в Требуемом поведении/Не делать."
+    },
+    {
+      "item": "Запрет оценки одним числом без декомпозиции",
+      "decision": "preserved",
+      "reason": "Подтверждено против original-task.md и согласованных решений; финальный текст сохраняет пункт без изменений.",
+      "evidence": "Сверка финального spec.md (sha256 d49893ecfe51…) с protected-списком review.json: пункт остаётся в Требуемом поведении/Не делать."
+    },
+    {
+      "item": "Шаг округления: 0.5 ч для human, 0.25 ч для ai",
+      "decision": "preserved",
+      "reason": "Подтверждено против original-task.md и согласованных решений; финальный текст сохраняет пункт без изменений.",
+      "evidence": "Сверка финального spec.md (sha256 d49893ecfe51…) с protected-списком review.json: пункт остаётся в Требуемом поведении/Не делать."
+    },
+    {
+      "item": "Вилы human/ai отдельно",
+      "decision": "preserved",
+      "reason": "Подтверждено против original-task.md и согласованных решений; финальный текст сохраняет пункт без изменений.",
+      "evidence": "Сверка финального spec.md (sha256 d49893ecfe51…) с protected-списком review.json: пункт остаётся в Требуемом поведении/Не делать."
+    }
+  ]
+}
