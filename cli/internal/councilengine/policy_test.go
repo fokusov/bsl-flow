@@ -103,7 +103,7 @@ func TestParseCouncilPolicyOffAndLegacy(t *testing.T) {
 	if policy.Enabled {
 		t.Fatal("empty config must disable the council")
 	}
-	for _, role := range councilRoleOrder {
+	for _, role := range CouncilRoleOrder {
 		if policy.Roles[role].Enabled || policy.Roles[role].Required {
 			t.Fatalf("role %s must be disabled when council off", role)
 		}

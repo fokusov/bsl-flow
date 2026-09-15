@@ -100,7 +100,7 @@ func BuildRoleBindings(projectRoot string, policy *CouncilPolicy, snapshot *Snap
 		localText = string(data)
 	}
 	entries := []*RoleBinding{}
-	for _, roleName := range councilRoleOrder {
+	for _, roleName := range CouncilRoleOrder {
 		role := policy.Roles[roleName]
 		if !role.Enabled {
 			continue

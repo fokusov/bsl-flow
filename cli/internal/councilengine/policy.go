@@ -56,8 +56,8 @@ func ParseEndpointURL(raw, name string) (Endpoint, error) {
 	return assertEndpointURL(raw, name, true)
 }
 
-// councilRoleOrder is the canonical member role enumeration.
-var councilRoleOrder = []string{
+// CouncilRoleOrder is the canonical member role enumeration.
+var CouncilRoleOrder = []string{
 	councilRoleBrainstorm, councilRoleIntentCritic, councilRoleArchitecture, councilRoleExecutability, councilRoleChair,
 }
 
@@ -434,7 +434,14 @@ func assertEndpointURL(url, name string, allowLocalHTTP bool) (Endpoint, error) 
 			port = 80
 		}
 	}
-	return Endpoint{Scheme: parsed.Scheme, Host: strings.ToLower(parsed.Host), Port: port, BasePath: parsed.Path}, nil
+	basePath := parsed.Path
+	if basePath == "" {
+		// .NET Uri.AbsolutePath never returns an empty path, so the PowerShell
+		// binding always carries "/" for a bare host (api.deepseek.com fixture
+		// parity).
+		basePath = "/"
+	}
+	return Endpoint{Scheme: parsed.Scheme, Host: strings.ToLower(parsed.Host), Port: port, BasePath: basePath}, nil
 }
 
 var safeProviderIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$`)
@@ -595,7 +602,7 @@ func ParseCouncilPolicy(configText string) (*CouncilPolicy, error) {
 		}
 		policy.Budget = &BudgetConfig{Currency: "USD", Limit: limit, Reservation: reservation}
 	}
-	for _, role := range councilRoleOrder {
+	for _, role := range CouncilRoleOrder {
 		defaultEnabled := "false"
 		defaultRequired := "false"
 		if role != councilRoleBrainstorm {
@@ -724,7 +731,7 @@ func assertCouncilNoUnknownKeys(text string) error {
 			}
 		}
 	}
-	for _, role := range councilRoleOrder {
+	for _, role := range CouncilRoleOrder {
 		for _, key := range yamlDirectKeys(text, []string{"review", "council", "roles", role}) {
 			if !containsString([]string{"enabled", "required", "model", "fallback"}, key) {
 				return invalid("Unknown role field: review.council.roles.%s.%s.", role, key)
