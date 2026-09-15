@@ -4,9 +4,11 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"bsl-flow/cli/internal/release"
@@ -21,9 +23,10 @@ func main() {
 	out := flag.String("out", "", "output directory for binaries, archives and release-manifest.json")
 	version := flag.String("version", "", "release semver recorded in the manifest")
 	ldflags := flag.String("ldflags", "", "extra linker flags passed as a single -ldflags value")
+	targets := flag.String("targets", "", "optional comma-separated GOOS/GOARCH subset (for example windows/amd64); default builds the full release matrix")
 	flag.Parse()
 	if *out == "" || *version == "" {
-		fmt.Fprintln(os.Stderr, "usage: bslflow-release -source <cli-dir> -out <dir> -version <semver> [-ldflags <flags>]")
+		fmt.Fprintln(os.Stderr, "usage: bslflow-release -source <cli-dir> -out <dir> -version <semver> [-ldflags <flags>] [-targets <goos/goarch,...>]")
 		os.Exit(2)
 	}
 	opts := release.Options{
@@ -33,6 +36,14 @@ func main() {
 		TrimPath:            true,
 		Now:                 releaseEpoch,
 		VerifyDeterministic: true,
+	}
+	if *targets != "" {
+		selected, err := parseTargets(*targets)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "BF_INVALID: "+err.Error())
+			os.Exit(2)
+		}
+		opts.Targets = selected
 	}
 	if *ldflags != "" {
 		opts.LDFlags = []string{*ldflags}
@@ -51,4 +62,27 @@ func main() {
 		fmt.Fprintln(os.Stderr, "BF_BLOCKED: "+err.Error())
 		os.Exit(1)
 	}
+}
+
+// parseTargets narrows the release matrix to the listed GOOS/GOARCH pairs so
+// a single target can be built without cross-compiling the whole matrix.
+func parseTargets(value string) ([]release.Target, error) {
+	seen := map[string]bool{}
+	targets := make([]release.Target, 0, 4)
+	for _, item := range strings.Split(value, ",") {
+		goos, goarch, found := strings.Cut(strings.TrimSpace(item), "/")
+		if !found || goos == "" || goarch == "" || strings.ContainsAny(goos+goarch, " /\t") {
+			return nil, fmt.Errorf("invalid release target %q; expected GOOS/GOARCH", item)
+		}
+		key := goos + "/" + goarch
+		if seen[key] {
+			return nil, fmt.Errorf("repeated release target %q", item)
+		}
+		seen[key] = true
+		targets = append(targets, release.Target{GOOS: goos, GOARCH: goarch})
+	}
+	if len(targets) == 0 {
+		return nil, errors.New("at least one release target is required")
+	}
+	return targets, nil
 }
