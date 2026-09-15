@@ -1,12 +1,14 @@
-// Package runner is the decision and replay layer of the native task queue
-// supervisor. It ports the supervision contract of the PowerShell runner
-// (global/skills/1c-task/scripts/Task.Runner.ps1, Invoke-BFTaskQueue) without
-// spawning processes or taking real locks: journals are replayed into an
-// in-memory state, fairness and no-blind-retry decisions are computed purely
-// from that state, and queue ownership is a value-level single-holder lease.
-//
-// The layer is deliberately self-contained; persistence and process liveness
-// probes are supplied by callers.
+// Package runner is the native task queue supervisor. It ports the
+// supervision contract of the PowerShell runner
+// (global/skills/1c-task/scripts/Task.Runner.ps1, Invoke-BFTaskQueue) in two
+// layers. The decision and replay layer computes journals, fairness cursors
+// and no-blind-retry decisions purely from replayed state, with queue
+// ownership as a value-level single-holder lease. The serve loop (Serve)
+// composes that contract with caller-supplied persistence, task-state,
+// liveness and dispatch seams: the on-disk defaults persist
+// byte-compatible journals, snapshots and queue inputs, hold the exclusive
+// runner lock for a whole queue run and re-invoke the trusted CLI binary per
+// claimed task. No code path ever falls back to PowerShell.
 package runner
 
 import (

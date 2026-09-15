@@ -18,6 +18,7 @@ import (
 
 	"bsl-flow/cli/internal/platform"
 	"bsl-flow/cli/internal/repository"
+	"bsl-flow/cli/internal/runner"
 	"bsl-flow/cli/internal/stagehost"
 )
 
@@ -75,6 +76,9 @@ func parse(args []string) (invocation, error) {
 		case "Status", "Next", "Context", "Run", "Resume", "Record", "Update", "Cancel", "Accept":
 			allowed["--engine"] = true
 		}
+	}
+	if in.command == "runner" {
+		allowed["--engine"] = true
 	}
 	for i := 2; i < len(args); i += 2 {
 		key := args[i]
@@ -263,6 +267,9 @@ func run(args []string, out, errOut io.Writer) int {
 	if in.command == "capability" {
 		return printCapabilities(out)
 	}
+	if in.command == "runner" && in.options["--engine"] != "legacy-powershell" {
+		return runNativeRunner(in, out, errOut)
+	}
 	bundle, err := readEmbeddedBundle()
 	if err != nil {
 		return hostError(out, 11, "", err)
@@ -331,7 +338,7 @@ func printVersion(out io.Writer) int {
 
 // printHelp writes the command list (spec included) and the routing notes.
 func printHelp(out io.Writer) int {
-	fmt.Fprintln(out, "bsl-flow version\nbsl-flow help\nbsl-flow capability\nbsl-flow spec <lint|final|review|metric>\nbsl-flow task <start|status|next|context|run|update|resume|cancel|record|accept|deliver|publish|publish-resume> --project <path> [--task <uuid>] [--input <json>] [--attempt <uuid>] [--codex <exe>] [--engine <native|legacy-powershell>]\nbsl-flow runner run --project <path> --input <json> [--codex <exe>]\nTask start/update/publish/publish-resume require --input; all task actions except start require --task; record requires --attempt; --codex is for task run/resume and runner run. UUIDs must be lowercase.\nExecution routing defaults to native for canonical repository tasks and legacy-powershell for checkout-local v1 tasks; --engine makes a supported choice explicit.\nThe legacy-powershell engine exists only on Windows; other platforms reject it before task state access. bsl-flow capability prints the observed machine capability model as JSON.\nTask context is a read-only projection of the controller journal and Get-BFNext; it writes nothing and authorizes nothing.\nNative runtime auth uses --runtime-auth stdin on run/resume/update/runner; send one private JSON line with username and password. No credential files or secret arguments.\nPublication requires a separate exact acceptance/remote/ref authorization; publish-resume only reads the remote result.\nPowerShell 7 is only required by the legacy-powershell engine on Windows; the native engine serves activation measure, verify, every worker-dispatch stage, the council spec review and advisory memory without PowerShell; macOS/Linux accept the native engine only and have not yet been smoke-verified. Ctrl+C is not rollback; inspect the exact task and use task cancel/resume.")
+	fmt.Fprintln(out, "bsl-flow version\nbsl-flow help\nbsl-flow capability\nbsl-flow spec <lint|final|review|metric>\nbsl-flow task <start|status|next|context|run|update|resume|cancel|record|accept|deliver|publish|publish-resume> --project <path> [--task <uuid>] [--input <json>] [--attempt <uuid>] [--codex <exe>] [--engine <native|legacy-powershell>]\nbsl-flow runner run --project <path> --input <json> [--codex <exe>] [--engine <native|legacy-powershell>]\nTask start/update/publish/publish-resume require --input; all task actions except start require --task; record requires --attempt; --codex is for task run/resume and runner run. UUIDs must be lowercase.\nExecution routing defaults to native for canonical repository tasks and for runner run, which fails closed on queue entries it cannot serve, and to legacy-powershell for checkout-local v1 task actions; --engine makes a supported choice explicit.\nThe legacy-powershell engine exists only on Windows; other platforms reject it before task state access. bsl-flow capability prints the observed machine capability model as JSON.\nTask context is a read-only projection of the controller journal and Get-BFNext; it writes nothing and authorizes nothing.\nNative runtime auth uses --runtime-auth stdin on run/resume/update/runner; send one private JSON line with username and password. No credential files or secret arguments.\nPublication requires a separate exact acceptance/remote/ref authorization; publish-resume only reads the remote result.\nPowerShell 7 is only required by the legacy-powershell engine on Windows; the native engine serves activation measure, verify, every worker-dispatch stage, the council spec review and advisory memory without PowerShell; macOS/Linux accept the native engine only and have not yet been smoke-verified. Ctrl+C is not rollback; inspect the exact task and use task cancel/resume.")
 	fmt.Fprintln(out, "bsl-flow task <create|edit|activate|adopt|rebind|list|show|history|overview|archive|unarchive> --project <path> [--task <uuid>] [--input <json>] [--expected-revision <n>] [--source <path>] [--preview|--apply] [--json] [--human]")
 	fmt.Fprintln(out, "Native repository task commands are clone-local operations; metadata reads default to JSON and --human prints tables. activate requires a trusted request and a compatible packaged provider, then publishes the ready revision. adopt previews or applies a checked legacy binding; rebind attaches the same UUID to a fresh trusted request. Execution of canonical tasks stays on the native route and never falls back to legacy PowerShell.")
 	fmt.Fprintln(out, "bsl-flow spec lint --project <path> [--change <id>] [--json] | bsl-flow spec final --project <path> --change <id> [--json] — native PowerShell-free spec validation: lint prints the Test-1CSpec spec-lint artifact shape and writes spec-lint.json into the change directory (exit 1 on any error finding), and final runs the deterministic Test-1CSpecFinal checks over one change directory and writes final-validation.json in the same shape the PowerShell validators publish (exit 1 when any check fails).")
@@ -354,10 +361,52 @@ func runtimeAuthRequested(args []string) bool {
 // readRuntimeAuthStdin reads one bounded private line and delegates the
 // contract validation to the shared controller parser.
 func readRuntimeAuthStdin() (*repository.Native1CRuntimeAuth, error) {
+	line, err := readRuntimeAuthRawLine()
+	if err != nil {
+		return nil, err
+	}
+	return repository.ParseRuntimeAuthLine([]byte(line))
+}
+
+// readRuntimeAuthRawLine returns the validated private single-line JSON so a
+// native supervisor can forward it to children over their stdin; the line
+// itself never appears in arguments.
+func readRuntimeAuthRawLine() (string, error) {
 	reader := bufio.NewReader(io.LimitReader(os.Stdin, 16386))
 	line, _ := reader.ReadBytes('\n')
 	trimmed := strings.TrimRight(string(line), "\r\n")
-	return repository.ParseRuntimeAuthLine([]byte(trimmed))
+	if _, err := repository.ParseRuntimeAuthLine([]byte(trimmed)); err != nil {
+		return "", err
+	}
+	return trimmed, nil
+}
+
+// runNativeRunner serves the trusted queue input through the native
+// supervision loop. The legacy-powershell selection is handled by the caller;
+// canonical tasks the queue cannot serve surface their regular controller
+// blockers, and a checkout-local entry fails closed instead of falling back.
+func runNativeRunner(in invocation, out, errOut io.Writer) int {
+	project, err := filepath.Abs(in.options["--project"])
+	if err != nil {
+		return hostError(out, 2, "", err)
+	}
+	input, err := repository.ReadFileBytes(in.options["--input"])
+	if err != nil {
+		return hostError(out, 2, "", fmt.Errorf("cannot read queue input: %v", err))
+	}
+	source, err := repository.NewRunnerTaskSource(project)
+	if err != nil {
+		return hostError(out, 11, "", err)
+	}
+	opts := runner.ServeOptions{Project: project, Input: input, CodexPath: in.options["--codex"], Tasks: source}
+	if in.options["--runtime-auth"] == "stdin" {
+		line, err := readRuntimeAuthRawLine()
+		if err != nil {
+			return hostError(out, 11, "", err)
+		}
+		opts.RuntimeAuthLine = line
+	}
+	return runner.Serve(context.Background(), opts, out, errOut)
 }
 
 // The legacy PowerShell engine exists only on Windows. On every other

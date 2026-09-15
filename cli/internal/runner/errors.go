@@ -41,10 +41,11 @@ var ErrQuiet = errors.New("runner queue is quiet")
 
 func truncateReason(message string) string {
 	// Get-BFRunnerErrorSummary bounds the persisted error text to 1024 runes
-	// after collapsing line breaks.
+	// after collapsing line breaks; truncation stays on a rune boundary so a
+	// split multi-byte character can never produce invalid UTF-8 output.
 	text := strings.TrimSpace(strings.NewReplacer("\r\n", " ", "\r", " ", "\n", " ").Replace(message))
-	if len(text) > 1024 {
-		text = text[:1024]
+	if runes := []rune(text); len(runes) > 1024 {
+		text = string(runes[:1024])
 	}
 	return text
 }

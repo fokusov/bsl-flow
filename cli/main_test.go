@@ -444,3 +444,22 @@ func TestCapabilityCommandPrintsMachineModel(t *testing.T) {
 		t.Fatalf("unexpected engine/native1c model: %+v", caps)
 	}
 }
+
+func TestRunnerEngineSelection(t *testing.T) {
+	base := []string{"runner", "run", "--project", `C:\project`, "--input", `C:\queue.json`}
+	if _, err := parse(base); err != nil {
+		t.Fatal(err)
+	}
+	for _, engine := range []string{"native", "legacy-powershell"} {
+		in, err := parse(append(append([]string{}, base...), "--engine", engine))
+		if err != nil {
+			t.Fatalf("%s: %v", engine, err)
+		}
+		if in.command != "runner" || in.action != "Serve" || in.options["--engine"] != engine {
+			t.Fatalf("unexpected invocation: %+v", in)
+		}
+	}
+	if _, err := parse(append(append([]string{}, base...), "--engine", "pwsh")); err == nil {
+		t.Fatal("accepted invalid engine value")
+	}
+}
