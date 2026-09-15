@@ -183,19 +183,41 @@ var lintNegativeCases = []struct {
 		expected: []string{"error|acceptance.not-structured|Acceptance criteria are not objectively structured.|25"},
 	},
 	{
-		name:     "scenario missing THEN",
+		name:     "scenario missing THEN points at the scenario line",
 		spec:     strings.Replace(lintBaselineSpec, "- GIVEN заполненная форма WHEN пользователь сохраняет THEN документ записывается без ошибок.", "- GIVEN заполненная форма WHEN пользователь сохраняет документ", 1),
-		expected: []string{"error|acceptance.scenario|Each GIVEN acceptance scenario requires nonempty WHEN and THEN clauses.|25"},
+		expected: []string{"error|acceptance.scenario|Each GIVEN acceptance scenario requires nonempty WHEN and THEN clauses.|27"},
 	},
 	{
-		// PowerShell reports the section heading line because it offsets
-		// the check by its index inside the trimmed, comment-stripped
-		// body (Test-1CSpec.ps1:105); the shrunken body also trips the
-		// 20-character checklist floor (Test-1CSpec.ps1:108-111).
+		name: "each broken scenario points at its own GIVEN line",
+		spec: strings.Replace(lintBaselineSpec,
+			"- GIVEN заполненная форма WHEN пользователь сохраняет THEN документ записывается без ошибок.",
+			"- GIVEN заполненная форма WHEN пользователь сохраняет документ\n- GIVEN записанный документ THEN форма закрывается", 1),
+		expected: []string{
+			"error|acceptance.scenario|Each GIVEN acceptance scenario requires nonempty WHEN and THEN clauses.|27",
+			"error|acceptance.scenario|Each GIVEN acceptance scenario requires nonempty WHEN and THEN clauses.|28",
+		},
+	},
+	{
+		// Two broken GIVEN scenarios sharing one bullet collapse into a
+		// single finding: the formatted "spec.md line N: message" pair is
+		// identical (Test-1CSpec.ps1 Add-SpecError deduplicates too).
+		name: "two broken scenarios in one bullet deduplicate",
+		spec: strings.Replace(lintBaselineSpec,
+			"- GIVEN заполненная форма WHEN пользователь сохраняет THEN документ записывается без ошибок.",
+			"- GIVEN заполненная форма WHEN пользователь сохраняет GIVEN документ записан THEN форма закрыта", 1),
+		expected: []string{
+			"error|acceptance.scenario|Each GIVEN acceptance scenario requires nonempty WHEN and THEN clauses.|27",
+		},
+	},
+	{
+		// Both the PowerShell validator and the Go port point the
+		// level-detail finding at the item's own line; the shrunken body
+		// also trips the 20-character checklist floor (section-level,
+		// Test-1CSpec.ps1:108-111).
 		name: "verification level without detail",
 		spec: strings.Replace(lintBaselineSpec, "- [x] Unit — проверка сохранения формы и пересчёта итога.", "- [x] Unit", 1),
 		expected: []string{
-			"error|verification.level-detail|Each selected verification level must describe what it proves.|29",
+			"error|verification.level-detail|Each selected verification level must describe what it proves.|31",
 			"error|verification.empty|Required verification must describe a concrete check or an explicit evidence blocker, not an empty checklist.|29",
 		},
 	},

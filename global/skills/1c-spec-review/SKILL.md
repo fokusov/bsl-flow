@@ -9,6 +9,10 @@ For a registered managed task, the controller invokes the independent reviewer a
 
 Use this skill after `1c-spec` creates a specification. It adds one independent critic pass and a deterministic final invariant check; it does not create an implementation plan or a recurring review loop.
 
+## Binary requirement
+
+The native commands below (`spec review`, `spec final`, `spec metric`) and the sidecars they write (`spec-lint.json`, `final-validation.json`) require `bsl-flow` 0.8.0-dev.3 or newer — check `bsl-flow --version`. On an older binary (0.8.0-dev.2 answers `expected spec lint or spec final` for `spec review`) do not skip the step: fall back to this skill's PowerShell scripts (`Invoke-1CSpecReview.ps1`, `Test-1CSpecFinal.ps1`, `Add-1CSpecRunMetric.ps1`) and say so in the handoff.
+
 ## Routing
 
 Read project `bsl-flow.yaml` and classify the change as S/M/L plus low/medium/high risk.

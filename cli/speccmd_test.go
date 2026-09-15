@@ -92,6 +92,17 @@ func TestSpecLintCommandTable(t *testing.T) {
 		if parsed.Stats.Characters != 8222 || parsed.Stats.Lines != 69 {
 			t.Fatalf("stats drifted from the PowerShell artifact values: %+v", parsed.Stats)
 		}
+		sidecarRaw, err := os.ReadFile(filepath.Join(project, "openspec", "changes", "demo-change", "spec-lint.json"))
+		if err != nil {
+			t.Fatalf("spec lint must write spec-lint.json into the change directory: %v", err)
+		}
+		var sidecar lintCommandOutput
+		if err := json.Unmarshal(sidecarRaw, &sidecar); err != nil {
+			t.Fatalf("invalid spec-lint.json sidecar: %v", err)
+		}
+		if !sidecar.Passed || sidecar.SchemaVersion != 1 || sidecar.Stats.Characters != parsed.Stats.Characters {
+			t.Fatalf("sidecar content drifted from stdout artifact: %+v", sidecar)
+		}
 	})
 
 	t.Run("clean spec human summary", func(t *testing.T) {
@@ -138,7 +149,7 @@ func TestSpecLintCommandTable(t *testing.T) {
 		}
 	})
 
-	t.Run("error finding exits 1 with line prefix", func(t *testing.T) {
+	t.Run("error finding exits 1 with line prefix and writes the sidecar", func(t *testing.T) {
 		bad := strings.Replace(string(fixture), "Дать planned-задачам", "TODO Дать planned-задачам", 1)
 		project := writeChange(t, "demo-change", map[string][]byte{"spec.md": []byte(bad)})
 		code, raw := runCommand(t, []string{"spec", "lint", "--project", project, "--change", "demo-change", "--json"})
@@ -148,6 +159,17 @@ func TestSpecLintCommandTable(t *testing.T) {
 		parsed := parseLintJSON(t, raw)
 		if parsed.Passed || len(parsed.Errors) != 1 || parsed.Errors[0] != "spec.md line 10: Unresolved template placeholder: TODO" {
 			t.Fatalf("unexpected findings: %+v", parsed)
+		}
+		sidecarRaw, err := os.ReadFile(filepath.Join(project, "openspec", "changes", "demo-change", "spec-lint.json"))
+		if err != nil {
+			t.Fatalf("a failing lint must still write spec-lint.json: %v", err)
+		}
+		var sidecar lintCommandOutput
+		if err := json.Unmarshal(sidecarRaw, &sidecar); err != nil {
+			t.Fatalf("invalid spec-lint.json sidecar: %v", err)
+		}
+		if sidecar.Passed || len(sidecar.Errors) != 1 || sidecar.Errors[0] != parsed.Errors[0] {
+			t.Fatalf("sidecar must record the failing findings: %+v", sidecar)
 		}
 	})
 
@@ -203,6 +225,42 @@ func TestSpecLintCommandTable(t *testing.T) {
 		}(); code != 2 || !strings.Contains(raw, "BF_INVALID") {
 			t.Fatalf("args %v must be BF_INVALID exit 2, got %d %s", args, code, raw)
 		}
+	}
+
+	t.Run("usage hints name the spec group consistently", func(t *testing.T) {
+		for _, args := range [][]string{{"spec"}, {"spec", "bogus"}} {
+			code, raw := runCommand(t, args)
+			if code != 2 || !strings.Contains(raw, "expected spec lint, spec final, spec review, or spec metric") {
+				t.Fatalf("args %v must hint the full spec group, got %d %s", args, code, raw)
+			}
+		}
+	})
+}
+
+func TestGlobalFlagsHelpAndVersion(t *testing.T) {
+	code, raw := runCommand(t, []string{"--help"})
+	if code != 0 {
+		t.Fatalf("--help must exit 0, got %d %s", code, raw)
+	}
+	for _, want := range []string{"bsl-flow spec <lint|final|review|metric>", "bsl-flow task <start|status", "bsl-flow runner run"} {
+		if !strings.Contains(raw, want) {
+			t.Fatalf("--help command list missing %q: %s", want, raw)
+		}
+	}
+	code, raw = runCommand(t, []string{"--version"})
+	if code != 0 {
+		t.Fatalf("--version must exit 0, got %d %s", code, raw)
+	}
+	var parsed struct {
+		Version     string `json:"version"`
+		BundleSHA   string `json:"bundle_sha256"`
+		SchemaVersn int    `json:"schema_version"`
+	}
+	if err := json.Unmarshal([]byte(raw), &parsed); err != nil {
+		t.Fatalf("--version output is not JSON: %v: %s", err, raw)
+	}
+	if parsed.SchemaVersn != 1 || parsed.Version == "" || len(parsed.BundleSHA) != 64 {
+		t.Fatalf("unexpected version document: %s", raw)
 	}
 }
 
@@ -352,6 +410,80 @@ func TestSpecFinalCommandTable(t *testing.T) {
 			t.Fatalf("valid v1 human output drifted (exit %d): %s", code, raw)
 		}
 	})
+
+	t.Run("valid v1 change writes the PowerShell-shaped sidecar", func(t *testing.T) {
+		review := v1FinalReview(t, fixture, []byte("# original task\n"))
+		files := map[string][]byte{
+			"spec.md":                    fixture,
+			"original-task.md":           []byte("# original task\n"),
+			"review.json":                review,
+			"review-reconciliation.json": v1FinalReconciliation(t, review, fixture, specSHA256(t, fixture)),
+		}
+		project := writeChange(t, "demo-change", files)
+		code, raw := runCommand(t, []string{"spec", "final", "--project", project, "--change", "demo-change", "--json"})
+		if code != 0 {
+			t.Fatalf("valid v1 change must exit 0, got %d %s", code, raw)
+		}
+		sidecarRaw, err := os.ReadFile(filepath.Join(project, "openspec", "changes", "demo-change", "final-validation.json"))
+		if err != nil {
+			t.Fatalf("spec final must write final-validation.json: %v", err)
+		}
+		var sidecar struct {
+			SchemaVersion   int            `json:"schema_version"`
+			CheckedAtUTC    string         `json:"checked_at_utc"`
+			Passed          bool           `json:"passed"`
+			ReviewIteration json.Number    `json:"review_iteration"`
+			Inputs          map[string]any `json:"inputs"`
+			Errors          []string       `json:"errors"`
+			ReviewSchema    *int           `json:"review_schema"`
+		}
+		if err := json.Unmarshal(sidecarRaw, &sidecar); err != nil {
+			t.Fatalf("invalid final-validation.json: %v", err)
+		}
+		if sidecar.SchemaVersion != 1 || !sidecar.Passed || sidecar.ReviewIteration.String() != "1" || sidecar.ReviewSchema != nil {
+			t.Fatalf("unexpected v1 sidecar: %s", sidecarRaw)
+		}
+		if sidecar.Inputs["review_sha256"] != specSHA256(t, review) {
+			t.Fatalf("sidecar review_sha256 drifted: %v", sidecar.Inputs["review_sha256"])
+		}
+		if sidecar.Inputs["final_spec_sha256"] != specSHA256(t, fixture) || sidecar.Inputs["final_design_sha256"] != nil {
+			t.Fatalf("sidecar input hashes drifted: %v", sidecar.Inputs)
+		}
+		if len(sidecar.Errors) != 0 {
+			t.Fatalf("passing sidecar must carry no errors: %v", sidecar.Errors)
+		}
+	})
+
+	t.Run("council review writes the v2 sidecar shape", func(t *testing.T) {
+		files := map[string][]byte{
+			"spec.md":          fixture,
+			"original-task.md": []byte("# original task\n"),
+			"review.json":      []byte(`{"schema_version": 2, "verdict": "PASS", "diversity": "multi_model"}`),
+		}
+		project := writeChange(t, "demo-change", files)
+		code, raw := runCommand(t, []string{"spec", "final", "--project", project, "--change", "demo-change", "--json"})
+		if code != 1 {
+			t.Fatalf("an incomplete council review must fail final, got %d %s", code, raw)
+		}
+		sidecarRaw, err := os.ReadFile(filepath.Join(project, "openspec", "changes", "demo-change", "final-validation.json"))
+		if err != nil {
+			t.Fatalf("a failing spec final must still write final-validation.json: %v", err)
+		}
+		var sidecar struct {
+			SchemaVersion int      `json:"schema_version"`
+			Passed        bool     `json:"passed"`
+			ReviewSchema  int      `json:"review_schema"`
+			Verdict       string   `json:"verdict"`
+			Diversity     string   `json:"diversity"`
+			Errors        []string `json:"errors"`
+		}
+		if err := json.Unmarshal(sidecarRaw, &sidecar); err != nil {
+			t.Fatalf("invalid final-validation.json: %v", err)
+		}
+		if sidecar.SchemaVersion != 2 || sidecar.ReviewSchema != 2 || sidecar.Passed || sidecar.Verdict != "PASS" || sidecar.Diversity != "multi_model" || len(sidecar.Errors) == 0 {
+			t.Fatalf("unexpected v2 sidecar: %s", sidecarRaw)
+		}
+	})
 }
 
 func TestSpecFinalSafeChangeReaderRejectsTraversal(t *testing.T) {
@@ -378,7 +510,10 @@ func TestSpecFinalSafeChangeReaderRejectsTraversal(t *testing.T) {
 // TestSpecLintMatchesCommittedArtifacts is the native-versus-PowerShell
 // differential: every real change under openspec/changes is linted by the
 // native command and its error/warning counts must equal the committed
-// spec-lint.json artifact written by Test-1CSpec.ps1.
+// spec-lint.json artifact written by Test-1CSpec.ps1.  The lint runs on a
+// temp copy of the change because the native command now writes the sidecar
+// into the change directory — the committed PowerShell artifacts must stay
+// untouched by the test run.
 func TestSpecLintMatchesCommittedArtifacts(t *testing.T) {
 	repoRoot, err := filepath.Abs("..")
 	if err != nil {
@@ -395,11 +530,11 @@ func TestSpecLintMatchesCommittedArtifacts(t *testing.T) {
 			continue
 		}
 		change := entry.Name()
-		artifactPath := filepath.Join(changesDir, change, "spec-lint.json")
-		if _, statErr := os.Stat(filepath.Join(changesDir, change, "spec.md")); statErr != nil {
+		specData, statErr := os.ReadFile(filepath.Join(changesDir, change, "spec.md"))
+		if statErr != nil {
 			continue
 		}
-		artifactRaw, readErr := os.ReadFile(artifactPath)
+		artifactRaw, readErr := os.ReadFile(filepath.Join(changesDir, change, "spec-lint.json"))
 		if readErr != nil {
 			t.Fatalf("%s: committed spec-lint.json unreadable: %v", change, readErr)
 		}
@@ -407,7 +542,8 @@ func TestSpecLintMatchesCommittedArtifacts(t *testing.T) {
 		if err := json.Unmarshal(artifactRaw, &artifact); err != nil {
 			t.Fatalf("%s: invalid committed artifact: %v", change, err)
 		}
-		code, raw := runCommand(t, []string{"spec", "lint", "--project", repoRoot, "--change", change, "--json"})
+		project := writeChange(t, change, map[string][]byte{"spec.md": specData})
+		code, raw := runCommand(t, []string{"spec", "lint", "--project", project, "--change", change, "--json"})
 		parsed := parseLintJSON(t, raw)
 		if len(parsed.Errors) != len(artifact.Errors) {
 			t.Errorf("%s: error count native=%d powershell=%d\nnative: %v", change, len(parsed.Errors), len(artifact.Errors), parsed.Errors)

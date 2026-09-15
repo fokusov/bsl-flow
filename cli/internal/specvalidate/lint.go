@@ -146,12 +146,21 @@ func (s *lintState) run() {
 }
 
 func (s *lintState) addError(rule, message string, offset int) {
-	s.findings = append(s.findings, Finding{
+	finding := Finding{
 		Severity: "error",
 		Rule:     rule,
 		Message:  message,
 		Line:     s.lineAtOffset(offset),
-	})
+	}
+	for _, previous := range s.findings {
+		// PowerShell suppresses a repeated identical "spec.md line N:
+		// message" pair (Add-SpecError checks $errors.Contains), so two
+		// broken scenarios sharing one bullet report once.
+		if previous.Severity == "error" && previous.Line == finding.Line && previous.Message == finding.Message {
+			return
+		}
+	}
+	s.findings = append(s.findings, finding)
 }
 
 func (s *lintState) addWarning(rule, message string) {
@@ -172,10 +181,13 @@ func (s *lintState) lineAtOffset(offset int) int {
 }
 
 // sectionSpan is the result of Get-SectionMatch (Test-1CSpec.ps1:28-30).
+// bodyStart is the absolute byte offset of body inside the text, so findings
+// can point inside the section body rather than at its heading.
 type sectionSpan struct {
-	start int
-	body  string
-	ok    bool
+	start     int
+	bodyStart int
+	body      string
+	ok        bool
 }
 
 var nextSectionHeading = regexp.MustCompile(`(?m)^##\s`)
@@ -202,7 +214,7 @@ func (s *lintState) findSection(pattern string) sectionSpan {
 	if next := nextSectionHeading.FindStringIndex(s.text[bodyStart:]); next != nil {
 		bodyEnd = bodyStart + next[0]
 	}
-	return sectionSpan{start: match[0], body: s.text[bodyStart:bodyEnd], ok: true}
+	return sectionSpan{start: match[0], bodyStart: bodyStart, body: s.text[bodyStart:bodyEnd], ok: true}
 }
 
 var lintLineSplit = regexp.MustCompile(`\r?\n`)
@@ -271,6 +283,8 @@ func (s *lintState) lintAcceptance() {
 	if !span.ok {
 		return
 	}
+	leading := len(span.body) - len(strings.TrimLeftFunc(span.body, isNetSpace))
+	bodyStart := span.bodyStart + leading
 	body := strings.TrimSpace(span.body)
 	if utf16Len(body) < 30 {
 		s.addError(ruleAcceptanceShort, "Acceptance criteria are empty or too short.", span.start)
@@ -283,13 +297,20 @@ func (s *lintState) lintAcceptance() {
 	if !hasKeyword && !acceptanceBulletStructured(body) {
 		s.addError(ruleAcceptanceStructure, "Acceptance criteria are not objectively structured.", span.start)
 	}
-	if given := keywordRuneOccurrences(runes, "GIVEN"); len(given) > 0 {
+	given := keywordRuneOccurrences(runes, "GIVEN")
+	if len(given) > 0 {
 		// Regex.Split on "(?i)\bGIVEN\b" then every part after the first
 		// must satisfy "(?is)\S.+?\bWHEN\b\s+\S.+?\bTHEN\b\s+\S"
-		// (Test-1CSpec.ps1:87-95).
-		for _, part := range splitKeyword(runes, "GIVEN")[1:] {
-			if !scenarioHasWhenThen(part) {
-				s.addError(ruleAcceptanceScenario, "Each GIVEN acceptance scenario requires nonempty WHEN and THEN clauses.", span.start)
+		// (Test-1CSpec.ps1:87-95).  The finding points at the broken
+		// scenario's own GIVEN occurrence instead of the section heading.
+		offsets := runeByteOffsets(body)
+		for index, at := range given {
+			end := len(runes)
+			if index+1 < len(given) {
+				end = given[index+1]
+			}
+			if !scenarioHasWhenThen(runes[at+len([]rune("GIVEN")) : end]) {
+				s.addError(ruleAcceptanceScenario, "Each GIVEN acceptance scenario requires nonempty WHEN and THEN clauses.", bodyStart+offsets[at])
 			}
 		}
 	}
@@ -378,21 +399,35 @@ var checkedVerificationItem = regexp.MustCompile(`(?im)^\s*[-*]\s+\[x\]\s*(.*)$`
 var levelOnlyDetail = regexp.MustCompile(`^(?i:Static|Unit|Integration|UI|Smoke|Independent review)[\s:—-]*$`)
 var uncheckedVerificationLine = regexp.MustCompile(`(?m)^\s*[-*]\s+\[ \].*(?:\r?\n|$)`)
 
+// blankComment blanks one HTML comment byte-for-byte (newlines kept), so the
+// surrounding text keeps every offset while the comment can no longer match.
+func blankComment(comment string) string {
+	blanked := []byte(comment)
+	for index, byteValue := range blanked {
+		if byteValue != '\r' && byteValue != '\n' {
+			blanked[index] = ' '
+		}
+	}
+	return string(blanked)
+}
+
 func (s *lintState) lintVerification() {
 	// Test-1CSpec.ps1:98-112.
 	span := s.findSection(`(Требуемые проверки|Required verification)`)
 	if !span.ok {
 		return
 	}
-	body := strings.TrimSpace(htmlComment.ReplaceAllString(span.body, ""))
+	// Comment stripping preserves offsets by spacing comments out, so a
+	// finding lands on the selected item's own line instead of the section
+	// heading (Test-1CSpec.ps1:105).
+	raw := htmlComment.ReplaceAllStringFunc(span.body, blankComment)
+	leading := len(span.body) - len(strings.TrimLeftFunc(raw, isNetSpace))
+	bodyStart := span.bodyStart + leading
+	body := strings.TrimSpace(raw)
 	for _, check := range checkedVerificationItem.FindAllStringSubmatchIndex(body, -1) {
 		detail := strings.TrimSpace(body[check[2]:check[3]])
 		if levelOnlyDetail.MatchString(detail) || utf16Len(detail) < 12 {
-			// PowerShell offsets the finding by the section start plus the
-			// match index inside the comment-stripped body, which lands on
-			// the section heading for the first item; mirrored as-is
-			// (Test-1CSpec.ps1:105).
-			s.addError(ruleVerificationDetail, "Each selected verification level must describe what it proves.", span.start+check[0])
+			s.addError(ruleVerificationDetail, "Each selected verification level must describe what it proves.", bodyStart+check[0])
 		}
 	}
 	withoutUnchecked := strings.TrimSpace(uncheckedVerificationLine.ReplaceAllString(body, ""))
@@ -533,21 +568,4 @@ func foldRuneEqualASCII(r, upper rune) bool {
 		r += 'a' - 'A'
 	}
 	return r == upper|('a'-'A')
-}
-
-// splitKeyword ports [regex]::Split on "(?i)\bKEYWORD\b": the matched
-// keywords are removed and the surrounding fragments returned.
-func splitKeyword(runes []rune, keyword string) [][]rune {
-	occurrences := keywordRuneOccurrences(runes, keyword)
-	if len(occurrences) == 0 {
-		return [][]rune{runes}
-	}
-	width := len([]rune(keyword))
-	parts := [][]rune{}
-	previous := 0
-	for _, index := range occurrences {
-		parts = append(parts, runes[previous:index])
-		previous = index + width
-	}
-	return append(parts, runes[previous:])
 }

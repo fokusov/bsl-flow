@@ -172,10 +172,14 @@ func executeSpecReview(in invocation, project, change string) (specReviewOutcome
 		}
 		return specReviewOutcome{Complexity: complexity, Risk: risk, Route: "council", ReviewRequired: true, LintPassed: true, ReviewPath: filepath.Join(changeDir, "review.json"), Verdict: "PASS"}, nil
 	}
-	// Lint first.
+	// Lint first; the lint sidecar persists exactly like the legacy
+	// Invoke-1CSpecReview.ps1 route so the estimate gate can read it.
 	findings, lintErr := specvalidate.LintSpec(specData)
 	if lintErr != nil {
 		return specReviewOutcome{}, lintErr
+	}
+	if err := writeSpecLintSidecar(filepath.Join(changeDir, "spec-lint.json"), newSpecLintArtifact(specData, findings)); err != nil {
+		return specReviewOutcome{}, err
 	}
 	lintPassed := true
 	for _, finding := range findings {

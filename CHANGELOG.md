@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.0-dev.3
+
+- Native `spec lint`, `spec final` and `spec review` write the change-directory sidecars (`spec-lint.json`, `final-validation.json`) in the exact shapes the PowerShell validators publish, so the estimate gate and finalization run without PowerShell (BF-1/BF-2 of the 2026-09-14 field report).
+- `spec review` also persists `spec-lint.json` like the legacy single-reviewer script route.
+- Spec lint diagnostics point at the broken scenario's own GIVEN occurrence and at each selected verification item instead of the section heading, and repeated identical "line N: message" pairs are suppressed — ported to both the Go validator and `Test-1CSpec.ps1` with the parity crosscheck kept green.
+- CLI conventions: `--version` prints the version document, `--help`/`-h` exit 0, and every usage error names the full `spec <lint|final|review|metric>` group; `help` lists the `spec` commands in the command list and describes `capability`.
+- 1c-estimate: the `## Расхождение с якорем` section is cross-checked against the validator's own computation — every divergent boundary must be named with its computed percent and stated percents must match; request flags `external_artifact` (AI anchor ×2.0) and `posting` (×1.5) deterministically raise the AI anchor before divergence, with the effective anchor and applied flags recorded in the validator result.
+
 ## 0.8.0-dev.2
 
 - Controller-owned native FILE extension execution with exact platform/source/target binding, original JUnit, private credential input, durable process intent and control-read recovery. Test-only continuation reuses a proven prior load without repeating database writes.

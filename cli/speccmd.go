@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"bsl-flow/cli/internal/councilengine"
 	"bsl-flow/cli/internal/specvalidate"
 )
 
@@ -33,15 +34,16 @@ import (
 // empty, start with "--", or carry control characters, and --json is a
 // valueless flag.
 func parseSpecInvocation(args []string) (invocation, error) {
-	if len(args) >= 2 {
-		switch args[1] {
-		case "review":
-			return parseSpecReviewInvocation(args)
-		case "metric":
-			return parseSpecMetricInvocation(args)
-		}
-	}
 	in := invocation{command: "spec", options: map[string]string{}}
+	if len(args) < 2 {
+		return in, errors.New("expected spec lint, spec final, spec review, or spec metric")
+	}
+	switch args[1] {
+	case "review":
+		return parseSpecReviewInvocation(args)
+	case "metric":
+		return parseSpecMetricInvocation(args)
+	}
 	if args[1] != "lint" && args[1] != "final" {
 		return in, errors.New("expected spec lint, spec final, spec review, or spec metric")
 	}
@@ -157,6 +159,12 @@ func runSpecLint(project, change string, asJSON bool, out io.Writer) int {
 		return hostError(out, 11, "", lintErr)
 	}
 	artifact := newSpecLintArtifact(data, findings)
+	// The change-directory sidecar is part of the command contract
+	// (Test-1CSpec.ps1:125-126): the 1c-estimate gate and the final
+	// validators read spec-lint.json, not stdout.
+	if err := writeSpecLintSidecar(filepath.Join(dir, "spec-lint.json"), artifact); err != nil {
+		return hostError(out, 11, "", err)
+	}
 	if asJSON {
 		if err := encodeJSON(out, artifact); err != nil {
 			return hostError(out, 11, "", err)
@@ -168,6 +176,30 @@ func runSpecLint(project, change string, asJSON bool, out io.Writer) int {
 		return 0
 	}
 	return 1
+}
+
+// writeSpecLintSidecar persists the Test-1CSpec.ps1-shaped spec-lint.json
+// document (schema_version, checked_at_utc, passed, errors, warnings, stats)
+// with the byte shape of Write-BSLFlowJsonAtomic, so PowerShell and native
+// readers see one artifact regardless of the engine that produced it.
+func writeSpecLintSidecar(path string, artifact specLintArtifact) error {
+	sidecar := councilengine.OrderedFrom(
+		[]string{"schema_version", "checked_at_utc", "passed", "errors", "warnings", "stats"},
+		[]any{
+			artifact.SchemaVersion, artifact.CheckedAtUTC, artifact.Passed,
+			stringsToAnySlice(artifact.Errors), stringsToAnySlice(artifact.Warnings),
+			councilengine.OrderedFrom([]string{"characters", "lines"}, []any{artifact.Stats.Characters, artifact.Stats.Lines}),
+		},
+	)
+	return councilengine.WriteJSONAtomic(path, sidecar)
+}
+
+func stringsToAnySlice(values []string) []any {
+	converted := make([]any, len(values))
+	for index, value := range values {
+		converted[index] = value
+	}
+	return converted
 }
 
 // specLintArtifact mirrors the spec-lint.json document written by
@@ -259,8 +291,9 @@ type specFinalSummary struct {
 }
 
 // runSpecFinal runs ValidateFinal over the change directory with reads
-// confined to it.  Exit codes: 0 every check passes, 1 otherwise, 2 invalid
-// usage.
+// confined to it and writes the Test-1CSpecFinal.ps1-shaped
+// final-validation.json sidecar (the gate the 1c-estimate validator reads).
+// Exit codes: 0 every check passes, 1 otherwise, 2 invalid usage.
 func runSpecFinal(project, change string, asJSON bool, out io.Writer) int {
 	dir := specChangeDir(project, change)
 	checks, err := specvalidate.ValidateFinal(dir, safeChangeReader(dir))
@@ -275,6 +308,13 @@ func runSpecFinal(project, change string, asJSON bool, out io.Writer) int {
 			failed++
 		}
 	}
+	sidecar, err := newFinalValidationSidecar(dir, checks, summary.Passed)
+	if err != nil {
+		return hostError(out, 11, "", err)
+	}
+	if err := councilengine.WriteJSONAtomic(filepath.Join(dir, "final-validation.json"), sidecar); err != nil {
+		return hostError(out, 11, "", err)
+	}
 	if asJSON {
 		if err := encodeJSON(out, summary); err != nil {
 			return hostError(out, 11, "", err)
@@ -286,6 +326,97 @@ func runSpecFinal(project, change string, asJSON bool, out io.Writer) int {
 		return 0
 	}
 	return 1
+}
+
+// newFinalValidationSidecar mirrors the final-validation.json documents of
+// Test-1CSpecFinal.ps1: schema v2 (review_schema, verdict, diversity) when
+// review.json is a council review, schema v1 (review_iteration) otherwise.
+// errors carries every failing check's Detail in check order, inputs holds
+// the five nullable file hashes, and the key order matches [ordered]@{}.
+func newFinalValidationSidecar(changeDir string, checks []specvalidate.FinalCheck, passed bool) (*councilengine.Ordered, error) {
+	read := safeChangeReader(changeDir)
+	errorsList := make([]any, 0, len(checks))
+	for _, check := range checks {
+		if !check.Pass {
+			errorsList = append(errorsList, check.Detail)
+		}
+	}
+	fileHash := func(rel string) any {
+		data, err := read(rel)
+		if err != nil {
+			return nil
+		}
+		return councilengine.Sha256Hex(data)
+	}
+	inputs := councilengine.OrderedFrom(
+		[]string{"review_sha256", "reconciliation_sha256", "final_spec_sha256", "final_design_sha256", "original_task_sha256"},
+		[]any{fileHash("review.json"), fileHash("review-reconciliation.json"), fileHash("spec.md"), fileHash("design.md"), fileHash("original-task.md")},
+	)
+	timestamp := time.Now().UTC().Format("2006-01-02T15:04:05.0000000Z")
+	peek := peekFinalReview(read)
+	if peek.council {
+		return councilengine.OrderedFrom(
+			[]string{"schema_version", "checked_at_utc", "passed", "review_schema", "verdict", "diversity", "inputs", "errors"},
+			[]any{2, timestamp, passed, 2, peek.verdict, peek.diversity, inputs, errorsList},
+		), nil
+	}
+	return councilengine.OrderedFrom(
+		[]string{"schema_version", "checked_at_utc", "passed", "review_iteration", "inputs", "errors"},
+		[]any{1, timestamp, passed, peek.iteration, inputs, errorsList},
+	), nil
+}
+
+// finalReviewPeek carries the review.json fields the sidecar copies
+// verbatim; unreadable or absent values stay nil like PowerShell's $null.
+type finalReviewPeek struct {
+	council   bool
+	iteration any
+	verdict   any
+	diversity any
+}
+
+// peekFinalReview classifies review.json exactly like specvalidate picks the
+// council branch (schema_version exactly 2, numeric or the string "2").
+func peekFinalReview(read func(rel string) ([]byte, error)) finalReviewPeek {
+	peek := finalReviewPeek{iteration: nil, verdict: nil, diversity: nil}
+	data, err := read("review.json")
+	if err != nil {
+		return peek
+	}
+	decoder := json.NewDecoder(strings.NewReader(strings.TrimPrefix(string(data), "\uFEFF")))
+	decoder.UseNumber()
+	var document map[string]any
+	if err := decoder.Decode(&document); err != nil {
+		return peek
+	}
+	council := false
+	switch schema := document["schema_version"].(type) {
+	case json.Number:
+		if value, err := schema.Int64(); err == nil && value == 2 {
+			council = true
+		}
+	case string:
+		council = schema == "2"
+	}
+	if council {
+		peek.council = true
+		peek.verdict = nullableString(document["verdict"])
+		peek.diversity = nullableString(document["diversity"])
+		return peek
+	}
+	if iteration, ok := document["review_iteration"].(json.Number); ok {
+		if value, err := iteration.Int64(); err == nil {
+			peek.iteration = value
+		}
+	}
+	return peek
+}
+
+func nullableString(value any) any {
+	if text, ok := value.(string); ok {
+		return text
+	}
+	return nil
 }
 
 func printSpecFinalSummary(out io.Writer, change string, checks []specvalidate.FinalCheck, failed int) {
