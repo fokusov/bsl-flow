@@ -105,7 +105,10 @@ $queuePath=Join-Path $testRoot 'очередь.json'
 [IO.File]::WriteAllText($queuePath,($queue|ConvertTo-Json -Depth 8),$utf8)
 # An unavailable explicit provider also prevents a regression from making a paid
 # worker call. A cancelled-only queue must not attempt to resolve or launch it.
-$runner=Invoke-Cli @('runner','run','--project',$project,'--input',$queuePath,'--codex',(Join-Path $testRoot 'no-provider.exe'))
+# The fixture task is checkout-local v1, so the compatibility queue engine is
+# selected explicitly; the native runner serves canonical repository tasks and
+# fails closed on this queue by design.
+$runner=Invoke-Cli @('runner','run','--project',$project,'--input',$queuePath,'--codex',(Join-Path $testRoot 'no-provider.exe'),'--engine','legacy-powershell')
 Assert-Cli ($runner.code -eq 11) "cancelled-only runner exit: $($runner.stdout) $($runner.stderr)"
 $queueResult=$runner.stdout|ConvertFrom-Json
 Assert-Cli ($queueResult.status -eq 'waiting' -and $queueResult.queue_id -eq $queueId -and $queueResult.snapshot.cycle -eq 1) 'runner produces one-cycle waiting snapshot'
