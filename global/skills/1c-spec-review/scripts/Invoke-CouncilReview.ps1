@@ -15,6 +15,19 @@ $script:BSLFlowCouncilRoleRubrics = @{
     chair = 'You are the only model reconciler. Weigh every finding and protected item exactly once against the original task and trusted evidence. Produce the minimally revised complete final specification text.'
 }
 
+function Resolve-BSLFlowCouncilDispatcher {
+    # The default live dispatcher travels as the 'live' sentinel, never as a
+    # code object: functions and closures created in the controller session
+    # execute unreliably inside parallel thread-job runspaces, where they can
+    # corrupt the shared state and stop resolving mid-dispatch. Each consumer
+    # resolves the sentinel in its own runspace, where the engine was loaded.
+    param([Parameter(Mandatory)]$Dispatcher)
+    if ($Dispatcher -is [string] -and $Dispatcher -ceq 'live') {
+        return ${function:Invoke-BSLFlowCouncilLiveDispatch}
+    }
+    return $Dispatcher
+}
+
 function Invoke-BSLFlowCouncilReview {
     param(
         [Parameter(Mandatory)][string]$ProjectPath,
@@ -77,7 +90,7 @@ function Invoke-BSLFlowCouncilReview {
         throw 'BF_BLOCKED: live council dispatch needs explicit opt-in; dry-run plan recorded.'
     }
     $dispatch = $Dispatcher
-    if ($null -eq $dispatch) { $dispatch = ${function:Invoke-BSLFlowCouncilLiveDispatch} }
+    if ($null -eq $dispatch) { $dispatch = 'live' }
     return (Invoke-BSLFlowCouncilCycle -ProjectRoot $projectRoot -ChangeName $ChangeName -Council $council -Snapshot $snapshot -RunRoot $runRoot -Bindings $bindings -Dispatcher $dispatch -FallbackRunner $FallbackRunner -Capabilities $Capabilities -Cancelled $Cancelled -BeforeDispatch $BeforeDispatch -AfterDispatch $AfterDispatch)
 }
 
@@ -449,7 +462,7 @@ function Invoke-BSLFlowCouncilCycle {
         [Parameter(Mandatory)]$Snapshot,
         [Parameter(Mandatory)][string]$RunRoot,
         [Parameter(Mandatory)]$Bindings,
-        [Parameter(Mandatory)][scriptblock]$Dispatcher,
+        [Parameter(Mandatory)]$Dispatcher,
         [scriptblock]$FallbackRunner,
         [hashtable]$Capabilities,
         [scriptblock]$Cancelled,
@@ -498,9 +511,12 @@ function Invoke-BSLFlowCouncilCycle {
     # the runner closure needs the live host session, not a thread-job copy.
     $parallelEntries = @($memberEntries | Where-Object { $_.credential.credential_source -cne 'missing' })
     $fallbackEntries = @($memberEntries | Where-Object { $_.credential.credential_source -ceq 'missing' })
+    # Sequential dispatch runs in this controller runspace, so resolve the
+    # sentinel here; the parallel branch keeps the sentinel for in-job resolve.
+    $controllerDispatcher = Resolve-BSLFlowCouncilDispatcher $Dispatcher
     $dispatchOne = {
         param($Entry)
-        Invoke-BSLFlowCouncilDispatchRole -RunRoot $RunRoot -Entry $Entry -Dispatcher $Dispatcher -FallbackRunner $FallbackRunner -Capabilities $Capabilities -Cancelled $Cancelled -BeforeDispatch $BeforeDispatch -AfterDispatch $AfterDispatch
+        Invoke-BSLFlowCouncilDispatchRole -RunRoot $RunRoot -Entry $Entry -Dispatcher $controllerDispatcher -FallbackRunner $FallbackRunner -Capabilities $Capabilities -Cancelled $Cancelled -BeforeDispatch $BeforeDispatch -AfterDispatch $AfterDispatch
     }
     foreach ($entry in $fallbackEntries) { $results[[string]$entry.role_name] = & $dispatchOne $entry }
     if ($maxParallel -le 1 -or $parallelEntries.Count -le 1) {
@@ -517,6 +533,9 @@ function Invoke-BSLFlowCouncilCycle {
             . (Join-Path $ScriptRoot 'Council.Validation.ps1')
             . (Join-Path $ScriptRoot 'Council.Transport.ps1')
             . (Join-Path $ScriptRoot 'Council.Fallback.ps1')
+            # Resolve the 'live' sentinel in this job's own runspace; a code
+            # object from the controller session does not survive the crossing.
+            $Dispatcher = Resolve-BSLFlowCouncilDispatcher $Dispatcher
             $out = [ordered]@{}
             foreach ($entry in $Entries) {
                 try { $out[[string]$entry.role_name] = (Invoke-BSLFlowCouncilDispatchRole -RunRoot $RunRoot -Entry $entry -Dispatcher $Dispatcher) }
@@ -662,7 +681,7 @@ function Invoke-BSLFlowCouncilCycle {
             throw 'BF_BLOCKED: council cancelled before the chair dispatch.'
         }
         $chairDispatchedAt = [DateTime]::UtcNow
-        $activeChairDispatcher = $Dispatcher
+        $activeChairDispatcher = Resolve-BSLFlowCouncilDispatcher $Dispatcher
         if ($chairExecutionMode -ceq 'current_agent_fallback' -and $null -ne $FallbackRunner) {
             $activeChairDispatcher = New-BSLFlowCouncilFallbackDispatch -Runner $FallbackRunner
         }

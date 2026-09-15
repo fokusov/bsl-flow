@@ -277,6 +277,10 @@ function Get-BSLFlowCouncilReviewDigest {
 function Assert-BSLFlowCouncilReview {
     param([Parameter(Mandatory)]$Review)
     . (Join-Path $PSScriptRoot 'Review.Common.ps1')
+    # Get-BSLFlowEnvelopeValue2 lives in the engine file; standalone consumers
+    # (Test-1CSpecFinal) load only this module, so source it here like every
+    # other cross-file dependency in the council scripts.
+    . (Join-Path $PSScriptRoot 'Council.Engine.ps1')
     Assert-BSLFlowObjectProperties $Review 'review' @(
         'schema_version', 'reviewed_at_utc', 'council_schema_version', 'verdict',
         'diversity', 'fallback_visible', 'inputs', 'manifest', 'members',
