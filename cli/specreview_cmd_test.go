@@ -2,6 +2,8 @@ package main
 
 import (
 	"os"
+
+	"bsl-flow/cli/internal/councilengine"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -89,5 +91,92 @@ func TestSpecReviewConflictComplexity(t *testing.T) {
 	_, err := executeSpecReview(invocation{command: "spec", action: "review", options: map[string]string{"--project": project, "--change": "demo", "--complexity": "L"}}, project, "demo")
 	if err == nil || !strings.Contains(err.Error(), "conflicts with spec.md") {
 		t.Fatalf("explicit complexity conflict must fail: %v", err)
+	}
+}
+
+func TestAssertCouncilRoutesStartRefusesTokenlessRolesBeforeDispatch(t *testing.T) {
+	config := `
+llm:
+  providers:
+    deepseek:
+      protocol: openai_compatible
+      base_url: https://api.deepseek.com
+      token_env: BSL_TEST_MISSING_KEY
+  models:
+    flash:
+      provider: deepseek
+      model: deepseek-flash
+review:
+  council:
+    enabled: true
+    roles:
+      intent_critic:
+        model: flash
+      architecture_critic:
+        model: flash
+      executability_critic:
+        model: flash
+      chair:
+        model: flash
+`
+	policy, err := councilengine.ParseCouncilPolicy(config)
+	if err != nil {
+		t.Fatalf("policy: %v", err)
+	}
+	project := t.TempDir()
+	err = assertCouncilRoutesStart(project, policy)
+	if err == nil {
+		t.Fatal("tokenless council started without refusal")
+	}
+	for _, want := range []string{"BF_BLOCKED: council cannot start", "role intent_critic", "current-agent fallback", "BSL_TEST_MISSING_KEY", "providers.local.yaml"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("remedy message lost %q: %v", want, err)
+		}
+	}
+	blockConfig := strings.Replace(config, "      intent_critic:\n        model: flash", "      intent_critic:\n        model: flash\n        fallback: block", 1)
+	blockPolicy, err := councilengine.ParseCouncilPolicy(blockConfig)
+	if err != nil {
+		t.Fatalf("block policy: %v", err)
+	}
+	err = assertCouncilRoutesStart(project, blockPolicy)
+	if err == nil || !strings.Contains(err.Error(), "fallback policy is block") {
+		t.Fatalf("block fallback refusal diverged: %v", err)
+	}
+	t.Setenv("BSL_TEST_MISSING_KEY", "test-token")
+	if err := assertCouncilRoutesStart(project, policy); err != nil {
+		t.Fatalf("credentialed council refused: %v", err)
+	}
+}
+
+func TestAssertEndpointURLDefaultsBasePath(t *testing.T) {
+	config := `
+llm:
+  providers:
+    deepseek:
+      protocol: openai_compatible
+      base_url: https://api.deepseek.com
+  models:
+    flash:
+      provider: deepseek
+      model: deepseek-flash
+`
+	policy, err := councilengine.ParseCouncilPolicy(config)
+	if err != nil {
+		t.Fatalf("bare host endpoint refused: %v", err)
+	}
+	endpoint := policy.Providers["deepseek"].Endpoint
+	if endpoint.BasePath != "/" {
+		t.Fatalf("bare host base_path = %q, want \"/\"", endpoint.BasePath)
+	}
+	if endpoint.Port != 443 || endpoint.Host != "api.deepseek.com" {
+		t.Fatalf("unexpected decomposition: %+v", endpoint)
+	}
+	namedConfig := strings.Replace(config, "base_url: https://api.deepseek.com\n", "base_url: https://api.deepseek.com/v1\n", 1)
+	namedPolicy, err := councilengine.ParseCouncilPolicy(namedConfig)
+	if err != nil {
+		t.Fatalf("named path refused: %v", err)
+	}
+	if namedPolicy.Providers["deepseek"].Endpoint.BasePath != "/v1" {
+		t.Fatalf("explicit path diverged: %+v", namedPolicy.Providers["deepseek"].Endpoint)
 	}
 }

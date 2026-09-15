@@ -238,10 +238,55 @@ func executeSpecReview(in invocation, project, change string) (specReviewOutcome
 	return executeSingleReviewer(project, change, changeDir, configText, in, complexity, risk, lintPassed)
 }
 
+// assertCouncilRoutesStart refuses the council cycle before any paid dispatch
+// when an enabled role cannot be served. The assisted CLI has no managed host,
+// so a tokenless role's current-agent fallback has no trusted capability
+// receipt and would otherwise fail only after the cheaper roles already ran.
+func assertCouncilRoutesStart(project string, policy *councilengine.CouncilPolicy) error {
+	var localText string
+	if data, err := os.ReadFile(filepath.Join(project, ".bsl-flow", "providers.local.yaml")); err == nil {
+		localText = string(data)
+	}
+	overlay, err := councilengine.LocalProviderOverlay(project)
+	if err != nil {
+		return err
+	}
+	for _, roleName := range councilengine.CouncilRoleOrder {
+		role := policy.Roles[roleName]
+		if !role.Enabled {
+			continue
+		}
+		profile, ok := policy.Models[role.Model]
+		if !ok {
+			continue // the cycle reports unknown model profiles itself
+		}
+		provider, ok := policy.Providers[profile.Provider]
+		if !ok {
+			continue
+		}
+		localToken := ""
+		if entry, present := overlay[profile.Provider]; present && entry.HasToken {
+			localToken, _ = councilengine.YamlValue(localText, []string{"providers", profile.Provider, "token"}, "")
+		}
+		credential := councilengine.ResolveCredential(profile.Provider, provider.TokenEnv, localToken)
+		if credential.CredentialSource != "missing" {
+			continue
+		}
+		if role.Fallback == councilengine.FallbackBlock {
+			return fmt.Errorf("BF_BLOCKED: council cannot start: role %s credential is missing and fallback policy is block.", roleName)
+		}
+		return fmt.Errorf("BF_BLOCKED: council cannot start: role %s has no credential (%s) and the assisted route cannot serve the current-agent fallback; set %s in the environment or .bsl-flow/providers.local.yaml, or change review.council.roles.%s.model.", roleName, provider.TokenEnv, provider.TokenEnv, roleName)
+	}
+	return nil
+}
+
 func executeCouncilReview(project, change, changeDir string, policy *councilengine.CouncilPolicy, evidenceText string) (string, error) {
 	configPath := filepath.Join(project, "bsl-flow.yaml")
 	policyHash, err := councilengine.PolicyHash(configPath)
 	if err != nil {
+		return "", err
+	}
+	if err := assertCouncilRoutesStart(project, policy); err != nil {
 		return "", err
 	}
 	maxInput := 262144
