@@ -108,10 +108,22 @@ func TestExplicitEngineSelectionIsValidatedAndNotForwardedToLegacy(t *testing.T)
 	for _, args := range [][]string{
 		{"task", "run", "--project", ".", "--task", testID, "--engine", "powershell"},
 		{"task", "start", "--project", ".", "--input", "request.json", "--engine", "native"},
-		{"runner", "run", "--project", ".", "--input", "runner.json", "--engine", "native"},
+		{"runner", "run", "--project", ".", "--input", "runner.json", "--engine", "pwsh"},
 	} {
 		if _, err := parse(args); err == nil {
 			t.Fatalf("accepted unsupported engine selection: %q", args)
+		}
+	}
+	// runner run now selects engines explicitly: native is the default
+	// supervision loop and legacy-powershell keeps the Windows queue engine;
+	// neither selection may leak into the legacy argv either.
+	for _, engine := range []string{"native", "legacy-powershell"} {
+		in, err := parse([]string{"runner", "run", "--project", ".", "--input", "runner.json", "--engine", engine})
+		if err != nil {
+			t.Fatalf("runner engine %s: %v", engine, err)
+		}
+		if in.options["--engine"] != engine {
+			t.Fatalf("runner engine selection lost: %+v", in)
 		}
 	}
 }
