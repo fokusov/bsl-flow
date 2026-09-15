@@ -11,7 +11,7 @@ Use this skill after `1c-spec` creates a specification. It adds one independent 
 
 ## Binary requirement
 
-The native commands below (`spec review`, `spec final`, `spec metric`) and the sidecars they write (`spec-lint.json`, `final-validation.json`) require `bsl-flow` 0.8.0-dev.3 or newer — check `bsl-flow --version`. On an older binary (0.8.0-dev.2 answers `expected spec lint or spec final` for `spec review`) do not skip the step: fall back to this skill's PowerShell scripts (`Invoke-1CSpecReview.ps1`, `Test-1CSpecFinal.ps1`, `Add-1CSpecRunMetric.ps1`) and say so in the handoff.
+The native commands below (`spec review`, `spec final`, `spec metric`) and the sidecars they write (`spec-lint.json`, `final-validation.json`) require `bsl-flow` 0.8.0-dev.3 or newer — check `bsl-flow --version`. On an older binary (0.8.0-dev.2 answers `expected spec lint or spec final` for `spec review`) do not skip the step: fall back to this skill's PowerShell scripts (`Invoke-1CSpecReview.ps1`, `Test-1CSpecFinal.ps1`, `Add-1CSpecRunMetric.ps1`) and say so in the handoff. On a current binary a native failure (`BF_INVALID`/`BF_BLOCKED`, including transport or binding configuration blockers) is fail-closed: report the exact blocker line and stop. Do not reroute the review through the PowerShell scripts, and do not treat the per-role council `fallback: current_agent` policy as a route-level fallback — role fallback applies only inside a started council cycle after admission, never to a route that refused to start.
 
 ## Routing
 
