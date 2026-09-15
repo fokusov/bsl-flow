@@ -237,5 +237,7 @@ func defaultGitRoot(ctx context.Context, project string) (string, error) {
 		detail := strings.TrimSpace(strings.Join([]string{stderr.String(), stdout.String()}, "\n"))
 		return "", blocked("Git failed: %s", detail)
 	}
-	return strings.TrimRight(stdout.String(), "\r\n"), nil
+	// Git prints forward slashes; Assert-BFSafePath normalizes them to the
+	// platform separator before the case-insensitive PowerShell comparison.
+	return filepath.Clean(filepath.FromSlash(strings.TrimRight(stdout.String(), "\r\n"))), nil
 }
