@@ -1,0 +1,1 @@
+{"acceptance_stale":false,"active_attempt":"20000000-0000-0000-0000-000000000004","attempt_stage":"inspect","controller":null,"controller_alive":false,"name":"readonly-attempt-dead","next_action":"recover","owned_processes":[],"revision":1,"stage":"inspect","status":"running","unresolved_effect":false}

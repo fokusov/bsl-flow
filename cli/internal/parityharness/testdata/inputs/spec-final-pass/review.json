@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "reviewed_at_utc": "2026-09-14T07:15:08.9296850Z",
+  "review_iteration": 1,
+  "reviewer_verdict": "REVISE",
+  "verdict": "REVISE",
+  "summary": "The spec faithfully covers the original ask — a clone-local, cross-worktree task catalog with list/show of all statuses (incl. completed/cancelled), planned tasks carrying exactly title/description/priority/labels/depends_on, and borrows Backlog.md UX without porting its architecture. Architecture claims were verified against cli/internal/repository: hash-linked revisions as source of truth with current.json as a derived projection, the v1 status enum, UUID-based status/next/context, and the trusted request lacking title/priority/labels. The spec is disciplined about deferring activation, adoption, and pre-dispatch dependency gating. Two material problems remain: (1) an internal contradiction between §17 (adopt does not write to the canonical store this version) and the design's `adopt --apply` command plus adoption tests that perform canonical continuation; (2) dependency cycle/concurrent-edge graph-lock machinery that exceeds the task's plain `dependencies` field. Optional UX commands (activate/archive/history/overview) enlarge the surface but are defensible borrowings.",
+  "scores": {
+    "intent_fidelity": 5,
+    "minimality": 3,
+    "completeness": 5,
+    "architecture_fit": 5,
+    "testability": 5,
+    "assumption_discipline": 5,
+    "clarity": 3
+  },
+  "weighted_score": 4.5,
+  "overengineering": {
+    "architectural_decision_count": 8,
+    "required_count": 0,
+    "justified_count": 0,
+    "optional_count": 6,
+    "unjustified_count": 2,
+    "index": 12,
+    "optional_ratio": 0.75,
+    "unjustified_ratio": 0.25,
+    "normalized_index": 0.5,
+    "items": [
+      {
+        "spec_ref": "§5",
+        "item": "task activate command (native controller capability gating)",
+        "necessity": "optional",
+        "evidence": "Original task asks for view commands plus planned tasks; it does not request a planned→controller bridge. Spec correctly defers the actual write and returns staged BLOCKED.",
+        "simpler_direction": "Keep the BLOCKED stub as a clean deferral, or remove activate from this spec's command surface and leave it entirely to the deferred native controller write slice."
+      },
+      {
+        "spec_ref": "§9, §14",
+        "item": "archive/unarchive presentation flag commands",
+        "necessity": "optional",
+        "evidence": "Original task only asks to view tasks including completed; hiding via archive is a Backlog.md UX borrowing not in the ask.",
+        "simpler_direction": "Mark archive/unarchive as an optional UX addition rather than a first-version requirement."
+      },
+      {
+        "spec_ref": "§12",
+        "item": "task history timeline command",
+        "necessity": "optional",
+        "evidence": "Original ask covers list + details of a specific task; a revision timeline is an additional Backlog.md UX borrowing.",
+        "simpler_direction": "Treat history as optional; do not let it add disproportionate acceptance/verification requirements."
+      },
+      {
+        "spec_ref": "§13",
+        "item": "task overview counts/board command",
+        "necessity": "optional",
+        "evidence": "Totals/board view is not in the original ask; defensible as Backlog.md UX.",
+        "simpler_direction": "Treat overview as optional UX."
+      },
+      {
+        "spec_ref": "§8",
+        "item": "Dependency self-reference/duplicate/cycle validation",
+        "necessity": "optional",
+        "evidence": "Original task only requires a `dependencies` field; it does not require graph validation. Data hygiene is reasonable but not required.",
+        "simpler_direction": "Keep self-reference and duplicate-ID rejection (cheap, meaningful); cycle detection is acceptable but optional."
+      },
+      {
+        "spec_ref": "§8 + acceptance (concurrent edges) + design 'Dependencies'/'Concurrency'",
+        "item": "Repository graph lock / generation-CAS serialization of concurrent dependency edges",
+        "necessity": "unjustified",
+        "evidence": "No demonstrated concurrent multi-writer risk for a clone-local single-user tracker; the 'two concurrent writers A→B and B→A' acceptance test and the generation-CAS alternative are speculative.",
+        "simpler_direction": "Validate dependencies against the current graph under a simple per-write check; drop the generation-CAS alternative and the contrived concurrent-edge acceptance test."
+      },
+      {
+        "spec_ref": "§16",
+        "item": "Derived catalog/index.json cache with rebuild rules",
+        "necessity": "optional",
+        "evidence": "Spec itself states the index is not a required artifact and is never read as truth; introducing an optional cache write path adds surface for no correctness benefit.",
+        "simpler_direction": "Omit the cache entirely in v1; reads derive from journals directly."
+      },
+      {
+        "spec_ref": "§17 + design 'Команды и read model'",
+        "item": "adopt command (--preview/--apply) and migration receipts",
+        "necessity": "unjustified",
+        "evidence": "Full adoption is deferred to a separate spec, and §17 states adopt does not write to the canonical store, yet the design lists adopt --apply and adoption tests doing canonical continuation. Contradictory and, in this version, unwarranted.",
+        "simpler_direction": "Restrict this spec to read-only legacy discovery; remove the adopt write command and its --apply/continuation tests from scope."
+      }
+    ]
+  },
+  "blocking_findings": [],
+  "findings": [
+    {
+      "id": "R-001",
+      "severity": "medium",
+      "category": "clarity",
+      "spec_ref": "§17 vs Technical design 'Команды и read model' and 'Стратегия проверки'",
+      "issue": "Contradiction about adopt. §17 states full adoption is deferred and 'в этой версии явный `adopt` не выполняет запись в canonical store'. The design lists `task registry adopt --source <worktree>|--all --preview|--apply` and the verification strategy describes 'Adoption tests ... выполняют canonical continuation' and a 'portable artifact manifest'. An implementer cannot tell whether `adopt --apply` writes to the canonical store in this version or not, and the command name differs between the two (`task registry adopt` vs the registry action `adopt`).",
+      "evidence": "spec.md §17: 'в этой версии явный `adopt` не выполняет запись в canonical store'; design.md line 53: '`task registry adopt --source <worktree>|--all --preview|--apply`'; design.md line 105: 'Adoption tests ... выполняют canonical continuation/repeated discovery'.",
+      "suggested_direction": "Make the adopt boundary unambiguous: keep only read-only legacy discovery in this spec and drop `adopt --apply` (and the canonical-continuation adoption tests), or explicitly state what `adopt` does in this version and move only lineage-receipt/rebind to the deferred spec. Align the command name between spec and design."
+    },
+    {
+      "id": "R-002",
+      "severity": "medium",
+      "category": "overengineering",
+      "spec_ref": "§8 + acceptance criteria (concurrent edges) + design 'Dependencies'/'Concurrency и recovery'/'Риски'",
+      "issue": "The original task requires only a `dependencies` field on planned tasks. The spec adds self-reference/duplicate rejection (fine), full cycle detection, a repository-wide graph lock, a 'generation-CAS' alternative, and a dedicated acceptance test for two concurrent writers adding A→B and B→A. For a clone-local single-user tracker there is no demonstrated concurrent-writer risk; the generation-CAS framing and the concurrent-edge acceptance test are speculative machinery that enlarges the design and test matrix beyond the ask.",
+      "evidence": "original task: 'planned-задача первой версии содержит title, description, priority, labels и dependencies' (no validation/concurrency requirement); spec §8: 'репозиторий graph lock либо эквивалентным generation-CAS'; acceptance: 'два concurrent writers ... A→B и B→A'.",
+      "suggested_direction": "Keep self-reference and duplicate-ID rejection. Validate cycles against the current verified graph under a single simple lock (or a single per-write validation), and remove the generation-CAS alternative and the contrived concurrent-edge acceptance test."
+    },
+    {
+      "id": "R-003",
+      "severity": "low",
+      "category": "overengineering",
+      "spec_ref": "§5, §12, §13, §14",
+      "issue": "`activate`, `history`, `overview`, and `archive/unarchive` go beyond the original ask (view all tasks incl. completed, statuses, details of a specific task; planned tasks with five fields). They are defensible Backlog.md UX borrowings and `activate` is deferred, but each carries its own acceptance criteria and verification requirements, enlarging the CLI surface and test matrix relative to the stated goal. The spec does not distinguish required core from borrowed/optional UX.",
+      "evidence": "original task scope: 'просмотра всех задач проекта, включая завершённые, их статусов и подробностей конкретной задачи'; spec lists these commands with per-command acceptance criteria.",
+      "suggested_direction": "Explicitly mark activate/history/overview/archive as optional UX additions (not first-version acceptance requirements), keeping list/show + create/edit as the mandatory core."
+    }
+  ],
+  "do_not_change": [
+    "§1 repository store resolved under the verified Git common dir with one clone-local store per clone — directly satisfies the whole-repo/all-worktrees + clone-local requirements.",
+    "§2 derived catalog/overview/board/search data is never authoritative and cannot authorize execution/acceptance — correct and matches the existing hash-linked journal architecture.",
+    "§3 planned task fields (title/description/priority/labels/depends_on) with milestones/assignee/comments/due-dates excluded — faithful to the original task and avoids Backlog.md feature creep.",
+    "§7 depends_on is metadata only; no automatic dependency execution and the pre-dispatch gate is deferred — a clean, well-scoped deferral.",
+    "§10-§11 list row and show projection redaction (no raw prompt/evidence/credentials) — correct given journals already contain prompts and runtime evidence.",
+    "§14 exit-code contract (0 / 2 BF_INVALID / 11 BF_BLOCKED/BF_CONFLICT) — matches the existing controller error classes observed in cli/internal/repository (KindError BF_INVALID/BF_BLOCKED/BF_CONFLICT).",
+    "§15 corrupt/torn journal never hides other tasks and surfaces as diagnostics — correct robustness for an append-only hash chain.",
+    "§16 index.json is never read as truth and is fully rebuildable from journals — correct principle; only the optional cache write path is questionable, not the rule itself.",
+    "§17 read-only legacy discovery with byte-preservation and conflict-surfacing (excluding the adopt-write contradiction) — correct migration-safety boundary.",
+    "'Не делать' section — correctly refuses Backlog.md's Markdown-per-task storage, browser UI, MCP server, milestones, and any second authoritative database."
+  ],
+  "confidence": 0.82,
+  "reviewer": {
+    "provider": "opencode",
+    "agent": "bsl-flow-spec-reviewer",
+    "model": "deepseek/deepseek-v4-pro"
+  },
+  "inputs": {
+    "original_task_sha256": "343b3d57a5417bad4fde0e1c8ea415006967b566d14f23f63d14b1786c5c467c",
+    "spec_sha256": "a8e411dd00ca1efc74743724d2ce481eeaad27c25d32d95c5a2e74e399cc467f",
+    "design_sha256": "8f7d5993631a46130aac5c402b9f8816099ac3d63832e2b2a7c186b2dae72968"
+  },
+  "gate": {
+    "pass_weighted_score": 4.3,
+    "block_below_weighted_score": 3.5,
+    "max_overengineering_index_for_pass": 1,
+    "max_unjustified_ratio_for_pass": 0.0
+  }
+}

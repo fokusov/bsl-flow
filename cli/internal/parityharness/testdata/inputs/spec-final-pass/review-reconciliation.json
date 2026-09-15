@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "review_sha256": "229815233b5e713f9bced351993ed83a5218dc97ca6f0039813ca423ebb33449",
+  "draft_spec_sha256": "a8e411dd00ca1efc74743724d2ce481eeaad27c25d32d95c5a2e74e399cc467f",
+  "final_spec_sha256": "02005e3356db35b9961f2af341793e707e21ebfb1e58067666660cdd60257841",
+  "draft_design_sha256": "8f7d5993631a46130aac5c402b9f8816099ac3d63832e2b2a7c186b2dae72968",
+  "final_design_sha256": "83157d1b69def98a97c1f734e7ff42b2a4d073fdc3ff68cac2fd3738af820504",
+  "reconciled_at_utc": "2026-09-14T07:17:37.686113Z",
+  "summary": "Ревью финальных байт 2026-09-14 (без codex: opencode/deepseek-v4-pro, single-reviewer маршрут) восстановило формальную цепочку после осознанного сужения требования 8 в ремедиации 12–13.09. Принято R-001: противоречие границ adopt между §17 и design закрыто явной передачей adopt спецификации native-task-activation-adoption. Отклонены R-002 и R-003: конкурентные записи зависимостей первичны для разделяемого всеми worktree хранилища, а заимствования UX Backlog.md явно разрешены исходным запросом. Все do_not_change пункты сохранены.",
+  "decisions": [
+    {
+      "finding_id": "R-001",
+      "decision": "accepted",
+      "status": "addressed",
+      "reason": "Реальное противоречие границ: спека запрещала записи adopt в этой версии, а design перечислял `task registry adopt --preview|--apply` и adoption-тесты с canonical continuation; реализатор не мог определить, пишет ли adopt в canonical store.",
+      "evidence": "spec §17 «в этой версии явный `adopt` не выполняет запись в canonical store» против design «Команды и read model» (`task registry adopt --source ... --preview|--apply`) и «Стратегия проверки» (adoption tests, canonical continuation). Follow-up спецификация native-task-activation-adoption уже реализовала `task adopt` (preview/apply, canonical writes под её migration contract; freeze r6, verification ACCEPT 2026-09-13).",
+      "resolution": "§17 явно назначает владельца: команды `task adopt --preview|--apply` и запись в canonical store принадлежат спецификации native-task-activation-adoption и её migration contract; команды этого контракта (включая legacy discovery) записей в canonical store не выполняют. Design: adopt убран из списка команд этой версии; adoption-тесты помечены как скоуп follow-up спецификации и выведены из стратегии проверки этой версии.",
+      "spec_ref_after": "§17; design «Команды и read model», «Стратегия проверки»"
+    },
+    {
+      "finding_id": "R-002",
+      "decision": "rejected",
+      "status": "not_applicable",
+      "reason": "Посылка «clone-local single-user tracker без конкурентных записей» неверна: repository store один на клон и разделяется всеми worktree (§1), поэтому встречные записи зависимостей из двух worktree — первичный сценарий контракта, а не спекуляция.",
+      "evidence": "original-task: «каталог охватывает весь Git-репозиторий и все его worktree»; spec §1 (единый clone-local store по verified git common dir); реализация dependency-графа прошла независимое ревью ACCEPT 2026-09-12 (docs/THREE_SPEC_REMEDIATION_2026-09-12_RU.md).",
+      "resolution": "§8 сохранён без изменений: сериализация общим repository graph lock либо эквивалентным generation-CAS остаётся инвариантом целостности разделяемого всеми worktree хранилища.",
+      "spec_ref_after": "§8"
+    },
+    {
+      "finding_id": "R-003",
+      "decision": "rejected",
+      "status": "not_applicable",
+      "reason": "Исходный запрос явно разрешает заимствования («полезные идеи Backlog.md можно заимствовать как UX/контракты»), поэтому history/overview/archive не выходят за ask; activate — заявленный шлюз к controller lifecycle (§5), реализованный и принятый follow-up спецификацией. Разметка проверенных команд optional ослабляла бы приёмку уже принятого поведения.",
+      "evidence": "original-task (последний пункт о заимствовании UX/контрактов Backlog.md); spec §5 (gating активации), §12–§14; verification.md repository-task-registry: все обязательные наборы PASS, independent code review ACCEPT после ремедиации.",
+      "resolution": "Состав команд сохранён; все перечисленные команды остаются acceptance-требованиями этой версии, разделение ядро/заимствования не вводится.",
+      "spec_ref_after": "§5, §12, §13, §14"
+    }
+  ],
+  "do_not_change_checks": [
+    {
+      "item": "§1 repository store resolved under the verified Git common dir with one clone-local store per clone — directly satisfies the whole-repo/all-worktrees + clone-local requirements.",
+      "decision": "preserved",
+      "reason": "Ядро исходного запроса: каталог на весь клон и все worktree; механизм проверен и принят.",
+      "evidence": "original-task (каталог охватывает весь Git-репозиторий и все его worktree); spec §1; реализация repository store по verified git common dir в cli/internal/repository, independent review ACCEPT 2026-09-12."
+    },
+    {
+      "item": "§2 derived catalog/overview/board/search data is never authoritative and cannot authorize execution/acceptance — correct and matches the existing hash-linked journal architecture.",
+      "decision": "preserved",
+      "reason": "Derived-проекции никогда не авторитетны и не авторизуют исполнение — соответствует journal-first архитектуре контроллера.",
+      "evidence": "spec §2 и §16; hash-linked revisions как источник истины."
+    },
+    {
+      "item": "§3 planned task fields (title/description/priority/labels/depends_on) with milestones/assignee/comments/due-dates excluded — faithful to the original task and avoids Backlog.md feature creep.",
+      "decision": "preserved",
+      "reason": "Точный v1-набор полей planned-задачи из исходного запроса, без расширений.",
+      "evidence": "original-task: planned-задача первой версии содержит title, description, priority, labels и dependencies; spec §3."
+    },
+    {
+      "item": "§7 depends_on is metadata only; no automatic dependency execution and the pre-dispatch gate is deferred — a clean, well-scoped deferral.",
+      "decision": "preserved",
+      "reason": "Согласованное сужение: depends_on — metadata-only, pre-dispatch gate отложен отдельной спецификацией.",
+      "evidence": "spec §7–§8 (правка ремедиации 12–13.09); настоящий review подтверждает deferral корректным (DNC-пункт самого ревью)."
+    },
+    {
+      "item": "§10-§11 list row and show projection redaction (no raw prompt/evidence/credentials) — correct given journals already contain prompts and runtime evidence.",
+      "decision": "preserved",
+      "reason": "Redaction обязателен: журналы содержат промпты и runtime evidence, строка списка и карточка не должны их раскрывать.",
+      "evidence": "spec §10–§11; тесты проекций и redaction в verification.md repository-task-registry."
+    },
+    {
+      "item": "§14 exit-code contract (0 / 2 BF_INVALID / 11 BF_BLOCKED/BF_CONFLICT) — matches the existing controller error classes observed in cli/internal/repository (KindError BF_INVALID/BF_BLOCKED/BF_CONFLICT).",
+      "decision": "preserved",
+      "reason": "Exit-контракт соответствует существующим классам ошибок контроллера.",
+      "evidence": "spec §14; классы BF_INVALID/BF_BLOCKED/BF_CONFLICT в cli/internal/repository."
+    },
+    {
+      "item": "§15 corrupt/torn journal never hides other tasks and surfaces as diagnostics — correct robustness for an append-only hash chain.",
+      "decision": "preserved",
+      "reason": "Повреждённый журнал не должен делать невидимыми остальные задачи — корректная устойчивость append-only hash chain.",
+      "evidence": "spec §15; диагностика corrupt/conflict/orphaned реализована и проверена."
+    },
+    {
+      "item": "§16 index.json is never read as truth and is fully rebuildable from journals — correct principle; only the optional cache write path is questionable, not the rule itself.",
+      "decision": "preserved",
+      "reason": "index.json необязателен, никогда не читается как источник истины и полностью восстанавливаем; спорен только опциональный кэш, что уже зафиксировано текстом §16.",
+      "evidence": "spec §16: «не является обязательным артефактом, никогда не читается как источник истины»."
+    },
+    {
+      "item": "§17 read-only legacy discovery with byte-preservation and conflict-surfacing (excluding the adopt-write contradiction) — correct migration-safety boundary.",
+      "decision": "preserved",
+      "reason": "Read-only legacy discovery с byte-preservation и показом конфликтов сохранён; противоречие adopt закрыто отдельно решением R-001.",
+      "evidence": "spec §17 после правки R-001; design «Migration/Discovery»."
+    },
+    {
+      "item": "'Не делать' section — correctly refuses Backlog.md's Markdown-per-task storage, browser UI, MCP server, milestones, and any second authoritative database.",
+      "decision": "preserved",
+      "reason": "Границы раздела «Не делать» прямо следуют исходному запросу (без переноса архитектуры Backlog.md целиком).",
+      "evidence": "spec «Не делать»; original-task: «без полного копирования продукта»."
+    }
+  ]
+}
