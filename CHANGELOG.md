@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Native task queue supervision: `bsl-flow runner run` serves the trusted queue through the ported `Task.Runner.ps1` loop (journal replay, cursor fairness, lease lock, liveness-checked self-dispatch, no-blind-retry) without PowerShell; `--engine legacy-powershell` keeps the Windows queue engine and unservable queue entries fail closed.
+- Native publication: `task publish`/`publish-resume` drive the delivery state machine over a real git CLI adapter with PS-identical environment scrubbing, bounded output, create-only force-with-lease push and a crash-resumable sealed state; the accepted receipt, a fresh source manifest and route gates are re-verified before dispatch, and an unknown push effect blocks automatic replay.
+- Native bootstrap: `bsl-flow init`/`upgrade` serve the ported comment-preserving merge from the embedded bundle templates (fail-closed when absent); the `1c-init-project` skill defaults to the binary with a capability gate.
+- Platform-native executable paths (req 8): execution profiles, sandbox/runtime pins and provider attempts accept extensionless absolute paths beside the historical `.exe` (dual-reader); the managed launch gate still rejects interpreter scripts and Windows extensionless launches; memory host identity resolves extensionless hosts.
+- Consolidated parity harness (req 20–21): a frozen-trace format with classified divergences (schema vs behavior change, load-bearing approved annotations) replaces boolean diffs; shadow mode drives only the allow-listed read/decision paths (spec lint/final, runner decide, memory projection) over frozen inputs with no writes, processes or model calls. Five PowerShell traces are frozen with capture provenance.
+- No-pwsh evidence (req 22, Windows scope): the S lifecycle audit proves every persisted process/exit/transport receipt binds the trusted host binary, git or the pinned provider; the clean-install smoke builds the windows/amd64 release through the deterministic packaging lane, extracts it (rejecting script entries and zip-slip) and drives help/version/capability/init/task lifecycle from the extracted binary. macOS/Linux execution smoke remains open per target.
+- Council dispatch hardening (field report): the live dispatcher travels as a per-runspace sentinel across parallel thread-jobs, the council review assertion sources its engine dependency, and run metrics map council schema v2 reviews to the common record shape.
+
 ## 0.8.0-dev.3
 
 - Native `spec lint`, `spec final` and `spec review` write the change-directory sidecars (`spec-lint.json`, `final-validation.json`) in the exact shapes the PowerShell validators publish, so the estimate gate and finalization run without PowerShell (BF-1/BF-2 of the 2026-09-14 field report).

@@ -1,6 +1,6 @@
 # Роадмап native-cross-platform-cli: очередь задач для агентов
 
-Дата: 2026-09-14 (после волны 6). Живой статус-трекер — [native-migration-inventory.md](native-migration-inventory.md); этот документ — очередь исполнения: каждая карточка самодостаточна и копируется в бриф агенту целиком. Оценки — агент-часы (включая тесты, differential и интеграцию).
+Дата: 2026-09-14 (после волны 6). **Статус 2026-09-15: W7, W8 (код), W9 (a/b/c), REQ8, W10, W11 и W12 выполнены и закоммичены** (ffd8f3a…716b55c + docs); живой статус — [native-migration-inventory.md](native-migration-inventory.md), карточки ниже сохранены как исторические брифы. Осталось: push + CI-матрица и W8 live-приёмка (решения владельца), macOS/Linux smoke (открыт по таргетам), стадия 7 retirement (запрещена до зелёной native CI). Живой статус-трекер — [native-migration-inventory.md](native-migration-inventory.md); этот документ — очередь исполнения: каждая карточка самодостаточна и копируется в бриф агенту целиком. Оценки — агент-часы (включая тесты, differential и интеграцию).
 
 ## Как раздавать задачи
 
@@ -110,17 +110,17 @@ Runtime-PS removal (default и compatibility поставки без `.ps1`/lega
 
 ## Сводная таблица
 
-| Этап | Оценка, агент-ч | Блокеры |
-| --- | --- | --- |
-| W7 council engine | 8–14 | — |
-| W8 1С runtime adapter | 6–10 | — |
-| W9 runner/delivery/bootstrap | 6–10 | — |
-| REQ8 .exe-пути | 1–2 | — |
-| W10 parity+shadow | 4–8 | W7–W9 |
-| W11 default-native+smoke | 4–6 | W10, (push) |
-| W12 docs/verification.md | 2–4 | W11 |
-| CI push+фикс матрицы | 2–6 | решение владельца |
-| **Итого до Windows default-native** | **33–60** | |
-| Стадия 7 retirement | 25–40 | зелёная CI |
+| Этап | Оценка, агент-ч | Блокеры | Статус 2026-09-15 |
+| --- | --- | --- | --- |
+| W7 council engine | 8–14 | — | **готово** (ffd8f3a) |
+| W8 1С runtime adapter | 6–10 | — | **код готово** (daf4205, d325634); live-приёмка PAUSED владельцем |
+| W9 runner/delivery/bootstrap | 6–10 | — | **готово** (a05dc76, 0cb2ed8, 31470c1) |
+| REQ8 .exe-пути | 1–2 | — | **готово** (b55212a) |
+| W10 parity+shadow | 4–8 | W7–W9 | **готово** (1007705) |
+| W11 default-native+smoke | 4–6 | W10, (push) | **готово, Windows-scope** (716b55c); macOS/Linux smoke открыт |
+| W12 docs/verification.md | 2–4 | W11 | **docs готовы**; verification.md — решение владельца |
+| CI push+фикс матрицы | 2–6 | решение владельца | открыто |
+| **Итого до Windows default-native** | **33–60** | | **достигнуто (Windows-scope)** |
+| Стадия 7 retirement | 25–40 | зелёная CI | заблокирована до push+CI |
 
 Wall-clock при параллельной оркестровке (W7∥W8∥W9): ~2–4 рабочих дня до default-native; retirement ещё ~1.5–2 дня. Ограничители: usage-лимиты агентов, решения владельца (push, macOS/Linux smoke, форма verification.md).
