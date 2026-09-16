@@ -241,6 +241,6 @@ Cancel запрещает новый dispatch. Прерываемый worker м�
 
 ## Выбор модели и стоимость
 
-Поля `models.worker*` и `models.reviewer*` заполняет основной оператор из явного выбора пользователя, проектного `AGENTS.md`/`.ai/model-routing.md` и реально доступных моделей. Они не переписывают глобальную routing policy. Spec review продолжает использовать свой настроенный OpenCode route; поля reviewer managed-задачи относятся к code review.
+Поля `models.worker*` и `models.reviewer*` заполняет основной оператор из явного выбора пользователя, проектного `AGENTS.md`/`.ai/model-routing.md` и реально доступных моделей. Они не переписывают глобальную routing policy. Spec review выполняет API-совет (`review.council`); поля reviewer managed-задачи относятся к code review.
 
 Host receipt сохраняет requested model/effort, session ID и usage из завершённого JSONL turn, если провайдер его сообщил. Наблюдавшиеся model/effort могут остаться `null`. Стоимость неизвестна без attributable usage: её нельзя считать нулевой или выводить из названия модели.

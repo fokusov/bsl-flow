@@ -20,18 +20,18 @@
 - Node.js 20.19 или новее;
 - OpenSpec CLI;
 - Codex;
-- OpenCode с подключённым provider для reviewer-модели.
+- credentials совета: API-ключ в переменной окружения из `token_env` провайдера (например, `DEEPSEEK_API_KEY`) либо `token`/`base_url` в незакоммиченном `.bsl-flow/providers.local.yaml`.
 
 Для полного регрессионного набора пакета дополнительно нужен .NET SDK 5 или новее: тесты компилируют маленький имитатор reviewer и не обращаются к платной модели. Для повседневной работы skills SDK не нужен. Проверки запускай через `scripts/Test-BSLFlowPackage.ps1`; они не запускают 1С и не заменяют приёмку в тестовой базе.
 
-По умолчанию package suite работает offline: использует fake OpenCode provider, не проверяет реальные credentials/model catalog и не делает model calls. Проверки установленного OpenCode, доступных models и effective environment включаются отдельно:
+По умолчанию package suite работает offline: не проверяет реальные credentials/model catalog и не делает model calls. Дополнительные проверки установленного host-окружения включаются отдельно:
 
 ```powershell
 .\scripts\Test-BSLFlowPackage.ps1 -PackageRoot .
 .\scripts\Test-BSLFlowPackage.ps1 -PackageRoot . -HostChecks
 ```
 
-`-HostChecks` читает текущую host-конфигурацию и завершается с явной причиной, если CLI, установленная skill, provider или model недоступны. Он также не выполняет платный model call и не запускает 1С.
+`-HostChecks` читает текущую host-конфигурацию и завершается с явной причиной, если CLI, установленная skill или model недоступны. Он также не выполняет платный model call и не запускает 1С.
 
 ## Воспроизводимая сборка пакета
 
@@ -44,15 +44,14 @@ Build создаёт `outputs\BSL-Flow-0.8.0-dev.3.zip`, внешний файл
 
 Build entrypoint, установщик, task CLI и offline suite требуют PowerShell 7. Используется стандартная машинная установка `C:\Program Files\PowerShell\7\pwsh.exe`; fallback на Windows PowerShell 5.1 не предусмотрен.
 
-Базовая проверенная комбинация: OpenSpec `1.11.0` и OpenCode `1.18.23`. Результаты сборки и принятые решения — в [CHANGELOG.md](CHANGELOG.md).
+Базовая проверенная комбинация: OpenSpec `1.11.0`. Результаты сборки и принятые решения — в [CHANGELOG.md](CHANGELOG.md).
 
-Offline package suite требует Git и OpenSpec CLI в `PATH`: bootstrap-проверки вызывают настоящий OpenSpec даже без `-HostChecks`. CI устанавливает OpenSpec `1.11.0` до тестов; suite подготавливает схему из проверяемого пакета во временном каталоге и не зависит от её глобальной установки. Сами offline-проверки не вызывают модели или базу 1С; OpenCode требуется для дополнительных `-HostChecks`.
+Offline package suite требует Git и OpenSpec CLI в `PATH`: bootstrap-проверки вызывают настоящий OpenSpec даже без `-HostChecks`. CI устанавливает OpenSpec `1.11.0` до тестов; suite подготавливает схему из проверяемого пакета во временном каталоге и не зависит от её глобальной установки. Сами offline-проверки не вызывают модели или базу 1С.
 
 ```powershell
 git --version
 node --version
 openspec --version
-opencode --version
 ```
 
 Если OpenSpec ещё не установлен:
@@ -61,13 +60,7 @@ opencode --version
 npm install -g @fission-ai/openspec@1.11.0
 ```
 
-Для default reviewer запусти `opencode`, выполни `/connect`, подключи DeepSeek и проверь:
-
-```powershell
-opencode models | Select-String deepseek-v4-pro
-```
-
-На момент сборки exact model ID: `deepseek/deepseek-v4-pro`. Установщик не делает платный model-run и не меняет credentials.
+Для ревью советом нужны credentials провайдеров из проектного `bsl-flow.yaml` или профиля пользователя: ключ в переменной окружения из `token_env` (например, `DEEPSEEK_API_KEY`) либо `token`/`base_url` в незакоммиченном `.bsl-flow/providers.local.yaml`. Установщик не делает платный model-run и не меняет credentials.
 
 ## Автоматическая установка
 
@@ -79,7 +72,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 Установщик:
 
 - проверит packaged OpenSpec schema;
-- проверит эффективные права bounded read/file listing и sealed agents через `opencode debug agent`, включая запрет unrestricted grep;
+- проверит эффективные права bounded read/file listing и sealed reviewer agents, включая запрет unrestricted grep;
 - установит единственную копию семи skills в общий `%USERPROFILE%\.agents\skills` и после backup удалит управляемые дубликаты из `%CODEX_HOME%\skills`;
 - установит глобальную schema `bsl-flow`;
 - заменит старый managed bootstrap-блок новым bsl-flow-блоком и удалит после backup старую OpenSpec schema;
@@ -94,8 +87,6 @@ Set-ExecutionPolicy -Scope Process Bypass
 ```
 
 После установки перезапусти Codex.
-
-Для работы непосредственно из OpenCode установи отдельный адаптер по [инструкции](OPENCODE_SETUP_RU.md). Он использует ту же копию skills в `%USERPROFILE%\.agents\skills`, а в OpenCode-каталог добавляет только managed rules и manifest. Адаптер использует plan/`-Apply`, не меняет `opencode.json` и отдельно проверяет effective model routing.
 
 Установка не настраивает тестовые базы, Unica, YaXUnit или Vanessa. Для этого используй отдельное [руководство по тестовому окружению](TEST_ENVIRONMENT_GUIDE_RU.md). Сначала подготовь разрешённую файловую копию; глобальное обновление skills не является разрешением на build/test или загрузку расширений.
 
@@ -117,7 +108,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 ## Настройка проекта
 
-Новые проекты получают review-блок автоматически. Основные значения:
+Новые проекты получают review-блок автоматически (совет ревью, `review.council`). Основные значения:
 
 ```yaml
 review:
@@ -127,11 +118,20 @@ review:
     m_default: required
     l_default: required
     high_risk_override: required
-  reviewer:
-    provider: opencode
-    agent: bsl-flow-spec-reviewer
-    model: deepseek/deepseek-v4-pro
-    variant: high
+  council:
+    enabled: true
+    legacy_mode: block
+    roles:
+      intent_critic:
+        enabled: true
+        required: true
+        model: flash
+        fallback: current_agent
+      chair:
+        enabled: true
+        required: true
+        model: sol
+        fallback: current_agent
   permissions:
     project_read_mode: read_search
     edit: false
@@ -143,7 +143,7 @@ review:
     timeout_seconds: 600
 ```
 
-Для sealed review без чтения проекта установи `project_read_mode: attached_only`. В стандартном `read_search` reviewer может читать релевантные исходники, но не должен обходить всё дерево; служебные каталоги `.git`, `.bsl-flow` и бинарные артефакты закрыты permissions. Не пытайся включить запрещённые permissions: wrapper завершится ошибкой. Для другой модели меняй только `model` и при необходимости `variant`; silent fallback не выполняется. Таймаут 600 секунд выбран для `deepseek-v4-pro/high`; уменьшай его только после измеренного пилота выбранной модели.
+Роли резолвят модели через `llm.models`, а credentials — через `token_env` провайдеров или локальный оверлей. В стандартном `project_read_mode: read_search` reviewer может читать релевантные исходники, но не должен обходить всё дерево; служебные каталоги `.git`, `.bsl-flow` и бинарные артефакты закрыты permissions. Для sealed review без чтения проекта установи `project_read_mode: attached_only`. Для другой модели меняй привязку роли или профиль в `llm.models`; silent fallback не выполняется. Таймаут 600 секунд рассчитан на длинные ревью; уменьшай его только после измеренного пилота выбранной модели.
 
 Новые поля существующей секции `policy`:
 
@@ -197,24 +197,14 @@ review:
 2. Скопируй schema в `%LOCALAPPDATA%\openspec\schemas\bsl-flow\`.
 3. Добавь `global/AGENTS.bootstrap.md` в глобальный `%USERPROFILE%\.codex\AGENTS.md`.
 4. Создай `%USERPROFILE%\.bsl-flow\evals\spec-runs.jsonl`, если его ещё нет.
-5. Проверь schema и agents.
+5. Проверь schema.
 
 ```powershell
 openspec schema validate bsl-flow
-$env:OPENCODE_CONFIG = "$env:USERPROFILE\.agents\skills\1c-spec-review\reviewer\opencode-reviewer.json"
-$env:OPENCODE_DISABLE_PROJECT_CONFIG = "1"
-opencode debug agent bsl-flow-spec-reviewer
-opencode debug agent bsl-flow-spec-reviewer-sealed
 ```
-
-После проверки закрой терминал или удали временные `OPENCODE_*` переменные из процесса.
 
 ## Ошибки внешнего review
 
-Для обязательного route отсутствие OpenCode, credentials, модели, корректного JSON или допустимой политики данных является blocker. Framework не подменяет модель и не пропускает review автоматически. Невалидный output не записывается в `review.json`.
+Review выполняет API-совет (`review.council`): роли резолвят модели через `llm.models`, credentials — через `token_env` провайдеров или локальный оверлей. Для обязательного route отсутствие credential, модели или корректного JSON является blocker: admission-гейт завершает совет с `BF_BLOCKED: council cannot start` до любого платного вызова. Framework не подменяет модель и не пропускает review автоматически. Невалидный output не записывается в `review.json`.
 
-Project config может усилить routing, но не отключить обязательный review для M/L/high-risk. `review.enabled: false` допустим только там, где review и так необязателен; попытка обойти обязательный gate завершается ошибкой.
-
-OpenCode `run` создаёт локальную session/log/cache даже у sealed agent. Read-only гарантирует отсутствие project/tool mutations, но не полное отсутствие локального служебного состояния OpenCode.
-
-В OpenCode 1.18.23 глобальный `AGENTS.md` нельзя отключить отдельным флагом, поэтому считай его доверенной локальной границей и не помещай туда недоверенные инструкции. Изолированный reviewer config отключает project config и legacy Claude instructions, но не эту глобальную границу.
+Project config может усилить routing, но не отключить обязательный review для M/L/high-risk. `review.enabled: false` допустим только там, где review и так необязателен; попытка обойти обязательный gate завершается ошибкой. Историческая конфигурация одиночного OpenCode-reviewer не переинтерпретируется молча: явный legacy-блок требует отдельного `opencode_compat`-режима, иначе запуск завершается migration blocker-ом.

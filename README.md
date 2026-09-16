@@ -54,14 +54,14 @@ inspect -> spec/design -> independent review -> targeted revision
 
 - OpenAI Codex и другими coding agents;
 - OpenSpec для lightweight specification artifacts;
-- OpenCode и независимой reviewer-моделью;
+- API-совместимыми LLM-провайдерами (OpenAI, DeepSeek и другие) для независимого совета ревью;
 - BSL Language Server для статического анализа;
 - YAxUnit для unit/integration тестов;
 - Vanessa Automation / TestClient для UI и end-to-end сценариев.
 
 ## Актуальная версия
 
-Рабочая версия — **BSL Flow 0.8.0-dev.3**. В ней восемь skills, включая `1c-task`: контроллер сохраняет историю задачи, выбирает обязательные этапы, запускает изолированных Codex workers, проверяет актуальность исходников и доказательств и останавливается при неопределённом результате. Assisted-skills и отдельный OpenCode reviewer спецификаций сохранены.
+Рабочая версия — **BSL Flow 0.8.0-dev.3**. В ней восемь skills, включая `1c-task`: контроллер сохраняет историю задачи, выбирает обязательные этапы, запускает изолированных Codex workers, проверяет актуальность исходников и доказательств и останавливается при неопределённом результате. Ревью спецификаций выполняет независимый API-совет (`review.council`).
 
 Единственный пользовательский вход — `global/skills/1c-task/scripts/Invoke-BSLFlowTask.ps1`; нужны PowerShell 7 из стандартной машинной установки `C:\Program Files\PowerShell\7\pwsh.exe` и Git; fallback на Windows PowerShell 5.1 не поддерживается. По решению владельца (2026-09-16) проект не выпускает Go-бинарник и не поддерживает Linux/macOS в ближайших релизах — история решения в [CHANGELOG.md](CHANGELOG.md).
 
@@ -79,15 +79,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\Install-BSLFlow.ps1
 ```
 
-Для самостоятельной работы из OpenCode:
-
-```powershell
-.\scripts\Install-BSLFlowForOpenCode.ps1
-.\scripts\Install-BSLFlowForOpenCode.ps1 -Apply
-.\scripts\Test-BSLFlowOpenCode.ps1
-```
-
-OpenCode-установщик не изменяет `opencode.json`, model routing, providers и credentials.
+Skills ставятся одной копией в общий `%USERPROFILE%\.agents\skills`, доступный Codex и другим агентам; установщик не меняет model routing, providers и credentials.
 
 ## Как находятся YAxUnit и Vanessa
 
@@ -112,7 +104,6 @@ BSL Flow не сканирует диски рекурсивно и не ска�
 - `scripts/` — установщики и offline regression checks;
 - `docs/` — руководство по фреймворку, архитектура, контракты runtime/публикации/покрытия;
 - [CHANGELOG.md](CHANGELOG.md) — история версий и принятые решения;
-- [OPENCODE_SETUP_RU.md](OPENCODE_SETUP_RU.md) — настройка standalone OpenCode;
 - [TEST_ENVIRONMENT_GUIDE_RU.md](TEST_ENVIRONMENT_GUIDE_RU.md) — постоянное окружение YAxUnit/Vanessa.
 
 ## Для кого
@@ -121,7 +112,7 @@ BSL Flow ориентирован на разработчиков и коман�
 
 ## Ключевые слова
 
-BSL, 1С:Предприятие, разработка 1С, AI coding agents, Codex, OpenCode, OpenSpec, spec-driven development, SDD, AI-assisted development, review спецификаций, YAxUnit, Vanessa Automation.
+BSL, 1С:Предприятие, разработка 1С, AI coding agents, Codex, OpenSpec, spec-driven development, SDD, AI-assisted development, review спецификаций, YAxUnit, Vanessa Automation.
 
 ## Товарные знаки
 

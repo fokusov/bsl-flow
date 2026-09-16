@@ -70,7 +70,7 @@ $requiredFiles = @(
     'LICENSE',
     'scripts\Install-BSLFlow.ps1', 'scripts\Install-BSLFlowForOpenCode.ps1',
     'scripts\Test-BSLFlowPackage.ps1', 'scripts\Test-BSLFlowOpenCode.ps1', 'scripts\Build-BSLFlowPackage.ps1',
-    'OPENCODE_SETUP_RU.md', 'global\OPENCODE.delegation.md',
+    'global\OPENCODE.delegation.md',
     'scripts\Install-BSLFlowForOpenCode.ps1', 'scripts\Test-BSLFlowOpenCode.ps1', 'scripts\Test-OpenCodeAdapter.ps1',
     'global\skills\1c-init-project\scripts\Update-BSLFlowProject.ps1',
     'global\skills\1c-init-project\scripts\Enable-BSLFlowWorkstationProfile.ps1',

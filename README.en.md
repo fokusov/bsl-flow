@@ -48,14 +48,14 @@ The framework is intended to work with tools such as:
 
 - OpenAI Codex and other coding agents;
 - OpenSpec for lightweight specification artifacts;
-- OpenCode with an independent reviewer model;
+- OpenAI-compatible LLM providers (OpenAI, DeepSeek and others) serving the independent review council;
 - BSL Language Server for static analysis;
 - YAxUnit for unit and integration testing;
 - Vanessa Automation / TestClient for UI and end-to-end scenarios.
 
 ## Current release
 
-The working version is **BSL Flow 0.8.0-dev.3**: seven skills, including the `1c-task` controller, immutable task history, risk-based stage routing, isolated Codex workers, source/evidence freshness checks and explicit recovery. The six assisted skills and the separate OpenCode specification reviewer remain available.
+The working version is **BSL Flow 0.8.0-dev.3**: seven skills, including the `1c-task` controller, immutable task history, risk-based stage routing, isolated Codex workers, source/evidence freshness checks and explicit recovery. Specification review is served by the independent API council (`review.council`).
 
 Version 0.8 adds opt-in bounded source repair with protected test inputs, a local supervisor for registered tasks, and immutable accepted-source handoff, delivered by the authoritative PowerShell 7 controller. The single user entrypoint is `global/skills/1c-task/scripts/Invoke-BSLFlowTask.ps1`; PowerShell 7 from the standard machine installation `C:\Program Files\PowerShell\7\pwsh.exe` and Git are required; Windows PowerShell 5.1 fallback is not supported. By owner decision (2026-09-16) the project ships no Go binary and no Linux/macOS support in the upcoming releases. See [INSTALL.md](INSTALL.md) for the remaining 1C runtime gates; the rollback decision is recorded in [CHANGELOG.md](CHANGELOG.md).
 
@@ -75,15 +75,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\Install-BSLFlow.ps1
 ```
 
-For standalone OpenCode:
-
-```powershell
-.\scripts\Install-BSLFlowForOpenCode.ps1
-.\scripts\Install-BSLFlowForOpenCode.ps1 -Apply
-.\scripts\Test-BSLFlowOpenCode.ps1
-```
-
-The OpenCode installer does not rewrite `opencode.json`, model routing, providers or credentials.
+Skills are installed as a single copy into the shared `%USERPROFILE%\.agents\skills` catalog available to Codex and other agents; the installer does not rewrite model routing, providers or credentials.
 
 ## YAxUnit and Vanessa discovery
 
@@ -107,7 +99,6 @@ On a machine without these tools, BSL Flow still installs, but tests that requir
 - `global/openspec/` — the OpenSpec schema and templates;
 - `scripts/` — installers and offline regression checks;
 - `docs/` — framework guide, architecture decisions, and observed managed-host contract;
-- [OPENCODE_SETUP_RU.md](OPENCODE_SETUP_RU.md) — standalone OpenCode setup;
 - [TEST_ENVIRONMENT_GUIDE_RU.md](TEST_ENVIRONMENT_GUIDE_RU.md) — persistent YAxUnit/Vanessa test environment;
 - [CHANGELOG.md](CHANGELOG.md) — release history and accepted decisions;
 
@@ -117,7 +108,7 @@ BSL Flow is primarily aimed at developers and teams using AI-assisted developmen
 
 ## Keywords
 
-BSL, 1C:Enterprise, 1C development, AI coding agents, Codex, OpenCode, OpenSpec, spec-driven development, SDD, AI-assisted development, specification review, BSL testing, YAxUnit, Vanessa Automation.
+BSL, 1C:Enterprise, 1C development, AI coding agents, Codex, OpenSpec, spec-driven development, SDD, AI-assisted development, specification review, BSL testing, YAxUnit, Vanessa Automation.
 
 ## Trademark notice
 
