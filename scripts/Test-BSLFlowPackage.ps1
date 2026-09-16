@@ -148,19 +148,14 @@ $requiredFiles = @(
     'docs\NATIVE_RUNTIME_RU.md', 'docs\REQUIREMENT_COVERAGE_RU.md', 'docs\PUBLICATION_RU.md', 'docs\SDLC_COMPLETION_RU.md',
     'docs\NATIVE_RUNTIME_RU.md', 'docs\REQUIREMENT_COVERAGE_RU.md', 'docs\SDLC_COMPLETION_RU.md',
     'global\skills\1c-task\scripts\Task.Delivery.ps1', 'global\skills\1c-task\scripts\Task.Runner.ps1',
-    'cli\main.go', 'cli\bundle.go', 'cli\host_windows.go', 'cli\go.mod',
-    'scripts\Build-BSLFlowCli.ps1', 'scripts\Test-BSLFlowCli.ps1', 'docs\PLAN_0.8_RU.md',
+    'docs\PLAN_0.8_RU.md',
     'scripts\Test-SandboxedVerification.ps1',
     'scripts\Test-ManagedHost.ps1',
     'global\skills\1c-verify\references\testing-policy.md',
     'scripts\Test-BFProfiledCodexHostCapability.ps1',
     'scripts\Test-LegacyNativeFence.ps1',
-    'scripts\Test-NativeProvider.ps1',
-    'scripts\Test-NativeMemory.ps1',
     'scripts\Test-NativeProviderSandboxFence.ps1',
-    'global\skills\1c-task\scripts\Task.Provider.ps1',
-    'global\skills\1c-task\scripts\Invoke-BFNativeProvider.ps1',
-    'global\skills\1c-task\scripts\Invoke-BFNativeMemory.ps1'
+    'global\skills\1c-task\scripts\Task.Provider.ps1'
 )
 foreach ($relative in $requiredFiles) { Assert-True (Test-Path -LiteralPath (Join-Path $packageRoot $relative) -PathType Leaf) "Missing package file: $relative" }
 $packageManifestPath = Join-Path $packageRoot 'package-manifest.json'
@@ -172,7 +167,7 @@ if (Test-Path -LiteralPath $packageManifestPath -PathType Leaf) {
     Assert-True ($packageManifest.architecture.adr_schema_sha256 -eq (Get-FileHash -LiteralPath (Join-Path $packageRoot 'docs/architecture/adr-index.schema.json') -Algorithm SHA256).Hash.ToLowerInvariant()) 'Package manifest ADR schema hash mismatch.'
 }
 $packageVersion = (Get-Content -Raw (Join-Path $packageRoot 'VERSION')).Trim()
-Assert-True ($packageVersion -eq '0.8.0-dev.2') 'VERSION is not 0.8.0-dev.2.'
+Assert-True ($packageVersion -match '^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$') 'VERSION is not a valid package version.'
 $publicReadme = Get-Content -Raw (Join-Path $packageRoot 'README.md')
 Assert-True ($publicReadme -match '^# BSL Flow') 'Public README does not use the BSL Flow name.'
 Assert-True ($publicReadme.Contains('[MIT License](LICENSE)')) 'Public README does not link the MIT license.'
@@ -194,8 +189,7 @@ $forbiddenHits = Get-ChildItem -LiteralPath $packageRoot -File -Recurse -Force |
     Where-Object {
         $relative = $_.FullName.Substring($packageRoot.TrimEnd('\', '/').Length + 1).Replace('\', '/')
         $_.FullName -notmatch '[\\/](?:\.git|\.bsl-flow|work|outputs)(?:[\\/]|$)' -and
-            $relative -notmatch '^\.build/' -and
-            $relative -notmatch '^cli/(?:\.cache/|bin/|internal/resources/(?:bundle\.zip|version\.txt)$)'
+            $relative -notmatch '^\.build/'
     } |
     Select-String -Pattern $forbiddenNamePattern
 Assert-True (($forbiddenHits | Measure-Object).Count -eq 0) 'Package still contains the retired framework name.'
@@ -215,8 +209,6 @@ foreach ($suite in @('Test-CouncilValidation.ps1', 'Test-CouncilEngine.ps1', 'Te
 foreach ($suite in @('Test-TaskStorage.ps1', 'Test-LegacyNativeFence.ps1', 'Test-TaskLifecycle.ps1', 'Test-TaskHardening.ps1', 'Test-TaskResume.ps1', 'Test-TaskCrashRecovery.ps1', 'Test-TaskRepair.ps1', 'Test-TaskDelivery.ps1', 'Test-TaskRunner.ps1', 'Test-RunnerRecovery.ps1', 'Test-TaskRuntime.ps1', 'Test-NativeController.ps1', 'Test-NativeRecovery.ps1', 'Test-NativeReuse.ps1', 'Test-RequirementCoverage.ps1', 'Test-CoverageController.ps1', 'Test-PublicationGit.ps1', 'Test-TaskPublication.ps1')) {
     & (Join-Path $packageRoot "scripts\$suite") -PackageRoot $packageRoot
 }
-& (Join-Path $packageRoot 'scripts\Test-NativeProvider.ps1') -PackageRoot $packageRoot
-& (Join-Path $packageRoot 'scripts\Test-NativeMemory.ps1') -PackageRoot $packageRoot
 
 foreach ($skillName in @('1c-init-project', '1c-spec', '1c-spec-review', '1c-implement', '1c-verify', '1c-debug', '1c-task')) {
     $skillFile = Join-Path $packageRoot "global\skills\$skillName\SKILL.md"

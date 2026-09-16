@@ -1,1 +1,0 @@
-{"acceptance_stale":false,"active_attempt":"20000000-0000-0000-0000-000000000006","attempt_stage":"verify","controller":{"pid":4711,"start_time_utc":"2026-01-01T00:00:00.0000000Z"},"controller_alive":true,"name":"owner-alive","next_action":"recover","owned_processes":[],"revision":1,"stage":"verify","status":"running","unresolved_effect":false}

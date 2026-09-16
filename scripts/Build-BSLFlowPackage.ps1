@@ -53,8 +53,7 @@ $relativePaths = [string[]]@(Get-ChildItem -LiteralPath $root -File -Recurse -Fo
     $relative = $_.FullName.Substring($root.Length + 1)
     $segments = @($relative -split '[\\/]')
     $generatedRootArtifact = $segments.Count -eq 1 -and ($segments[0] -eq 'package-manifest.json' -or $segments[0] -like '*.zip' -or $segments[0] -like '*.zip.sha256')
-    $generatedCli = $relative.Replace('\','/') -match '^cli/(?:\.cache/|bin/|internal/resources/(?:bundle\.zip|version\.txt)$)'
-    $_.FullName -ne $zipPath -and $_.FullName -ne $zipHashPath -and -not $generatedRootArtifact -and -not $generatedCli -and $segments[0] -notin $excludedRootFiles -and $segments[0] -notin $excludedRootSegments -and '.git' -notin $segments
+    $_.FullName -ne $zipPath -and $_.FullName -ne $zipHashPath -and -not $generatedRootArtifact -and $segments[0] -notin $excludedRootFiles -and $segments[0] -notin $excludedRootSegments -and '.git' -notin $segments
 } | ForEach-Object { $_.FullName.Substring($root.Length + 1).Replace('\', '/') })
 if ($relativePaths.Count -eq 0) { throw 'No package files selected.' }
 [Array]::Sort($relativePaths, [StringComparer]::Ordinal)
