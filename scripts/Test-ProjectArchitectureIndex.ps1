@@ -27,9 +27,20 @@ $openspecAvailable=[bool](Get-Command openspec -ErrorAction SilentlyContinue)
 $testRoot=Join-Path ([IO.Path]::GetTempPath()) ('bsl-flow-project-index-'+[guid]::NewGuid().ToString('N'))
 $project=Join-Path $testRoot 'project'
 $utf8=[Text.UTF8Encoding]::new($false)
+$script:oldLocalAppData=$env:LOCALAPPDATA
+$script:oldXdgDataHome=$env:XDG_DATA_HOME
 try {
     [void][IO.Directory]::CreateDirectory($project)
     if($openspecAvailable){
+        # The bootstrap gate resolves the global bsl-flow schema; isolate the
+        # packaged schema from any workstation installation so clean machines
+        # and CI behave identically.
+        $isolatedAppData=Join-Path $testRoot 'local-app-data'
+        $isolatedSchema=Join-Path $isolatedAppData 'openspec/schemas/bsl-flow'
+        [void][IO.Directory]::CreateDirectory($isolatedSchema)
+        Copy-Item -Path (Join-Path $root 'global/openspec/schemas/bsl-flow/*') -Destination $isolatedSchema -Recurse -Force
+        $env:LOCALAPPDATA=$isolatedAppData
+        $env:XDG_DATA_HOME=$isolatedAppData
         & $bootstrap -ProjectPath $project -Explicit1CProject | Out-Null
         Assert-E (-not (Test-Path -LiteralPath (Join-Path $project 'docs/architecture'))) 'Bootstrap auto-created a project architecture index.'
         Assert-E (-not (Test-Path -LiteralPath (Join-Path $project 'docs'))) 'Bootstrap unexpectedly created docs/.'
@@ -86,6 +97,8 @@ try {
     Assert-E ((Failure-E {Get-BFTaskContext $state $project ([ordered]@{action='dispatch';stage='code_review';blockers=@()})}) -match 'BF_INVALID|anchor') 'Damaged project index was masked by context.'
     Assert-E (Test-Path -LiteralPath $indexPath) 'A damaged project index was deleted instead of reported.'
 } finally {
+    $env:LOCALAPPDATA=$script:oldLocalAppData
+    $env:XDG_DATA_HOME=$script:oldXdgDataHome
     if(Test-Path -LiteralPath $testRoot){Remove-Item -LiteralPath $testRoot -Recurse -Force}
 }
 $label=if($openspecAvailable){'PROJECT_ARCHITECTURE_INDEX_OK'}else{'PROJECT_ARCHITECTURE_INDEX_PARTIAL'}
