@@ -12,9 +12,9 @@
 ## Текущее поведение
 
 - Каталог изменения содержит `spec.md` (+ `design.md` для L/high), `original-task.md` и ревью-сайдкары; исполняемых артефактов нет.
-- Требования детерминированно проецируются в манифест REQ-NNN с `source_hash` (cli/internal/councilengine/validation.go), но только внутри ревью-конвейера.
+- Требования детерминированно проецируются в манифест требований внутри ревью-конвейера (Council.Validation.ps1 / review-schema), но только там.
 - Реализация (1c-implement) идёт по прозе спеки: машинного графа задач, per-task evidence и статусов нет; «когда готово» агент решает сам, контроллер гейтит только этапы.
-- `specvalidate` линтует только `spec.md` (обязательные секции, GIVEN/WHEN/THEN, размер).
+- `Test-1CSpec.ps1` линтует только `spec.md` (обязательные секции, GIVEN/WHEN/THEN, размер).
 - Managed execution в текущем агенте source-only; runtime-гейты BLOCKED.
 
 ## Требуемое поведение
@@ -23,7 +23,7 @@
 2. `execution.yaml` содержит задачи с полями: `id` (T-NNN), `kind` ∈ {explore, research, design, implement, migrate, test, review, fix, document}, `goal`, `depends_on[]`, `satisfies[]` (R-ids из contract.yaml), `verify[]` (V-ids), `allowed_scope[]` (glob относительно корня проекта), `forbidden[]`, `mutation: allowed|forbidden`. Запрещены: циклы, self- и дублирующиеся ссылки, висячие ссылки (`satisfies` → отсутствующий R, `verify` → отсутствующий V, `depends_on` → отсутствующий T).
 3. `contract.yaml` обязывает каждый R иметь `spec_ref` — ссылку на существующий пункт «Требуемое поведение» (или эквивалентный якорь спеки); это защита от дрейфа контракта от спеки. Привязка `source_hash` — задача будущего компилятора (отдельная спека); в v0.1 линт проверяет только существование якоря.
 4. `verification.yaml`: каждая V-запись имеет `id` (V-NNN), `requirement` (R-id), `type` (scenario|regression|static|integration) и машиночитаемый ожидаемый результат (`expect`, минимум одно наблюдаемое поле). Исполнение V следует политике 1c-verify (YAxUnit/Vanessa/static по уровню доказательства); execution graph не заменяет гейты 1c-verify, а фиксирует трассировку R→V→evidence.
-5. Детерминированный линт в cli/internal/specvalidate: YAML-парсинг в стиле allowlist (неизвестные поля и виды отклоняются), ацикличность DAG, резолюция всех ссылок, корректность scope-glob (относительные пути, без `..` и абсолютных путей), обязательные поля V. Линт доступен там же, где линтится `spec.md` (`bsl-flow spec lint`), и обязателен перед реализацией при наличии артефактов.
+5. Детерминированный линт в PowerShell (`Invoke-1CSpecContractLint.ps1` в global/skills/1c-spec-review/scripts, рядом с `Test-1CSpec.ps1`): YAML-парсинг в стиле allowlist (неизвестные поля и виды отклоняются), ацикличность DAG, резолюция всех ссылок, корректность scope-glob (относительные пути, без `..` и абсолютных путей), обязательные поля V. Линт доступен там же, где линтится `spec.md` (тот же `-ChangePath`-контракт), и обязателен перед реализацией при наличии артефактов.
 6. Исполнитель v0.1 — скилл-уровень: 1c-implement при наличии `execution.yaml` идёт задачи в топологическом порядке (последовательно, без волн), соблюдает разрешения kind (`explore|research|review|document` — без мутаций; правки — только внутри `allowed_scope` с учётом `forbidden`), пишет `evidence/T-NNN.json` (id, статус, наблюдения, затронутые файлы, ссылки на V с результатами) и обновляет генерируемый `state.json` (`schema_version: 1`; T → pending|running|done|blocked).
 7. Правило BLOCKED: задача с непустым `verify[]` не может получить `done`, пока по каждой V нет записанного evidence с наблюдаемым результатом; иначе фиксируется `blocked` с причиной. Агент не вправе объявить done при отсутствующем evidence.
 8. `evidence/` коммитится вместе с изменением (трассируемость); `state.json` — восстанавливаемая runtime-проекция и в Git не коммитится.
@@ -32,8 +32,8 @@
 
 ## Контекст 1С
 
-- Конфигурация/подсистема: BSL Flow CLI + глобальные скиллы; метаданные 1С не изменяются.
-- Затрагиваемые механизмы: cli/internal/specvalidate (новый линт артефактов), `bsl-flow spec lint` (cli/speccmd.go), global/skills/1c-spec (шаблоны для M/L), global/skills/1c-implement (дисциплина исполнения), global/openspec/schemas/bsl-flow (опциональные артефакты, если CLI требует декларации), документация.
+- Конфигурация/подсистема: BSL Flow (PowerShell 7) + глобальные скиллы; метаданные 1С не изменяются.
+- Затрагиваемые механизмы: новый линт артефактов Invoke-1CSpecContractLint.ps1 (global/skills/1c-spec-review/scripts), Test-1CSpec.ps1 (смежный линт spec.md), global/skills/1c-spec (шаблоны для M/L), global/skills/1c-implement (дисциплина исполнения + deterministic-хелперы evidence/state), global/openspec/schemas/bsl-flow (опциональные артефакты, если schema требует декларации), документация.
 - Evidence path: spec review PASS → создание/линт contract/execution/verification → 1c-implement идёт DAG по kind-разрешениям → `evidence/T-NNN.json` + `state.json` → существующие гейты контроллера без изменений.
 - 1С runtime: в v0.1 не запускается; исполнение V-проверок остаётся за 1c-verify.
 
@@ -50,7 +50,7 @@
 ## Критерии приёмки
 
 - GIVEN M-изменение с согласованной тройкой артефактов
-  WHEN выполняется `bsl-flow spec lint`
+  WHEN выполняется `Invoke-1CSpecContractLint.ps1 -ChangePath <каталог>`
   THEN линт проходит: все R/V/T-ссылки резолвятся, DAG ацикличен, scope-glob корректны.
 - GIVEN `execution.yaml` содержит цикл T2→T3→T2 или висячую ссылку `satisfies`
   WHEN выполняется линт
@@ -91,3 +91,7 @@
 ## Дополнение 2026-09-16 (откат native-cross-platform-cli)
 
 Требование 5 заякоривало детерминированный линт артефактов в `cli/internal/specvalidate` (`bsl-flow spec lint`), удалённом откатом `native-cross-platform-cli` 2026-09-16 (решение владельца). Форматы артефактов (`contract.yaml`, `execution.yaml`, `verification.yaml`) и правила исполнения остаются валидными как концепт. Статус изменения: **ON HOLD** до переанкеровки линта на PowerShell-реализацию.
+
+## Переанкеровка 2026-09-16 (PowerShell)
+
+Линт артефактов переанкерован на PowerShell: `Invoke-1CSpecContractLint.ps1` в global/skills/1c-spec-review/scripts, тот же `-ChangePath`-контракт, что у `Test-1CSpec.ps1`; обязателен перед реализацией при наличии артефактов (требование 5). Исполнитель v0.1 — скилл-уровень 1c-implement + deterministic-хелперы evidence/state (требование 6). Совет и ревью-конвейер артефакты не читают (требование 10 — без изменений). Формат `spec_ref` заморожен при реализации линта: целое N, указывающее на пункт N раздела «Требуемое поведение» spec.md. Статус изменения: **АКТИВНО** — реализация разрешена в PowerShell; независимое ревью L обязательно по проектной политике.

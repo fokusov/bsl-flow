@@ -5,6 +5,7 @@ work/
 outputs/
 *.zip
 *.log
+openspec/changes/**/state.json
 
 # Local tool scratch caches
 .tmp-*/

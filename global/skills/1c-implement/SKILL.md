@@ -21,6 +21,17 @@ Do not start M/L or high-risk implementation when required `review.json`, `revie
 - Respect 1C client/server annotations, transaction boundaries, managed locks, permissions, and supported-code constraints.
 - Do not silently change the specification to fit an easier implementation.
 
+## Execution graph (v0.1)
+
+When the change directory contains `execution.yaml` (the optional artifact triple `contract.yaml` / `execution.yaml` / `verification.yaml`):
+
+- Before implementation, require a passing `Invoke-1CSpecContractLint.ps1 -ChangePath <change dir>` (in `global/skills/1c-spec-review/scripts`). Never implement against artifacts that fail the lint; changes without artifacts behave exactly as before.
+- Dot-source the deterministic helpers [ExecutionGraph.ps1](scripts/ExecutionGraph.ps1): artifact reading/validation (via the lint), topological order (sequential, no waves; ties broken by task id), permission checks, the evidence writer, and the state projection.
+- Walk tasks one at a time in topological order. Kinds `explore|research|review|document` never mutate files; mutating kinds write only inside `allowed_scope` and never inside `forbidden`.
+- After each task write `evidence/T-NNN.json` (id, status, observations, touched_files, verify results, violations) with the evidence writer.
+- A task with non-empty `verify[]` must not be declared `done` until every referenced V has a recorded observable result; otherwise record `blocked` with the reason. A scope or mutation violation is recorded in evidence and the task is recorded `blocked` — never silently ignored, never `done`.
+- `state.json` is a generated projection of `evidence/` (`schema_version: 1`); regenerate it from evidence instead of hand-editing, and do not commit it (`evidence/` is committed).
+
 ## Planning and tests
 
 A separate implementation-plan file is normally unnecessary. Use a short in-context checklist only for multiple dependent steps; a step is a meaningful 1C change, not an editor action.
