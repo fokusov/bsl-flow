@@ -44,7 +44,7 @@ Build создаёт `outputs\BSL-Flow-0.8.0-dev.3.zip`, внешний файл
 
 Build entrypoint, установщик, task CLI и offline suite требуют PowerShell 7. Используется стандартная машинная установка `C:\Program Files\PowerShell\7\pwsh.exe`; fallback на Windows PowerShell 5.1 не предусмотрен.
 
-Базовая проверенная комбинация: OpenSpec `1.11.0` и OpenCode `1.18.23`. Результаты текущей сборки — в [VERIFICATION.md](VERIFICATION.md).
+Базовая проверенная комбинация: OpenSpec `1.11.0` и OpenCode `1.18.23`. Результаты сборки и принятые решения — в [CHANGELOG.md](CHANGELOG.md).
 
 Offline package suite требует Git и OpenSpec CLI в `PATH`: bootstrap-проверки вызывают настоящий OpenSpec даже без `-HostChecks`. CI устанавливает OpenSpec `1.11.0` до тестов; suite подготавливает схему из проверяемого пакета во временном каталоге и не зависит от её глобальной установки. Сами offline-проверки не вызывают модели или базу 1С; OpenCode требуется для дополнительных `-HostChecks`.
 

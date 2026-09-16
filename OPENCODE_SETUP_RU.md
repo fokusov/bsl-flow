@@ -1,6 +1,6 @@
 # Использование BSL Flow непосредственно в OpenCode
 
-Версия 0.6.1 использует standalone-адаптер BSL Flow. Он устанавливает шесть skills в общий `%USERPROFILE%\.agents\skills`, доступный Codex и OpenCode, и добавляет два помеченных managed-блока в `%USERPROFILE%\.config\opencode\AGENTS.md`. Копии BSL Flow skills в `%USERPROFILE%\.config\opencode\skills` недопустимы: они имеют более высокий приоритет и могут незаметно затенить общую версию.
+Текущий standalone-адаптер BSL Flow использует standalone-адаптер BSL Flow. Он устанавливает skills в общий `%USERPROFILE%\.agents\skills`, доступный Codex и OpenCode, и добавляет два помеченных managed-блока в `%USERPROFILE%\.config\opencode\AGENTS.md`. Копии BSL Flow skills в `%USERPROFILE%\.config\opencode\skills` недопустимы: они имеют более высокий приоритет и могут незаметно затенить общую версию.
 
 Адаптер принципиально не меняет `opencode.json`, providers, credentials, primary agent, subagents и модели. Запуск без `-Apply` печатает детерминированный план. Перед заменой ранее зарегистрированных managed skills и `AGENTS.md` создаётся backup; ошибка проверки запускает rollback. Чужой или изменённый skill с тем же именем блокирует обновление, остальные общие skills сохраняются. Если остались старые BSL Flow-копии в OpenCode-specific каталоге, сначала удали их после проверки/backup либо выполни основной установщик: адаптер не будет молча выбирать между затеняющими версиями.
 

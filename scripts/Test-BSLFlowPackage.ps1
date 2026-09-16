@@ -70,7 +70,6 @@ $requiredFiles = @(
     'LICENSE',
     'scripts\Install-BSLFlow.ps1', 'scripts\Install-BSLFlowForOpenCode.ps1',
     'scripts\Test-BSLFlowPackage.ps1', 'scripts\Test-BSLFlowOpenCode.ps1', 'scripts\Build-BSLFlowPackage.ps1',
-    'AGENT_REPORTS_RU.md',
     'OPENCODE_SETUP_RU.md', 'global\OPENCODE.delegation.md',
     'scripts\Install-BSLFlowForOpenCode.ps1', 'scripts\Test-BSLFlowOpenCode.ps1', 'scripts\Test-OpenCodeAdapter.ps1',
     'global\skills\1c-init-project\scripts\Update-BSLFlowProject.ps1',
@@ -89,13 +88,13 @@ $requiredFiles = @(
     'global\skills\1c-verify\scripts\Test-ExtensionIdentities.ps1',
     'global\skills\1c-verify\references\test-evidence.md',
     'global\skills\1c-verify\references\test-starters.md',
-    'SETUP_BP1_RU.md', 'scripts\Test-1CTestTooling.ps1', 'scripts\Test-InteractiveTestPilot.ps1',
+    'scripts\Test-1CTestTooling.ps1', 'scripts\Test-InteractiveTestPilot.ps1',
     'global\skills\1c-init-project\scripts\Get-1CTestTooling.ps1',
     'global\skills\1c-init-project\references\test-setup.md',
     'global\skills\1c-init-project\assets\project\AGENTS.md',
     'global\skills\1c-init-project\assets\project\bsl-flow.yaml',
     'global\skills\1c-init-project\assets\project\.bsl-flow\project.yaml',
-    'README.md', 'README.ru.md', 'INSTALL.md', 'TEST_ENVIRONMENT_GUIDE_RU.md', 'VERIFICATION.md', 'VERSION', 'CHANGELOG.md', 'global\AGENTS.bootstrap.md',
+    'README.md', 'README.en.md', 'INSTALL.md', 'TEST_ENVIRONMENT_GUIDE_RU.md', 'VERSION', 'CHANGELOG.md', 'global\AGENTS.bootstrap.md',
     'global\openspec\schemas\bsl-flow\schema.yaml', 'global\openspec\schemas\bsl-flow\templates\spec.md',
     'global\skills\1c-spec-review\SKILL.md', 'global\skills\1c-spec-review\agents\openai.yaml',
     'global\skills\1c-spec-review\reviewer\opencode-reviewer.json',
@@ -150,10 +149,8 @@ $requiredFiles = @(
     'global\skills\1c-task\scripts\Task.Coverage.ps1', 'scripts\Test-RequirementCoverage.ps1', 'scripts\Test-CoverageController.ps1',
     'global\skills\1c-task\scripts\Task.Publication.ps1', 'global\skills\1c-task\scripts\Task.PublicationGit.ps1',
     'global\skills\1c-task\schemas\publication.schema.json', 'scripts\Test-TaskPublication.ps1', 'scripts\Test-PublicationGit.ps1',
-    'docs\NATIVE_RUNTIME_RU.md', 'docs\REQUIREMENT_COVERAGE_RU.md', 'docs\PUBLICATION_RU.md', 'docs\SDLC_COMPLETION_RU.md',
-    'docs\NATIVE_RUNTIME_RU.md', 'docs\REQUIREMENT_COVERAGE_RU.md', 'docs\SDLC_COMPLETION_RU.md',
+    'docs\NATIVE_RUNTIME_RU.md', 'docs\REQUIREMENT_COVERAGE_RU.md', 'docs\PUBLICATION_RU.md',
     'global\skills\1c-task\scripts\Task.Delivery.ps1', 'global\skills\1c-task\scripts\Task.Runner.ps1',
-    'docs\PLAN_0.8_RU.md',
     'scripts\Test-SandboxedVerification.ps1',
     'scripts\Test-ManagedHost.ps1',
     'global\skills\1c-verify\references\testing-policy.md',
@@ -175,18 +172,21 @@ $packageVersion = (Get-Content -Raw (Join-Path $packageRoot 'VERSION')).Trim()
 Assert-True ($packageVersion -match '^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$') 'VERSION is not a valid package version.'
 $publicReadme = Get-Content -Raw (Join-Path $packageRoot 'README.md')
 Assert-True ($publicReadme -match '^# BSL Flow') 'Public README does not use the BSL Flow name.'
-Assert-True ($publicReadme.Contains('[MIT License](LICENSE)')) 'Public README does not link the MIT license.'
-$russianReadme = Get-Content -Raw (Join-Path $packageRoot 'README.ru.md')
+Assert-True ($publicReadme.Contains('](LICENSE)')) 'Public README does not link the MIT license.'
+$englishReadme = Get-Content -Raw (Join-Path $packageRoot 'README.en.md')
+Assert-True ($englishReadme -match '^# BSL Flow') 'English README does not use the BSL Flow name.'
+Assert-True ($publicReadme.Contains('[English](README.en.md)')) 'Primary Russian README does not link the English README.'
+Assert-True ($englishReadme.Contains('[Русская версия](README.md)')) 'English README does not link the primary Russian README.'
 $installScriptText = Get-Content -Raw (Join-Path $packageRoot 'scripts\Install-BSLFlow.ps1')
 $openCodeInstallerText = Get-Content -Raw (Join-Path $packageRoot 'scripts\Install-BSLFlowForOpenCode.ps1')
-foreach ($text in @($publicReadme, $russianReadme, (Get-Content -Raw (Join-Path $packageRoot 'INSTALL.md')))) {
+foreach ($text in @($publicReadme, $englishReadme, (Get-Content -Raw (Join-Path $packageRoot 'INSTALL.md')))) {
     Assert-True ($text.Contains('.agents\skills')) 'Public installation documentation does not name the shared skills catalog.'
 }
 Assert-True ($installScriptText.Contains("Join-Path `$userProfile '.agents\skills'")) 'Codex installer does not target the shared skills catalog.'
 Assert-True ($openCodeInstallerText.Contains("`$defaultSharedSkillsRoot=Join-Path `$userProfile '.agents\skills'")) 'OpenCode installer does not target the shared skills catalog.'
 Assert-True ($installScriptText.Contains('Remove-RetiredManagedBlock -Text $agentsText -Marker "$retiredFrameworkName bootstrap"')) 'Codex installer does not retire the old managed AGENTS block.'
 Assert-True ($installScriptText.Contains('$retiredSchema = Join-Path $targetSchemaParent $retiredFrameworkName')) 'Codex installer does not retire the old OpenSpec schema beside the selected target.'
-Assert-True ($russianReadme.Contains('provider') -and $russianReadme.Contains('`BLOCKED`') -and $russianReadme.Contains('not_configured')) 'Russian README lacks the missing-test-provider contract.'
+Assert-True ($publicReadme.Contains('provider') -and $publicReadme.Contains('`BLOCKED`') -and $publicReadme.Contains('not_configured')) 'Primary README lacks the missing-test-provider contract.'
 $retiredPrefix = '1' + 'c'
 $retiredWord = 'li' + 'te'
 $forbiddenNamePattern = '(?i)' + $retiredPrefix + '[-_. ]?' + $retiredWord + '|one' + $retiredPrefix + '[-_. ]?' + $retiredWord

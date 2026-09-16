@@ -48,7 +48,7 @@ $zipParent = Split-Path -Parent $zipPath
 New-Item -ItemType Directory -Path $zipParent -Force | Out-Null
 
 $excludedRootSegments = @('.bsl-flow', '.build', 'work', 'outputs')
-$excludedRootFiles = @('AGENTIC_SDLC_PLAN_RU.md')
+$excludedRootFiles = @()
 $relativePaths = [string[]]@(Get-ChildItem -LiteralPath $root -File -Recurse -Force | Where-Object {
     $relative = $_.FullName.Substring($root.Length + 1)
     $segments = @($relative -split '[\\/]')

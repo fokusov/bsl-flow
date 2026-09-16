@@ -8,7 +8,7 @@
 
 ## 2026-09-16 — Rollback of native-cross-platform-cli
 
-By owner decision the change `native-cross-platform-cli` is rolled back: BSL Flow ships no Go binary, and Linux/macOS support is not planned for the upcoming releases. The Go CLI (`cli/`, `bsl-flow.exe`), its CI lanes and binary helpers are removed; PowerShell 7 scripts are restored as the only execution engine, and skills route to them again. Dated verification receipts for the Go CLI below remain historical records; the rollback record is `openspec/changes/native-cross-platform-cli/rollback.md`.
+By owner decision the change `native-cross-platform-cli` is rolled back: BSL Flow ships no Go binary, and Linux/macOS support is not planned for the upcoming releases. The Go CLI (`cli/`, `bsl-flow.exe`), its CI lanes and binary helpers are removed; PowerShell 7 scripts are restored as the only execution engine, and skills route to them again. Dated verification receipts for the Go CLI below remain historical records; the rollback decision itself is recorded in this section and in the 2026-09-16 entries of the project ledgers.
 
 ## Unreleased
 
@@ -37,7 +37,7 @@ By owner decision the change `native-cross-platform-cli` is rolled back: BSL Flo
 - Controller-owned native FILE extension execution with exact platform/source/target binding, original JUnit, private credential input, durable process intent and control-read recovery. Test-only continuation reuses a proven prior load without repeating database writes.
 - Trusted requirement-to-criterion mapping and independent test sufficiency review, bound to protected test files and accepted evidence. Real native and coverage pilots are documented separately.
 - Recover queue notifications from the complete durable journal; reject malformed/torn records and prevent repeated execution after a recorded dispatch error.
-- Separate accepted-source publication commands with explicit remote/ref authorization, deterministic Git objects, create-only branches and read-only recovery after uncertain push. Publication integration status is tracked in `docs/SDLC_COMPLETION_RU.md`.
+- Separate accepted-source publication commands with explicit remote/ref authorization, deterministic Git objects, create-only branches and read-only recovery after uncertain push. Publication integration status is tracked in the changelog history.
 - Documented architecture decisions and verification boundaries; arbitrary business, UI, EPF and production acceptance remain environment-specific.
 
 ## 0.8.0-dev.1

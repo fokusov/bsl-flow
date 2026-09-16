@@ -34,7 +34,7 @@ Queue JSON имеет вид:
 
 Текущее состояние очереди хранится в `.bsl-flow/runner/queue-<uuid>-snapshot.json`, содержательные события — в общем `events.jsonl`. При перезапуске controller читает весь журнал: последние 256 ключей в snapshot служат только кешем. Сохранённая ошибка dispatch не повторяется на той же revision, даже если snapshot не успел обновиться. Ожидание ответа тоже создаёт событие; следующая проверка без изменения состояния его не дублирует. Оборванная или повреждённая строка журнала блокирует автоматическое продолжение и требует исследования сохранённых task attempts. Журнал не является отправкой уведомления во внешний сервис; интеграция читает его и использует `event_key` для своей дедупликации.
 
-Managed-контур поддерживает исходники и ограниченный [native-маршрут расширения](NATIVE_RUNTIME_RU.md) в явно разрешённой FILE-базе. В 0.7 реальные source-only пилоты прошли S- и M-маршруты; в 0.8.0-dev.2 публичный CLI завершил native unit-пилот с пятью тестами и контрольным восстановлением. Новым native-задачам нужен [mapping требований и независимый coverage review](REQUIREMENT_COVERAGE_RU.md). Временное ограничение durable Unica jobs сохраняется. Статус остальных сценариев и точные границы доказательств собраны в [отчёте проверки](../VERIFICATION.md).
+Managed-контур поддерживает исходники и ограниченный [native-маршрут расширения](NATIVE_RUNTIME_RU.md) в явно разрешённой FILE-базе. В 0.7 реальные source-only пилоты прошли S- и M-маршруты; в 0.8.0-dev.2 публичный CLI завершил native unit-пилот с пятью тестами и контрольным восстановлением. Новым native-задачам нужен [mapping требований и независимый coverage review](REQUIREMENT_COVERAGE_RU.md). Временное ограничение durable Unica jobs сохраняется. Актуальные решения и ограничения — в [CHANGELOG.md](../CHANGELOG.md).
 
 Точный машинный контракт запросов, обновлений, результатов и exit codes находится в [`1c-task/references/task-contract.md`](../global/skills/1c-task/references/task-contract.md). При расхождении ориентируйся на него и текущий код.
 
@@ -68,7 +68,7 @@ Deterministic gates дополняют skills и OpenSpec:
 | M, low/medium | `inspect → spec → spec_review → implement → verify → acceptance` |
 | L или high | `inspect → spec → spec_review → implement → code_review → verify → acceptance` |
 
-Для S проектная политика `review.routing.s_default: required` или `require_spec_review: true` добавляет `spec` и `spec_review`. `require_code_review: true` добавляет code review. Флаги `permissions`, `data_migration` и `data_deletion`, найденные при инспекции, повышают риск до high. Влияния на права, данные, проведение и обмен требуют integration evidence, `form_flow` требует UI evidence, а `external_artifact` — соответствующий профиль. В `0.8.0-dev.2` native FILE-профиль выполняет объявленные YAxUnit-тесты; integration/UI/external artifact критерии без соответствующих доказательств остаются `BLOCKED`.
+Для S проектная политика `review.routing.s_default: required` или `require_spec_review: true` добавляет `spec` и `spec_review`. `require_code_review: true` добавляет code review. Флаги `permissions`, `data_migration` и `data_deletion`, найденные при инспекции, повышают риск до high. Влияния на права, данные, проведение и обмен требуют integration evidence, `form_flow` требует UI evidence, а `external_artifact` — соответствующий профиль. В 0.8 native FILE-профиль выполняет объявленные YAxUnit-тесты; integration/UI/external artifact критерии без соответствующих доказательств остаются `BLOCKED`.
 
 Для `analysis_only` с `analysis_goal: analysis` маршрут состоит из `inspect` и `acceptance`. Значение `specification` добавляет `spec`, а необходимость review определяется классификацией и policy.
 
@@ -183,6 +183,14 @@ $updateFile = Join-Path $env:TEMP ("bsl-flow-update-$taskId.json")
 ```
 
 Cancel запрещает новый dispatch. Прерываемый worker может быть остановлен; непрерываемый native-процесс 1С не завершается принудительно, его неизвестный результат требует control read. Cancel не откатывает уже применившееся внешнее действие. Для продолжения после Cancel нужен явный пользовательский `Update` с `kind: authorization` и `resume: true`, затем `Resume`.
+
+## Локальный реестр задач и настройки окружения
+
+Помимо управляемых задач контроллер ведёт clone-local реестр `planned`-задач: store `<git common dir>/bsl-flow/tasks/<uuid>/revisions` (schema v1) общий для всех worktree клона и не коммитится в Git. Задача создаётся с непустым `-Title` и опциональными `-Description -Priority -Labels -DependsOn`; редактирование — через оптимистичный `-ExpectedRevision`; циклы, self-reference и дубликаты зависимостей отклоняются. Чтение: `-Action List|Show|History|Overview` с фильтрами (`-Status -Priority -Label -Archived false|true|all -Sort -Order -Limit -Cursor`) и форматом `-Format Human|Json` (exit: 0 успех, 2 `BF_INVALID`, 11 `BF_BLOCKED`/`BF_CONFLICT`). Тонкая обёртка `scripts/bsl-flow.ps1` отображает `bsl-flow task <create|edit|list|show|history|overview|archive|unarchive|activate>` на те же действия. `-Action Activate` выполняет полную валидацию trusted request и возвращает staged `BLOCKED` без записи revision: включение активации — отдельный controller write slice.
+
+Настройки совета ревью можно вынести в профиль пользователя `%USERPROFILE%\.bsl-flow\config.yaml` (override `BSL_FLOW_USER_CONFIG`): профиль — база, проект вытесняет его по полям внутри именованных провайдеров, профилей моделей и ролей; незакоммиченный `.bsl-flow/providers.local.yaml` сохраняет высший приоритет для `token`/`base_url`. Профиль допускает только `llm.providers`, `llm.models` и привязки `review.council.roles.<роль>.model`; иной ключ отклоняется fail-closed с именем файла и ключа. Файл не создаётся автоматически.
+
+Для M/L-изменений допустима опциональная тройка машиночитаемых артефактов рядом со `spec.md`: `contract.yaml`, `execution.yaml`, `verification.yaml`. Их проверяет детерминированный линт `Invoke-1CSpecContractLint.ps1` (тот же `-ChangePath`, что у линта `spec.md`); отсутствие артефактов — валидное штатное состояние.
 
 ## Где лежат результаты
 
