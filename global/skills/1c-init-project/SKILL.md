@@ -17,20 +17,22 @@ Inspect existing `.git`, `AGENTS.md`, `bsl-flow.yaml`, `.bsl-flow/project.yaml`,
 
 ## Run the deterministic bootstrap
 
-The native commands run without PowerShell. Check `bsl-flow help` first: if it lists `bsl-flow init`, use the binary (the 2026-09-15 0.8.0-dev.3 deploy predates these commands — fall back to this skill's PowerShell scripts and say so in the handoff):
+The bundled script performs preflight, initialization, managed project upgrade and validation:
 
-```bash
-bsl-flow init --project "<project-root>"
+```powershell
+& "<skill-dir>\scripts\Initialize-BSLFlowProject.ps1" -ProjectPath "<project-root>"
 ```
 
-When the user explicitly identified an empty or otherwise undetectable directory as the intended 1C project root, add `--explicit-1c-project`. To change an existing project, plan first with `bsl-flow upgrade --project "<project-root>"` and apply only the printed plan with `--apply` (`--plan-path <path>` retains the plan JSON).
+When the user explicitly identified an empty or otherwise undetectable directory as the intended 1C project root, add:
 
-With the PowerShell compatibility scripts (`Initialize-BSLFlowProject.ps1` / `Update-BSLFlowProject.ps1`) the equivalents are `-ProjectPath`, `-Explicit1CProject`, and `Update-BSLFlowProject.ps1 [-Apply] [-PlanPath <path>]`.
+```powershell
+-Explicit1CProject
+```
 
-Tell the user whenever this skill causes initialization. Bootstrap (native or script):
+Tell the user whenever this skill causes initialization. The script:
 
 - validates Git, OpenSpec, and the globally installed `bsl-flow` schema before changes;
-- initializes Git only at the confirmed project root (the native commands manage only the packaged project files; run `git init` and `openspec init --tools none` for new scaffolding and say so in the handoff);
+- initializes Git only at the confirmed project root;
 - runs `openspec init --tools none` only when `openspec/` is absent;
 - sets `openspec/config.yaml` to `schema: bsl-flow`;
 - creates only missing project files from `assets/project/`;
@@ -39,9 +41,9 @@ Tell the user whenever this skill causes initialization. Bootstrap (native or sc
 - creates `.bsl-flow/reports` and `.bsl-flow/evidence` placeholders;
 - validates the resulting schema selection.
 
-New v0.6 projects receive reviewer routing/model/permission ceiling/thresholds and proportionate testing policy in `bsl-flow.yaml`; local runner overrides and database files are excluded from new Git projects. Existing BSL Flow project configuration and marked ignore blocks are preserved. The deterministic workspace tooling does not install test frameworks or provision a database.
+New v0.6 projects receive reviewer routing/model/permission ceiling/thresholds and proportionate testing policy in `bsl-flow.yaml`; local runner overrides and database files are excluded from new Git projects. Existing BSL Flow project configuration and marked ignore blocks are preserved. The deterministic workspace script does not install test frameworks or provision a database.
 
-For an existing BSL Flow project the upgrade prints a deterministic plan, adds only missing template keys, preserves user values/comments/unknown blocks, and updates sentinel version only after successful validation. Unsupported YAML or a managed mapping conflict blocks without a partial version advance.
+For an existing BSL Flow project, bootstrap invokes `scripts/Update-BSLFlowProject.ps1 -Apply`. It prints a deterministic plan, adds only missing template keys, preserves user values/comments/unknown blocks, and updates sentinel version only after successful validation. Use the upgrade script without `-Apply` for a read-only plan. Unsupported YAML or a managed mapping conflict blocks without a partial version advance.
 
 Do not reimplement these mechanics manually when the script is available.
 
@@ -57,7 +59,7 @@ For a new test scaffold, use [test-starters.md](../1c-verify/references/test-sta
 
 ## Optional architecture context
 
-A project may add its own ADR index for the read-only architecture projection (`bsl-flow task context`). Bootstrap does not create, overwrite or delete `docs/architecture`; the file stays project-owned and optional, and an absent index keeps the existing `missing_context` fallback. Read [architecture-context.md](references/architecture-context.md) before adding or reviewing one.
+A project may add its own ADR index for the read-only architecture projection (`Invoke-BSLFlowTask.ps1 -Action Context`). Bootstrap does not create, overwrite or delete `docs/architecture`; the file stays project-owned and optional, and an absent index keeps the existing `missing_context` fallback. Read [architecture-context.md](references/architecture-context.md) before adding or reviewing one.
 
 ## Delegated work audit
 
