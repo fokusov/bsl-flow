@@ -177,7 +177,10 @@ finally { Remove-Item -LiteralPath $proj3 -Recurse -Force -ErrorAction SilentlyC
 # 4. A timeout after dispatch is persisted once and never blindly repeated.
 $proj4 = New-TempProject
 try {
+    # Cycle admission requires every enabled role to be servable before the
+    # first dispatch, so the timeout path needs both provider tokens.
     [System.Environment]::SetEnvironmentVariable('DEEPSEEK_API_KEY', 'test-token')
+    [System.Environment]::SetEnvironmentVariable('OPENAI_API_KEY', 'test-token')
     try {
         $timeoutDispatcher = {
             param($Attempt, $PromptText, $Route)
@@ -205,7 +208,10 @@ try {
         $afterCalls = @(Get-ChildItem -LiteralPath (Join-Path $proj4 '.bsl-flow/reports/spec-review/demo.council/intent_critic') -File -Filter 'result-*.json')
         Assert-True ($afterCalls.Count -eq 1) 'no second dispatch happened for the unknown attempt'
     }
-    finally { [System.Environment]::SetEnvironmentVariable('DEEPSEEK_API_KEY', $null) }
+    finally {
+        [System.Environment]::SetEnvironmentVariable('DEEPSEEK_API_KEY', $null)
+        [System.Environment]::SetEnvironmentVariable('OPENAI_API_KEY', $null)
+    }
 }
 finally { Remove-Item -LiteralPath $proj4 -Recurse -Force -ErrorAction SilentlyContinue }
 
@@ -353,5 +359,33 @@ try {
     Assert-True ($reservedTotal -le 0.05) 'durable reserved total never exceeds the limit under concurrency'
 }
 finally { Remove-Item -LiteralPath $proj9 -Recurse -Force -ErrorAction SilentlyContinue }
+
+# 10. Cycle admission refuses the whole cycle before ANY dispatch when an
+# enabled role cannot be served: members hold credentials while the tokenless
+# chair has no trusted capability receipt, so even the cheaper member roles
+# must never dispatch.
+$proj10 = New-TempProject
+try {
+    $oldOpenAiKey = [System.Environment]::GetEnvironmentVariable('OPENAI_API_KEY')
+    try {
+        [System.Environment]::SetEnvironmentVariable('DEEPSEEK_API_KEY', 'test-token')
+        [System.Environment]::SetEnvironmentVariable('OPENAI_API_KEY', $null)
+        $callsBefore = @($script:stubCalls.ToArray()).Count
+        try {
+            $null = Invoke-BSLFlowCouncilReview -ProjectPath $proj10 -ChangeName 'demo' -AllowLiveDispatch -Dispatcher $stub
+            throw 'FAIL cycle dispatched with an unservable chair role'
+        }
+        catch {
+            Assert-True ([string]$_.Exception.Message -match 'BF_BLOCKED: council cannot start: role chair') 'unservable chair role refuses the whole cycle at admission'
+        }
+        Assert-True (@($script:stubCalls.ToArray()).Count -eq $callsBefore) 'no role was dispatched when admission refuses the cycle'
+        Assert-True (-not (Test-Path -LiteralPath (Join-Path $proj10 '.bsl-flow/reports/spec-review/demo.council/budget') -PathType Container)) 'no budget reservation was taken before the refusal'
+    }
+    finally {
+        [System.Environment]::SetEnvironmentVariable('DEEPSEEK_API_KEY', $null)
+        if ($null -ne $oldOpenAiKey) { [System.Environment]::SetEnvironmentVariable('OPENAI_API_KEY', $oldOpenAiKey) }
+    }
+}
+finally { Remove-Item -LiteralPath $proj10 -Recurse -Force -ErrorAction SilentlyContinue }
 
 "ALL_STAGE_CYCLE_PASSED=$passed"

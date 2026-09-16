@@ -490,6 +490,25 @@ function Invoke-BSLFlowCouncilCycle {
         $entry | Add-Member -NotePropertyName request_timeout_seconds -NotePropertyValue $Council.request_timeout_seconds -Force
     }
 
+    # Cycle admission: refuse the whole cycle before any paid dispatch when an
+    # enabled role cannot possibly be served. Unlike the assisted CLI, this
+    # route can serve a tokenless role's current_agent fallback through a
+    # managed host, but only with a trusted capability receipt.
+    foreach ($entry in $Bindings) {
+        if ([string]$entry.credential.credential_source -cne 'missing') { continue }
+        $admissionRole = [string]$entry.role_name
+        if ([string]$entry.role.fallback -ceq 'block') {
+            throw "BF_BLOCKED: council cannot start: role $admissionRole credential is missing and fallback policy is block."
+        }
+        $admissionCapability = $null
+        if ($null -ne $Capabilities -and $Capabilities.ContainsKey($admissionRole)) { $admissionCapability = $Capabilities[$admissionRole] }
+        if ($null -eq $admissionCapability) {
+            $tokenEnv = [string]$entry.provider.token_env
+            throw "BF_BLOCKED: council cannot start: role $admissionRole has no credential ($tokenEnv) and no trusted capability receipt can serve the current-agent fallback; set $tokenEnv in the environment or .bsl-flow/providers.local.yaml, or change review.council.roles.$admissionRole.model."
+        }
+        $null = Assert-BSLFlowCouncilCapability $admissionCapability
+    }
+
     # Admission is per-dispatch (DispatchRole and the chair leg): each real
     # dispatch is admitted against the whole durable ledger right before its
     # reservation, so retained results are never re-counted and the chair is
