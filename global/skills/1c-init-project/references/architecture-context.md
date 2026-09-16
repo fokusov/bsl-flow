@@ -1,7 +1,7 @@
 # Architecture context and the optional project ADR index
 
 BSL Flow exposes a read-only architecture projection over the controller journal:
-`bsl-flow task context --project <path> --task <uuid>`. It reports the
+`Invoke-BSLFlowTask.ps1 -Action Context -ProjectPath <path> -TaskId <uuid>`. It reports the
 authoritative `Get-BFNext` result, blockers, question, unknown effect, evidence
 freshness and the hashes it was generated from. It is not authorization,
 acceptance, runtime evidence or a transition authority.
@@ -16,7 +16,7 @@ A project may opt in to project-specific architecture decisions by adding:
   (anchors must match the `## ADR-N: <title>` headings).
 
 When the project index is present and valid, the stage architecture bundle and
-`task context` use it. Without it, the previous behavior is unchanged: the
+`-Action Context` use it. Without it, the previous behavior is unchanged: the
 framework package root is used and an absent index is reported as
 `missing_context` rather than failing the task. A present but damaged index is
 fail-closed: validation rejects unknown subjects, dangling references,
