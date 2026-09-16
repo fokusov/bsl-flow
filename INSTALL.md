@@ -2,22 +2,16 @@
 
 Установка framework не загружает расширения в базы.
 
-## Go CLI
+## Запуск задач
 
-В версии 0.8 добавлен `bsl-flow.exe` для Windows amd64. Он содержит инструкции и PowerShell 7 controller, проверяет embedded bundle и раскрывает его в `%LOCALAPPDATA%\BSLFlow\bundles\<version>-<hash>`. Для запуска готового exe Go не нужен; сохраняются зависимости движка, перечисленные ниже. Изменённый cache блокируется вместо автоматического исполнения или перезаписи.
-
-Сборка из исходников установленным Go (проверяемая toolchain — Go 1.27.1):
+Единственный пользовательский вход — PowerShell-контроллер. Зависимости движка перечислены в требованиях ниже.
 
 ```powershell
-.\scripts\Build-BSLFlowCli.ps1 -Test
-.\scripts\Test-BSLFlowCli.ps1
-.\cli\bin\bsl-flow.exe version
-.\cli\bin\bsl-flow.exe help
+& "$env:USERPROFILE\.agents\skills\1c-task\scripts\Invoke-BSLFlowTask.ps1" -Action Start -ProjectPath C:\PRJ\client\project -InputFile C:\Tasks\request.json
+& "$env:USERPROFILE\.agents\skills\1c-task\scripts\Invoke-BSLFlowTask.ps1" -Action Run -ProjectPath C:\PRJ\client\project -TaskId <uuid>
 ```
 
-Builder не скачивает Go, модули или другую toolchain. Native executable и `.sha256` выпускаются отдельно от исходного ZIP; generated Go cache/bundle/binary исключаются из ZIP. Повторяемость exe проверяется для одной toolchain и одного встроенного snapshot.
-
-Запуск задачи: `bsl-flow task start --project <root> --input <request.json>`, затем `bsl-flow task run --project <root> --task <uuid>`. Полный [контракт CLI и очереди](global/skills/1c-task/references/task-contract.md) описывает исправления, восстановление и локальную передачу результата. Установщик не регистрирует службу, расписание или автоматическую публикацию. Для разрешённой GitHub-публикации нужен уже установленный и авторизованный GitHub CLI. FILE-публикация использует локальный bare repository без GitHub credentials. Точные ограничения и отдельный входной JSON описаны в [публикации](docs/PUBLICATION_RU.md); native credentials — в [контракте runtime](docs/NATIVE_RUNTIME_RU.md).
+Полный [контракт CLI и очереди](global/skills/1c-task/references/task-contract.md) описывает исправления, восстановление и локальную передачу результата. Установщик не регистрирует службу, расписание или автоматическую публикацию. Для разрешённой GitHub-публикации нужен уже установленный и авторизованный GitHub CLI. FILE-публикация использует локальный bare repository без GitHub credentials. Точные ограничения и отдельный входной JSON описаны в [публикации](docs/PUBLICATION_RU.md); native credentials — в [контракте runtime](docs/NATIVE_RUNTIME_RU.md).
 
 ## Требования
 

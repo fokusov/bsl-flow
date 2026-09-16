@@ -10,9 +10,11 @@
 
 ## Архитектурное решение: собственный бинарный CLI
 
+> Откат 2026-09-16: по решению владельца бинарный CLI не выпускается; этот раздел сохранён как история решения. Пользовательский вход — `global/skills/1c-task/scripts/Invoke-BSLFlowTask.ps1` (PowerShell 7). Запись отката — `openspec/changes/native-cross-platform-cli/rollback.md`.
+
 Строгий CLI уже реализован в `Invoke-BSLFlowTask.ps1`: закрытый набор команд, JSON envelope, конечные коды и детерминированные transitions. Инструкции этапов находятся в skills; worker возвращает предложения, controller проверяет evidence и единолично принимает результат.
 
-В 0.8 вводится `bsl-flow.exe` как стабильный пользовательский вход. Он содержит версионируемый bundle инструкций и controller, проверяет его целостность и вызывает фиксированный entrypoint. Авторитетный PowerShell 7 engine сохраняется и запускается через стандартную машинную установку `C:\Program Files\PowerShell\7\pwsh.exe`; fallback на Windows PowerShell 5.1 не предусмотрен. Бинарник не ведёт вторую историю, не интерпретирует PASS самостоятельно и не обходит authorization. Требования Git и worker provider остаются явными.
+В 0.8 планировалось ввести `bsl-flow.exe` как стабильный пользовательский вход: он должен был содержать версионируемый bundle инструкций и controller, проверять его целостность и вызывать фиксированный entrypoint. Авторитетный PowerShell 7 engine сохраняется и запускается через стандартную машинную установку `C:\Program Files\PowerShell\7\pwsh.exe`; fallback на Windows PowerShell 5.1 не предусмотрен. Бинарник не ведёт вторую историю, не интерпретирует PASS самостоятельно и не обходит authorization. Требования Git и worker provider остаются явными.
 
 Сравнение вариантов:
 
@@ -138,3 +140,7 @@ Source-only freeze завершён (r6, snapshot `bfn-4983a515`, 306 файло
 Эксплуатация: установленный CLI заменён на freeze r6 `bsl-flow.exe` (SHA-256 `f031fc3d…`, побайтно сверен с артефактом). Первая собственная задача владельца через managed flow станет сквозным пилотом объединённой r6-версии. Попутно исправлен дефект разбора review-ответов в `Review.Common.ps1` (склеивание text-частей без разделителя ломало извлечение fenced JSON; регрессия в `Test-ReviewReliability.ps1`, 128 проверок).
 
 Не изменилось: push и удалённый CI — решение владельца; живой Astra council 0/4; настоящий Codex sandbox denial — environmental BLOCKED; GitHub HTTPS пилот; публикация production.
+
+## Откат native-cross-platform-cli, 2026-09-16
+
+По решению владельца изменение `native-cross-platform-cli` отменено: Go-бинарник не выпускается, версии под Linux/macOS в ближайших релизах не планируются; PowerShell 7 остаётся единственным движком. Из репозитория удалены `cli/` и Go-дорожки CI; пользовательский вход — снова `Invoke-BSLFlowTask.ps1`, skills маршрутизируют к PS-скриптам. Freeze r6 exe и артефакты `work/blocked-completion-20260912/` из разделов выше — исторические записи; установленный `bsl-flow.exe` входом больше не является. Этапы C–G (native FILE-адаптер, coverage, очередь, публикация) остаются в PowerShell-контроллере; Go-часть инкремента activation/adoption удалена, PS-часть приёмки в силе. Затронутые спеки: `repository-task-registry`, `user-profile-council-config` и `execution-contract-v01` — ON HOLD до переанкеровки; `native-task-activation-adoption` — PS-часть в силе (дополнения в каталогах изменений). Запись отката — `openspec/changes/native-cross-platform-cli/rollback.md`; незакоммиченные Go-исправления сохранены в `work/rollback-native-cli-20260916/uncommitted-go-fixes-backup.patch` (ignored path).

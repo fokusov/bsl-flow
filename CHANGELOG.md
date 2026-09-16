@@ -1,6 +1,12 @@
 # Changelog
 
+## 2026-09-16 — Rollback of native-cross-platform-cli
+
+By owner decision the change `native-cross-platform-cli` is rolled back: BSL Flow ships no Go binary, and Linux/macOS support is not planned for the upcoming releases. The Go CLI (`cli/`, `bsl-flow.exe`), its CI lanes and binary helpers are removed; PowerShell 7 scripts are restored as the only execution engine, and skills route to them again. Dated verification receipts for the Go CLI below remain historical records; the rollback record is `openspec/changes/native-cross-platform-cli/rollback.md`.
+
 ## Unreleased
+
+> **Rolled back 2026-09-16** (owner decision): the native Go CLI features in this section were removed together with `cli/`; PowerShell 7 is again the only engine. Entries are kept as history.
 
 - Native task queue supervision: `bsl-flow runner run` serves the trusted queue through the ported `Task.Runner.ps1` loop (journal replay, cursor fairness, lease lock, liveness-checked self-dispatch, no-blind-retry) without PowerShell; `--engine legacy-powershell` keeps the Windows queue engine and unservable queue entries fail closed.
 - Native publication: `task publish`/`publish-resume` drive the delivery state machine over a real git CLI adapter with PS-identical environment scrubbing, bounded output, create-only force-with-lease push and a crash-resumable sealed state; the accepted receipt, a fresh source manifest and route gates are re-verified before dispatch, and an unknown push effect blocks automatic replay.
@@ -11,6 +17,8 @@
 - Council dispatch hardening (field report): the live dispatcher travels as a per-runspace sentinel across parallel thread-jobs, the council review assertion sources its engine dependency, and run metrics map council schema v2 reviews to the common record shape.
 
 ## 0.8.0-dev.3
+
+> **Rolled back 2026-09-16** (owner decision): the native `spec` CLI items in this section were removed with the Go CLI; the PowerShell validators (`Test-1CSpec.ps1`, `Test-1CSpecFinal.ps1`) remain the authoritative implementation. Entries are kept as history.
 
 - Native `spec lint`, `spec final` and `spec review` write the change-directory sidecars (`spec-lint.json`, `final-validation.json`) in the exact shapes the PowerShell validators publish, so the estimate gate and finalization run without PowerShell (BF-1/BF-2 of the 2026-09-14 field report).
 - `spec review` also persists `spec-lint.json` like the legacy single-reviewer script route.
@@ -29,7 +37,7 @@
 ## 0.8.0-dev.1
 
 - Fix Windows CI dependencies with pinned OpenSpec and an isolated package schema; preserve the historical Windows PowerShell 5.1 encoding regression evidence.
-- Go executable with embedded versioned instructions/engine, strict task CLI, verified cache and host identity binding. PowerShell 7 from the standard machine installation `C:\Program Files\PowerShell\7\pwsh.exe`, Git and the model provider remain external dependencies; PS5.1 fallback is not supported.
+- Go executable with embedded versioned instructions/engine, strict task CLI, verified cache and host identity binding. PowerShell 7 from the standard machine installation `C:\Program Files\PowerShell\7\pwsh.exe`, Git and the model provider remain external dependencies; PS5.1 fallback is not supported. (Removed by the 2026-09-16 rollback of `native-cross-platform-cli`.)
 - Opt-in bounded source failure diagnosis/repair with frozen declared test inputs, exact failed evidence, fresh independent code review and verification. Defaults preserve fail-stop behavior.
 - Local supervisor for explicitly registered tasks and immutable accepted-source handoff; no implicit startup installation, push, deployment or database authority.
 - JUnit aggregate consistency and read-only diagnosis recovery checks; standalone CLI and updated package verification.

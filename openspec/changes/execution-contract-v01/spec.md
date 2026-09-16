@@ -85,3 +85,9 @@
 - Точные имена полей YAML фиксируются design.md и замораживаются при реализации линта (`schema_version: 1`); черновик следует терминологии исходного предложения (id/kind/depends_on/goal/allowed_scope/forbidden/satisfies/verify/mutation).
 - Предполагается, что openspec CLI терпит дополнительные файлы в каталоге изменения (прецедент — sidecar-файлы repository-task-registry); если schema.yaml требует декларации артефактов, она добавляется минимально.
 - Формат constraints в `contract.yaml` в v0.1 — свободные key/value под allowlist; строгая онтология машинных инвариантов отложена.
+
+---
+
+## Дополнение 2026-09-16 (откат native-cross-platform-cli)
+
+Требование 5 заякоривало детерминированный линт артефактов в `cli/internal/specvalidate` (`bsl-flow spec lint`), удалённом откатом `native-cross-platform-cli` 2026-09-16 (решение владельца). Форматы артефактов (`contract.yaml`, `execution.yaml`, `verification.yaml`) и правила исполнения остаются валидными как концепт. Статус изменения: **ON HOLD** до переанкеровки линта на PowerShell-реализацию.

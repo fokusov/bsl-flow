@@ -51,6 +51,8 @@ $exe = "<путь>\1cv8.exe"
 
 ## Прогон
 
+> Дополнение 2026-09-16: приёмка остаётся на паузе (см. статус выше), а Go CLI удалён откатом `native-cross-platform-cli`. Команды ниже (и предусловие «собранный бинарник») относятся к нему и сохранены как история шаблона; возобновление приёмки потребует переанкеровки на PowerShell-вход `Invoke-BSLFlowTask.ps1`.
+
 ```powershell
 # создание/активация (native repository task):
 bsl-flow task create --project <repo> --input task-card.json

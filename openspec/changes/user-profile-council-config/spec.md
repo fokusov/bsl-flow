@@ -80,3 +80,9 @@
 
 - Каноническая форма мержа для `PolicyHash` (представление) фиксируется в тестах; требование — чувствительность к содержимому профиля и воспроизводимость аудита.
 - Предполагается, что `review.council.{enabled, legacy_mode, budget}` продолжают читаться только из проекта; если реализация покажет иное, требование 2 уточняется в ревью.
+
+---
+
+## Дополнение 2026-09-16 (откат native-cross-platform-cli)
+
+Гейты этой спеки были заякорены в Go-коде (`cli/internal/councilengine/policy.go` — разбор policy, `cli/specreview_cmd.go` — admission-гейт, `cli/internal/platform/configpaths.go` — пути конфигурации), удалённом откатом `native-cross-platform-cli` 2026-09-16. Концепция переносится на PS-совет (policy-хелперы `Council.Common.ps1`). Статус изменения: **ON HOLD** до переанкеровки на PowerShell перед реализацией.

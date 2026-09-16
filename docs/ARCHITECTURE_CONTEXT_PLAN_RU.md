@@ -2,6 +2,8 @@
 
 Статус: 2026-09-10 согласовано; этапы A–E реализованы offline. Замечания двух независимых ревью устранены: полный section hash в identity **всех** применимых ADR (включая исключённые из presentation), containment `source.path`/`refs`, единый architecture resolver, расширенный `task context` (source/package identity, последний terminal attempt с receipts), согласование schema (`active_attempt` строкой), проверяемые subject refs, корректный missing subject, лимит и `excluded` от реального prompt, настоящая package identity, versioned context на ошибке чтения, разделение Git stdout/stderr для стабильного resume-пилота. Документ задаёт отдельный increment после критических исправлений BFI-001–005. Реализация A–E не запускает модели, benchmark и не выполняет действий с базой 1С; `Context` — чистый read-only.
 
+Дополнение 2026-09-16: Go-релиз отменён откатом `native-cross-platform-cli` (решение владельца); упоминания тонкого relay в Go CLI ниже — история. Публичный вход для контекста — `Invoke-BSLFlowTask.ps1 -Action Context` (PowerShell 7).
+
 **Что реализовано (A, B, C, D, E).**
 
 - A: `docs/architecture/adr-index.schema.json` (индекс + subject registry), `docs/architecture/adr-index.json` (ADR-1…ADR-10), валидатор `global/skills/1c-task/scripts/Task.Architecture.ps1`, offline `scripts/Test-ADRIndex.ps1` (25 checks: duplicate id, missing anchor, dangling reference, supersedes cycle, unknown subject, schema, containment `source.path`/`refs`, существование subject-файлов и symbol anchors, обязательные `informed_by`/`supersedes`, maxLength title). Канонический hash индекса сохраняется в `package-manifest.json` (`architecture.adr_index_sha256` / `adr_index_canonical_sha256`); повреждённая связь валит build.
@@ -93,11 +95,11 @@
 
 Предлагаемая публичная команда:
 
-```text
-bsl-flow task context --project <path> --task <uuid>
+```powershell
+& "$env:USERPROFILE\.agents\skills\1c-task\scripts\Invoke-BSLFlowTask.ps1" -Action Context -ProjectPath <path> -TaskId <uuid>
 ```
 
-Go CLI только передаёт действие `Context` существующему controller и отображает его versioned JSON. Собственной логики переходов в CLI нет.
+Скрипт-вход только передаёт действие `Context` существующему controller и отображает его versioned JSON. Собственной логики переходов во входе нет.
 
 Минимальный результат:
 

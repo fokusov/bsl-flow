@@ -28,8 +28,8 @@
 Замени placeholders фактическими значениями. Другой поддержанный профиль — абсолютный путь к существующему локальному bare repository с `auth: "none"`. Первый сетевой профиль ограничен точным `https://github.com/OWNER/REPOSITORY.git`, без URL credentials, query, redirects и произвольных transport/helper-команд. Авторизация операции и наличие GitHub credentials — разные условия: профиль использует существующую машинную установку GitHub CLI; controller не устанавливает её и не выполняет интерактивный login.
 
 ```powershell
-bsl-flow task publish --project C:\DEV\Example --task <task-uuid> --input C:\Tasks\publication.json
-bsl-flow task publish-resume --project C:\DEV\Example --task <task-uuid> --input C:\Tasks\publication.json
+& "$env:USERPROFILE\.agents\skills\1c-task\scripts\Invoke-BSLFlowTask.ps1" -Action Publish -ProjectPath C:\DEV\Example -TaskId <task-uuid> -InputFile C:\Tasks\publication.json
+& "$env:USERPROFILE\.agents\skills\1c-task\scripts\Invoke-BSLFlowTask.ps1" -Action PublishResume -ProjectPath C:\DEV\Example -TaskId <task-uuid> -InputFile C:\Tasks\publication.json
 ```
 
 Второе действие выполняет только контрольное чтение сохранённой публикации. Изменение JSON при том же UUID отклоняется. Другая приёмка, remote, ветка или сообщение требуют нового допуска и UUID; это не снимает уже существующую блокировку неизвестной операции.

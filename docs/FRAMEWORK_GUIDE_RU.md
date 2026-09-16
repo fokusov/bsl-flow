@@ -4,18 +4,17 @@
 
 ## Единый CLI в версии 0.8
 
-Готовый `bsl-flow.exe` содержит embedded инструкции и controller. Go требуется только для сборки; для работы нужны PowerShell 7 из стандартной машинной установки `C:\Program Files\PowerShell\7\pwsh.exe`, Git и выбранный provider. Windows PowerShell 5.1 fallback не поддерживается. Пользовательские команды:
+Пользовательский вход — PowerShell-контроллер `Invoke-BSLFlowTask.ps1`. Для работы нужны PowerShell 7 из стандартной машинной установки `C:\Program Files\PowerShell\7\pwsh.exe`, Git и выбранный provider. Windows PowerShell 5.1 fallback не поддерживается. Пользовательские команды:
 
 ```powershell
-bsl-flow version
-bsl-flow task start --project C:\DEV\Example --input C:\Tasks\request.json
-bsl-flow task run --project C:\DEV\Example --task <uuid>
-bsl-flow task status --project C:\DEV\Example --task <uuid>
-bsl-flow task deliver --project C:\DEV\Example --task <uuid>
-bsl-flow runner run --project C:\DEV\Example --input C:\Tasks\queue.json
+& "$env:USERPROFILE\.agents\skills\1c-task\scripts\Invoke-BSLFlowTask.ps1" -Action Start -ProjectPath C:\DEV\Example -InputFile C:\Tasks\request.json
+& "$env:USERPROFILE\.agents\skills\1c-task\scripts\Invoke-BSLFlowTask.ps1" -Action Run -ProjectPath C:\DEV\Example -TaskId <uuid>
+& "$env:USERPROFILE\.agents\skills\1c-task\scripts\Invoke-BSLFlowTask.ps1" -Action Status -ProjectPath C:\DEV\Example -TaskId <uuid>
+& "$env:USERPROFILE\.agents\skills\1c-task\scripts\Invoke-BSLFlowTask.ps1" -Action Deliver -ProjectPath C:\DEV\Example -TaskId <uuid>
+& "$env:USERPROFILE\.agents\skills\1c-task\scripts\Invoke-BSLFlowTask.ps1" -Action Serve -ProjectPath C:\DEV\Example -InputFile C:\Tasks\queue.json
 ```
 
-`deliver` создаёт локальную копию принятых исходников, manifest удалений, receipt и краткий отчёт. Для CFE/EPF по-прежнему нужны отдельно подтверждённые native gates. `runner run` обрабатывает только явно перечисленные зарегистрированные задачи; установка пакета не включает автозагрузку службы. По окончании заданного окна polling команду можно запустить снова. Вопрос и неопределённый результат остаются причинами остановки до соответствующего ответа/восстановления.
+`deliver` создаёт локальную копию принятых исходников, manifest удалений, receipt и краткий отчёт. Для CFE/EPF по-прежнему нужны отдельно подтверждённые native gates. `serve` обрабатывает только явно перечисленные зарегистрированные задачи; установка пакета не включает автозагрузку службы. По окончании заданного окна polling команду можно запустить снова. Вопрос и неопределённый результат остаются причинами остановки до соответствующего ответа/восстановления.
 
 Для разрешения автоматического исправления source-only ошибок добавь в request `max_source_repairs: 1` (максимум 3). Проверки команд должны иметь `retry_safe: true` и `protected_paths`, перечисляющие все их тестовые исходники/fixtures. После доказанного падения выполняются диагностика, исправление, независимое code review и новый verify. Старая ошибка сохраняется; пропавший отчёт или изменение тестов не превращаются в основание для повторного запуска. Без этого opt-in сохраняется прежняя остановка при ошибке.
 
@@ -31,7 +30,7 @@ Queue JSON имеет вид:
 }
 ```
 
-Подставь идентификаторы своих зарегистрированных задач и новый UUID очереди. `max_cycles` ограничивает число проходов за один вызов; исполняемая задача использует собственный timeout и общий сохраняемый attempt budget. Повторный запуск очереди не обнуляет бюджет задач. Изменённый список требует нового queue ID. После перехода с script CLI на binary или обновления binary/engine существующая задача требует явного согласования новой policy: это сохраняет проверяемую связь результата с исполняемой версией.
+Подставь идентификаторы своих зарегистрированных задач и новый UUID очереди. `max_cycles` ограничивает число проходов за один вызов; исполняемая задача использует собственный timeout и общий сохраняемый attempt budget. Повторный запуск очереди не обнуляет бюджет задач. Изменённый список требует нового queue ID. После обновления controller/engine существующая задача требует явного согласования новой policy: это сохраняет проверяемую связь результата с исполняемой версией.
 
 Текущее состояние очереди хранится в `.bsl-flow/runner/queue-<uuid>-snapshot.json`, содержательные события — в общем `events.jsonl`. При перезапуске controller читает весь журнал: последние 256 ключей в snapshot служат только кешем. Сохранённая ошибка dispatch не повторяется на той же revision, даже если snapshot не успел обновиться. Ожидание ответа тоже создаёт событие; следующая проверка без изменения состояния его не дублирует. Оборванная или повреждённая строка журнала блокирует автоматическое продолжение и требует исследования сохранённых task attempts. Журнал не является отправкой уведомления во внешний сервис; интеграция читает его и использует `event_key` для своей дедупликации.
 

@@ -116,3 +116,9 @@
 - Fuzzy full-text search и board view могут быть добавлены поверх того же read model, но не входят в первую реализацию.
 - Adoption старых journals отложен в отдельную спецификацию; automatic destructive move запрещён.
 - Эта feature зависит от стабильного Git CLI и является первым этапом `native-cross-platform-cli`.
+
+---
+
+## Дополнение 2026-09-16 (откат native-cross-platform-cli)
+
+Реализованное Go-хранилище repository store удалено вместе с откатом `native-cross-platform-cli` (решение владельца от 2026-09-16; Go-бинарник не выпускается). Требования выше сохранены без изменений как история реализации; engine-agnostic модель данных остаётся концепцией возможной будущей PowerShell-реализации. Статус изменения: **ON HOLD**.
