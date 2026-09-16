@@ -1,0 +1,614 @@
+{
+  "schema_version": 2,
+  "reviewed_at_utc": "2026-09-16T14:38:40.5814022Z",
+  "council_schema_version": 1,
+  "verdict": "REVISE",
+  "diversity": "multi_role_single_model",
+  "fallback_visible": false,
+  "inputs": {
+    "original_task_sha256": "5300806db889bbefcdbaa75f041a5e2bed8c3b18610b8486391445e79c2597c0",
+    "spec_sha256": "4f55833ef8f527ffff3486ba6684b86b95414570300cb23f787ba945934771ff",
+    "design_sha256": null,
+    "policy_hash": "1a06606303e4cd9c49928ffd3fcda137820a6627718cdc4cd8fa54d2fa8b1899"
+  },
+  "manifest": {
+    "version": 1,
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "source_hash": "19ca67614554f84bd0007045bdfb81dd8b5edeac61fce9e66f8c1de5ab2993fc",
+        "draft_ref": "Требуемое поведение / 1"
+      },
+      {
+        "id": "REQ-002",
+        "source_hash": "b7131e575500e9b9ebf21124d607d2f251c1e20e4f9bca1b7d49137c75a83bdb",
+        "draft_ref": "Требуемое поведение / 2"
+      },
+      {
+        "id": "REQ-003",
+        "source_hash": "157c71f56b445ba1292530ccb7fe098d1d8da36f045834743dc8e8afbc7f8fa6",
+        "draft_ref": "Требуемое поведение / 3"
+      },
+      {
+        "id": "REQ-004",
+        "source_hash": "de4a3524541471a9d847d9d76a8cb9f7c3bc8d1b9a82c02b8fcd777edc873404",
+        "draft_ref": "Требуемое поведение / 4"
+      },
+      {
+        "id": "REQ-005",
+        "source_hash": "653ab09cf5455b28c3d94823a0564fc2975423666319b323647aaa3832234050",
+        "draft_ref": "Требуемое поведение / 5"
+      },
+      {
+        "id": "REQ-006",
+        "source_hash": "321f7ae52744de01bece7d4bd2894d676deb231e546c12b6c35e8555daa8fb30",
+        "draft_ref": "Требуемое поведение / 6"
+      },
+      {
+        "id": "REQ-007",
+        "source_hash": "cc9cfd1335651378f3524a67ff6443577a70f3c89bb79886af4b9766fb3c07e3",
+        "draft_ref": "Требуемое поведение / 7"
+      },
+      {
+        "id": "REQ-008",
+        "source_hash": "742555306d1b1cf15e16045e7a81917c93bcc985312ba7446c22c79d9659272b",
+        "draft_ref": "Требуемое поведение / 8"
+      },
+      {
+        "id": "REQ-009",
+        "source_hash": "aeaa36dbeb5baa7c2712b7b91ede3c1606e1a792da3e27b9d0b46e016aaba67f",
+        "draft_ref": "Требуемое поведение / 9"
+      },
+      {
+        "id": "REQ-010",
+        "source_hash": "4639d370d5429b41054a8cf3c6861d9e22ed47cb5f5a18445753961ecefb640b",
+        "draft_ref": "Требуемое поведение / 10"
+      }
+    ]
+  },
+  "members": [
+    {
+      "schema_version": 1,
+      "role": "intent_critic",
+      "attempt_id": "b508b113b7b446f28338e069a675ac26",
+      "status": "completed",
+      "summary": "Role intent_critic completed its structured result.",
+      "requested": {
+        "provider": "deepseek",
+        "model": "deepseek-v4-pro",
+        "effort": "medium"
+      },
+      "observed": {
+        "provider": "deepseek",
+        "model": "deepseek-v4-pro",
+        "effort": null
+      },
+      "execution_mode": "direct_api",
+      "fallback_reason": "",
+      "input_hashes": {
+        "original_task_sha256": "5300806db889bbefcdbaa75f041a5e2bed8c3b18610b8486391445e79c2597c0",
+        "spec_sha256": "4f55833ef8f527ffff3486ba6684b86b95414570300cb23f787ba945934771ff",
+        "design_sha256": null,
+        "evidence_sha256": null,
+        "policy_hash": "1a06606303e4cd9c49928ffd3fcda137820a6627718cdc4cd8fa54d2fa8b1899",
+        "rubric_sha256": "d73b8870846afb76beccba9ca3bdab55644c893156718db825b4c99ff9db11be"
+      },
+      "payload_sha256": "49e63be27b553229973188607473b3fe96259c0fd04f59318bf44e21826ab24b",
+      "usage": {
+        "input_tokens": 3365,
+        "output_tokens": 6667,
+        "reasoning_tokens": 6175
+      },
+      "cost_state": "provider_usage_reported",
+      "dispatched_at_utc": "2026-09-16T14:30:56.9679115Z",
+      "completed_at_utc": "2026-09-16T14:32:48.9431252Z"
+    },
+    {
+      "schema_version": 1,
+      "role": "architecture_critic",
+      "attempt_id": "c3bb9db7d72e4a7d9afdece860c9df4a",
+      "status": "completed",
+      "summary": "Role architecture_critic completed its structured result.",
+      "requested": {
+        "provider": "deepseek",
+        "model": "deepseek-v4-pro",
+        "effort": "medium"
+      },
+      "observed": {
+        "provider": "deepseek",
+        "model": "deepseek-v4-pro",
+        "effort": null
+      },
+      "execution_mode": "direct_api",
+      "fallback_reason": "",
+      "input_hashes": {
+        "original_task_sha256": "5300806db889bbefcdbaa75f041a5e2bed8c3b18610b8486391445e79c2597c0",
+        "spec_sha256": "4f55833ef8f527ffff3486ba6684b86b95414570300cb23f787ba945934771ff",
+        "design_sha256": null,
+        "evidence_sha256": null,
+        "policy_hash": "1a06606303e4cd9c49928ffd3fcda137820a6627718cdc4cd8fa54d2fa8b1899",
+        "rubric_sha256": "6011c5b31248f82676d01bef8aefa3a7b05fcf3ff947a3ebda0343c00c6e8af8"
+      },
+      "payload_sha256": "54fa1cdd98ccc7440f612d128b93485cc89a51bfe9da271da32962854b06e4c6",
+      "usage": {
+        "input_tokens": 3371,
+        "output_tokens": 8515,
+        "reasoning_tokens": 7105
+      },
+      "cost_state": "provider_usage_reported",
+      "dispatched_at_utc": "2026-09-16T14:30:56.9679115Z",
+      "completed_at_utc": "2026-09-16T14:33:28.5850895Z"
+    },
+    {
+      "schema_version": 1,
+      "role": "executability_critic",
+      "attempt_id": "89c50a8787c44b8cb6dec576daa1498a",
+      "status": "completed",
+      "summary": "Role executability_critic completed its structured result.",
+      "requested": {
+        "provider": "deepseek",
+        "model": "deepseek-v4-pro",
+        "effort": "medium"
+      },
+      "observed": {
+        "provider": "deepseek",
+        "model": "deepseek-v4-pro",
+        "effort": null
+      },
+      "execution_mode": "direct_api",
+      "fallback_reason": "",
+      "input_hashes": {
+        "original_task_sha256": "5300806db889bbefcdbaa75f041a5e2bed8c3b18610b8486391445e79c2597c0",
+        "spec_sha256": "4f55833ef8f527ffff3486ba6684b86b95414570300cb23f787ba945934771ff",
+        "design_sha256": null,
+        "evidence_sha256": null,
+        "policy_hash": "1a06606303e4cd9c49928ffd3fcda137820a6627718cdc4cd8fa54d2fa8b1899",
+        "rubric_sha256": "f526689b950af6cb862cbb6dce8ab259e52f37ede4a081cee269d7f5698751ed"
+      },
+      "payload_sha256": "cff762a9659bfa3e64c2bbd0df93a0228213422dd59817a3a9869457f8eb464b",
+      "usage": {
+        "input_tokens": 3363,
+        "output_tokens": 7257,
+        "reasoning_tokens": 6081
+      },
+      "cost_state": "provider_usage_reported",
+      "dispatched_at_utc": "2026-09-16T14:33:29.3180525Z",
+      "completed_at_utc": "2026-09-16T14:35:39.2246674Z"
+    },
+    {
+      "schema_version": 1,
+      "role": "chair",
+      "attempt_id": "4de1242f57924d06af3c86bcd8b843d2",
+      "status": "completed",
+      "summary": "Chair reconciliation completed.",
+      "requested": {
+        "provider": "deepseek",
+        "model": "deepseek-v4-pro",
+        "effort": "medium"
+      },
+      "observed": {
+        "provider": "deepseek",
+        "model": "deepseek-v4-pro",
+        "effort": null
+      },
+      "execution_mode": "direct_api",
+      "fallback_reason": "",
+      "input_hashes": {
+        "original_task_sha256": "5300806db889bbefcdbaa75f041a5e2bed8c3b18610b8486391445e79c2597c0",
+        "spec_sha256": "4f55833ef8f527ffff3486ba6684b86b95414570300cb23f787ba945934771ff",
+        "design_sha256": null,
+        "evidence_sha256": null,
+        "policy_hash": "1a06606303e4cd9c49928ffd3fcda137820a6627718cdc4cd8fa54d2fa8b1899",
+        "rubric_sha256": "04f1f52ee03ac8ef5df6d88fe419bca2c382b0a72421930e37c576d29e3ffe7a",
+        "member_aggregate_sha256": "cd0de01d75b5759dbc0b83c1b6e8fb4cb296c51ea12d3d2609a13c534c486811"
+      },
+      "payload_sha256": "d4ccf6bfae7ccf065e9f1f2ef29268a448d10275c9a8d2b4485c25ecc5db0148",
+      "usage": {
+        "input_tokens": 8137,
+        "output_tokens": 15520,
+        "reasoning_tokens": 8784
+      },
+      "cost_state": "provider_usage_reported",
+      "dispatched_at_utc": "2026-09-16T14:35:39.3709854Z",
+      "completed_at_utc": "2026-09-16T14:38:40.5201196Z"
+    }
+  ],
+  "findings": [
+    {
+      "composite_id": "intent_critic:F-001",
+      "role": "intent_critic",
+      "id": "F-001",
+      "severity": "high",
+      "category": "intent_drift",
+      "spec_ref": "Требование 4 и Цель; подтверждение пользователя в original-task.md",
+      "issue": "Спецификация противоречит сама себе и, возможно, исходному запросу в части гранулярности переопределения профиля проектом. Цель гласит: «проект переопределяет профиль по каждому именованному ключу, если задаёт его сам», а Требование 4 предписывает: «определение проекта целиком вытесняет определение профиля». Исходный запрос и подтверждение пользователя («если проект задаёт те же настройки сам — берём из проекта (проект важнее профиля)») подразумевают переопределение на уровне отдельных параметров, а не вытеснение всей именованной сущности (провайдер, модель, роль).",
+      "evidence": "original-task.md, подтверждение: «если проект задаёт те же настройки сам — берём из проекта (проект важнее профиля)»; spec.md, Цель: «проект переопределяет профиль по каждому именованному ключу»; spec.md, Требование 4: «определение проекта целиком вытесняет определение профиля».",
+      "suggested_direction": "Уточнить гранулярность мержа. Если проект переопределяет профиль по каждому отдельному полю (например, только model у роли, только token_env у провайдера), то реализовать глубокий мерж на уровне полей и сохранить поля профиля, не переопределённые проектом. Если действительно требуется вытеснение всей сущности, то согласовать Цель и исходное намерение пользователя, добавив явные примеры, что поля профиля, не указанные в проекте, теряются, и убедиться, что это соответствует ожиданиям."
+    },
+    {
+      "composite_id": "architecture_critic:F-001",
+      "role": "architecture_critic",
+      "id": "F-001",
+      "severity": "high",
+      "category": "architecture_fit",
+      "spec_ref": "Цель: «проект переопределяет профиль по каждому именованному ключу, если задаёт его сам»; Требуемое поведение 4: «для каждого именованного провайдера, профиля модели и роли определение проекта целиком вытесняет определение профиля»",
+      "issue": "Стратегия слияния с полным замещением именованной сущности противоречит заявленному переопределению по ключам и может неявно отбрасывать профильные настройки, если проект определяет сущность частично.",
+      "evidence": "Цель говорит о переопределении по каждому именованному ключу, а требование 4 предписывает полное замещение определения провайдера, профиля модели или роли. Если проект задаёт только `llm.models.reviewer.provider`, а профиль содержит `llm.models.reviewer.model`, `effort`, `cost_estimate_usd`, то все профильные поля будут потеряны, хотя проект не задавал их явно.",
+      "suggested_direction": "Заменить слияние на пополевое переопределение внутри каждой именованной сущности (ключи проекта перезаписывают ключи профиля, неуказанные ключи профиля сохраняются) либо явно потребовать полного определения сущности при переопределении и добавить приёмочные сценарии на частичные определения."
+    },
+    {
+      "composite_id": "architecture_critic:F-002",
+      "role": "architecture_critic",
+      "id": "F-002",
+      "severity": "medium",
+      "category": "missing_requirement",
+      "spec_ref": "Текущее поведение: «Get-BSLFlowCouncilPolicyHash … считается по сырому проектному bsl-flow.yaml»; Требуемое поведение 5: «Get-BSLFlowCouncilPolicyHash вычисляется по эффективной мерженной политике»",
+      "issue": "Переход от хеширования сырого файла проекта к хешированию эффективной политики изменит хеш для всех существующих проектов даже при отсутствии профиля, что может инвалидировать ранее записанные результаты, но требование обратной совместимости отсутствует.",
+      "evidence": "В критерии приёмки проверяется только различие хешей при разных профилях и отличие от «проект без профиля», но не равенство хеша при отсутствии профиля текущему поведению. При этом критерий «поведение и результат гейта идентичны текущему» может быть нарушен, если хеш включается в результат.",
+      "suggested_direction": "Явно задать требование сохранить прежний хеш при отсутствии профиля или задокументировать миграцию хеша и версионировать потребителей. Добавить приёмочный тест, что хеш без профиля совпадает с текущей реализацией, либо определить новую версию схемы результата с учётом изменения хеша."
+    },
+    {
+      "composite_id": "architecture_critic:F-003",
+      "role": "architecture_critic",
+      "id": "F-003",
+      "severity": "low",
+      "category": "clarity",
+      "spec_ref": "Требуемое поведение 7: «Путь файла профиля переопределяется переменной окружения BSL_FLOW_USER_CONFIG»; Требуемое поведение 1: «Отсутствие файла — допустимое штатное состояние»",
+      "issue": "Не определено поведение, когда переменная BSL_FLOW_USER_CONFIG задаёт путь к несуществующему или нечитаемому файлу.",
+      "evidence": "Для профиля по умолчанию отсутствие файла допустимо, но для явного переопределения пути отсутствие файла может быть ошибкой. Спецификация не различает эти два случая и не требует fail-closed при явно заданном, но отсутствующем файле.",
+      "suggested_direction": "Определить явное поведение: если BSL_FLOW_USER_CONFIG задан, файл должен существовать и быть читаемым; иначе запуск завершается ошибкой с указанием пути. Добавить соответствующий пункт в критерии приёмки."
+    },
+    {
+      "composite_id": "architecture_critic:F-004",
+      "role": "architecture_critic",
+      "id": "F-004",
+      "severity": "low",
+      "category": "unsupported_assumption",
+      "spec_ref": "Неопределённости / допущения: «Каноническая форма мержа для PolicyHash (представление) фиксируется в тестах; требование — чувствительность к содержимому профиля и воспроизводимость аудита»",
+      "issue": "Каноническая форма сериализации эффективной политики для хеша не определена в самой спецификации, только обещание зафиксировать в тестах, что может привести к невоспроизводимости или зависимости от порядка ключей.",
+      "evidence": "Без детерминированных правил сериализации (порядок ключей, исключение вычисляемых полей, формат) невозможно гарантировать одинаковый хеш на разных платформах и запусках.",
+      "suggested_direction": "Явно описать каноническое представление в спецификации: стабильная сортировка ключей, включение только эффективных полей из allowlist, JSON-сериализация без незначащих пробелов. Тесты должны лишь проверять это описание, а не быть единственным источником истины."
+    },
+    {
+      "composite_id": "executability_critic:F-001",
+      "role": "executability_critic",
+      "id": "F-001",
+      "severity": "medium",
+      "category": "clarity",
+      "spec_ref": "Requirement 7",
+      "issue": "Behavior when BSL_FLOW_USER_CONFIG is set but the referenced file does not exist or is unreadable is unspecified.",
+      "evidence": "Requirement 1 states absence of the default profile file is a valid state; Requirement 7 introduces an environment variable override for the full path but does not state whether an explicit override pointing to a missing file should be treated as absent or as an error. No acceptance criterion covers this scenario.",
+      "suggested_direction": "Explicitly define the semantics: either treat missing file under explicit override as equivalent to no profile, or fail closed with a clear error. Add an acceptance criterion/test for this case."
+    },
+    {
+      "composite_id": "executability_critic:F-002",
+      "role": "executability_critic",
+      "id": "F-002",
+      "severity": "medium",
+      "category": "testability",
+      "spec_ref": "Requirement 4 and acceptance criteria",
+      "issue": "No acceptance criterion tests partial entity override semantics for named providers/model profiles when project defines only a subset of fields.",
+      "evidence": "Requirement 4 states project definition entirely displaces profile definition for each named provider, model profile, and role. The acceptance criteria only test a full project override for a role model and a case where the project does not define the provider/model at all. This leaves per-field merge behavior untested and ambiguous.",
+      "suggested_direction": "Add an acceptance test where project defines a provider with only base_url and profile defines the same provider with token_env and protocol; assert token_env is not present in final provider (entire replacement). Similarly test a model profile with only model provided in project."
+    },
+    {
+      "composite_id": "executability_critic:F-003",
+      "role": "executability_critic",
+      "id": "F-003",
+      "severity": "medium",
+      "category": "clarity",
+      "spec_ref": "Requirement 5 and associated acceptance criterion",
+      "issue": "Canonical serialization used for Get-BSLFlowCouncilPolicyHash is not defined; only a vague note that canonical form is fixed in tests.",
+      "evidence": "Requirement 5 states the hash is computed on the effective merged policy and should be reproducible, but the exact representation (e.g., sorted key JSON/YAML, path normalization, whitespace handling) is not specified. The acceptance criterion only checks that different profile contents produce different hashes, which almost any content-sensitive hash would satisfy but does not guarantee cross-platform reproducibility.",
+      "suggested_direction": "Specify the canonicalization algorithm (e.g., recursively sort keys, convert to UTF-8 JSON with stable ordering, exclude non-relevant fields) and require a regression test asserting an exact expected hash for a known merged policy across runs/platforms."
+    },
+    {
+      "composite_id": "executability_critic:F-004",
+      "role": "executability_critic",
+      "id": "F-004",
+      "severity": "low",
+      "category": "missing_requirement",
+      "spec_ref": "Requirement 5",
+      "issue": "Requirement 5 mentions adding audit fields and bumping schema version, but no audit fields are defined in this specification and no schema version bump is specified.",
+      "evidence": "The sentence 'записываемый результат совета остаётся валидным по актуальной JSON-схеме council-review (при добавлении полей аудита — bump версии схемы)' references a future audit fields change that is not part of this work item.",
+      "suggested_direction": "Remove the mention of audit fields or explicitly state that the current schema version remains unchanged and that any audit field addition is out of scope for this change."
+    },
+    {
+      "composite_id": "executability_critic:F-005",
+      "role": "executability_critic",
+      "id": "F-005",
+      "severity": "low",
+      "category": "clarity",
+      "spec_ref": "Requirement 1 and Requirement 8",
+      "issue": "Behavior for an empty or comment-only profile file is not explicitly specified.",
+      "evidence": "Requirement 1 says absence of profile is acceptable; Requirement 8 says unparseable profile must error. An empty YAML file parses to null/empty, but it is unclear if that is treated as valid with no keys or as a parse error requiring fail-closed.",
+      "suggested_direction": "State that an empty or comment-only profile is valid and equivalent to no profile, and add a test for that case."
+    },
+    {
+      "composite_id": "executability_critic:F-006",
+      "role": "executability_critic",
+      "id": "F-006",
+      "severity": "medium",
+      "category": "architecture_fit",
+      "spec_ref": "Requirement 6 and Evidence path",
+      "issue": "Ordering of local provider overlay relative to role binding construction is ambiguous and may cause stale provider data.",
+      "evidence": "Evidence path lists: parse effective policy → role bindings → local overlay → gate. Requirement 4 says overlay is applied after merge and has highest priority for token/base_url. If role bindings are constructed before overlay, and overlay changes base_url for a provider, role bindings may retain the pre-overlay base_url, leading to gate using different provider configuration than the role binding.",
+      "suggested_direction": "Clarify that local overlay is applied to the provider definitions before role bindings are constructed, or specify that role bindings hold only references and provider resolution (including overlay) occurs later. Update evidence path accordingly."
+    }
+  ],
+  "protected": [
+    {
+      "composite_id": "architecture_critic:do-not-change-001",
+      "role": "architecture_critic",
+      "item": "Опциональность профиля и идентичность поведения при его отсутствии"
+    },
+    {
+      "composite_id": "architecture_critic:do-not-change-002",
+      "role": "architecture_critic",
+      "item": "Высший приоритет локального оверлея для token/base_url"
+    },
+    {
+      "composite_id": "architecture_critic:do-not-change-003",
+      "role": "architecture_critic",
+      "item": "Запрет литеральных токенов в профиле"
+    },
+    {
+      "composite_id": "architecture_critic:do-not-change-004",
+      "role": "architecture_critic",
+      "item": "Отказ от введения YAML-библиотеки, использование существующего allowlist-парсера"
+    },
+    {
+      "composite_id": "architecture_critic:do-not-change-005",
+      "role": "architecture_critic",
+      "item": "Требование удаления мёртвого кода (TrustedConfigRoot)"
+    },
+    {
+      "composite_id": "architecture_critic:do-not-change-006",
+      "role": "architecture_critic",
+      "item": "Fail-closed ошибки при непарсируемом профиле или запрещённом ключе"
+    }
+  ],
+  "questions": [],
+  "chair": {
+    "verdict": "REVISE",
+    "decisions": [
+      {
+        "composite_id": "intent_critic:F-001",
+        "decision": "accepted",
+        "reason": "Спецификация пересмотрена: в требовании 4 закреплено пополевое переопределение внутри именованных сущностей, что устраняет противоречие между Целью и исходным намерением пользователя.",
+        "evidence": "original-task.md: «если проект задаёт те же настройки сам — берём из проекта (проект важнее профиля)»; spec.md Цель: «проект переопределяет профиль по каждому именованному ключу»; spec.md Требование 4: «определение проекта целиком вытесняет определение профиля».",
+        "resolution": "Требование 4 изменено на пополевое переопределение внутри именованного провайдера, профиля модели и роли; добавлены приёмочные сценарии частичного переопределения.",
+        "resolution_refs": [
+          "Требуемое поведение / 4",
+          "Критерии приёмки"
+        ]
+      },
+      {
+        "composite_id": "architecture_critic:F-001",
+        "decision": "accepted",
+        "reason": "Стратегия полного замещения именованной сущности заменена пополевым переопределением, что сохраняет неуказанные проектом поля профиля и соответствует принципу «проект важнее профиля по заданным ключам».",
+        "evidence": "Цель говорит о переопределении по каждому именованному ключу, а требование 4 предписывало полное замещение; при частичном определении проекта терялись бы профильные поля.",
+        "resolution": "Изменено требование 4: проект перезаписывает только явно заданные поля внутри каждой именованной сущности; добавлены приёмочные тесты частичного переопределения провайдера и профиля модели.",
+        "resolution_refs": [
+          "Требуемое поведение / 4",
+          "Критерии приёмки"
+        ]
+      },
+      {
+        "composite_id": "architecture_critic:F-002",
+        "decision": "accepted",
+        "reason": "Для конфигураций без профиля и без локального оверлея сохранён текущий алгоритм хеширования сырого проектного файла, чтобы не инвалидировать ранее записанные результаты; для конфигураций с профилем/оверлеем введён новый канонический хеш.",
+        "evidence": "Переход на хеш эффективной политики менял бы хеш всех существующих проектов даже без профиля; критерий обратной совместимости отсутствовал.",
+        "resolution": "В требование 5 добавлено положение о сохранении текущего алгоритма при отсутствии профиля и оверлея; добавлен приёмочный критерий совпадения хеша с текущей реализацией.",
+        "resolution_refs": [
+          "Требуемое поведение / 5",
+          "Критерии приёмки"
+        ]
+      },
+      {
+        "composite_id": "architecture_critic:F-003",
+        "decision": "accepted",
+        "reason": "Определено поведение при явном переопределении пути профиля: если BSL_FLOW_USER_CONFIG задан, файл должен существовать и быть читаемым, иначе запуск завершается ошибкой.",
+        "evidence": "Требование 7 вводило переменную окружения, но не уточняло обработку отсутствующего файла, в отличие от отсутствия файла по умолчанию.",
+        "resolution": "Требование 7 дополнено обязательностью существования и читаемости явно заданного файла; добавлен приёмочный критерий для несуществующего/нечитаемого файла.",
+        "resolution_refs": [
+          "Требуемое поведение / 7",
+          "Требуемое поведение / 8",
+          "Критерии приёмки"
+        ]
+      },
+      {
+        "composite_id": "architecture_critic:F-004",
+        "decision": "accepted",
+        "reason": "Каноническое представление эффективной политики для PolicyHash описано явно: рекурсивно отсортированные ключи, только allowlist-поля, JSON без незначащих пробелов, UTF-8, исключение вычисляемых полей.",
+        "evidence": "Без детерминированной сериализации невозможно гарантировать одинаковый хеш на разных платформах и запусках; в исходной спеке форма была отдана в тесты.",
+        "resolution": "Требование 5 расширено определением канонической сериализации; добавлен приёмочный критерий точного ожидаемого хеша.",
+        "resolution_refs": [
+          "Требуемое поведение / 5",
+          "Критерии приёмки"
+        ]
+      },
+      {
+        "composite_id": "executability_critic:F-001",
+        "decision": "accepted",
+        "reason": "Поведение для BSL_FLOW_USER_CONFIG, указывающего на отсутствующий/нечитаемый файл, явно определено как ошибка запуска с указанием пути.",
+        "evidence": "Требование 1 допускает отсутствие файла по умолчанию, но для явного оверрайда отсутствие файла не описано и не покрыто приёмочными критериями.",
+        "resolution": "Требование 7 и 8 уточнены; добавлен приёмочный критерий.",
+        "resolution_refs": [
+          "Требуемое поведение / 7",
+          "Требуемое поведение / 8",
+          "Критерии приёмки"
+        ]
+      },
+      {
+        "composite_id": "executability_critic:F-002",
+        "decision": "accepted",
+        "reason": "Добавлены приёмочные критерии для частичного переопределения именованных сущностей: провайдер с project base_url + profile token_env/protocol; модель с project provider + profile поля.",
+        "evidence": "Исходные критерии проверяли только полное переопределение роли и случай отсутствия провайдера/модели в проекте; пополевое слияние оставалось неоднозначным.",
+        "resolution": "В Критерии приёмки добавлены сценарии частичного переопределения провайдера и профиля модели.",
+        "resolution_refs": [
+          "Критерии приёмки",
+          "Требуемое поведение / 4"
+        ]
+      },
+      {
+        "composite_id": "executability_critic:F-003",
+        "decision": "accepted",
+        "reason": "Каноническая сериализация для Get-BSLFlowCouncilPolicyHash описана явно, а тест на фиксированное ожидаемое значение добавлен для воспроизводимости.",
+        "evidence": "Исходная формулировка только обещала зафиксировать форму в тестах, не задавая детерминированных правил.",
+        "resolution": "Требование 5 дополнено алгоритмом канонической сериализации; добавлен приёмочный критерий идентичности хеша на разных платформах.",
+        "resolution_refs": [
+          "Требуемое поведение / 5",
+          "Критерии приёмки"
+        ]
+      },
+      {
+        "composite_id": "executability_critic:F-004",
+        "decision": "accepted",
+        "reason": "Упоминание будущих полей аудита и bump версии схемы удалено; явно указано, что текущая версия JSON-схемы не изменяется и поля аудита не добавляются.",
+        "evidence": "Фраза «при добавлении полей аудита — bump версии схемы» ссылалась на изменение вне объёма данной работы.",
+        "resolution": "Требование 5 переформулировано: текущая схема остаётся без изменений, поля аудита не вводятся.",
+        "resolution_refs": [
+          "Требуемое поведение / 5"
+        ]
+      },
+      {
+        "composite_id": "executability_critic:F-005",
+        "decision": "accepted",
+        "reason": "Пустой или состоящий только из комментариев файл профиля явно считается валидным и эквивалентным отсутствию профиля.",
+        "evidence": "Требование 1 говорит об отсутствии файла, а требование 8 — о непарсируемом профиле; пустой YAML-файл оставался неопределённым.",
+        "resolution": "В требование 1 добавлено положение о пустом/комментарийном файле; добавлен приёмочный критерий.",
+        "resolution_refs": [
+          "Требуемое поведение / 1",
+          "Критерии приёмки"
+        ]
+      },
+      {
+        "composite_id": "executability_critic:F-006",
+        "decision": "accepted",
+        "reason": "Порядок применения локального оверлея уточнён: оверлей применяется к определениям провайдеров до построения role bindings и admission-гейта.",
+        "evidence": "Evidence path ставил role bindings до оверлея, что могло привести к рассинхронизации base_url между биндингами и гейтом.",
+        "resolution": "Требования 4 и 6 и Evidence path изменены: локальный оверлей применяется после мержа профиля и проекта, но до построения role bindings и гейта; добавлен приёмочный сценарий использования локального base_url в биндинге.",
+        "resolution_refs": [
+          "Требуемое поведение / 4",
+          "Требуемое поведение / 6",
+          "Контекст 1С",
+          "Критерии приёмки"
+        ]
+      }
+    ],
+    "protected_decisions": [
+      {
+        "composite_id": "architecture_critic:do-not-change-001",
+        "decision": "preserved",
+        "reason": "Опциональность профиля и идентичность поведения при его отсутствии сохранены; дополнительно уточнено поведение для пустого файла.",
+        "evidence": "Требуемое поведение / 1 и критерии приёмки."
+      },
+      {
+        "composite_id": "architecture_critic:do-not-change-002",
+        "decision": "preserved",
+        "reason": "Высший приоритет локального оверлея для token/base_url сохранён; уточнён порядок применения до role bindings.",
+        "evidence": "Требуемое поведение / 4 и 6."
+      },
+      {
+        "composite_id": "architecture_critic:do-not-change-003",
+        "decision": "preserved",
+        "reason": "Запрет литеральных токенов в профиле сохранён и включён в перечень ошибок.",
+        "evidence": "Требуемое поведение / 3 и 8."
+      },
+      {
+        "composite_id": "architecture_critic:do-not-change-004",
+        "decision": "preserved",
+        "reason": "Отказ от YAML-библиотеки и использование существующего allowlist-парсера сохранены.",
+        "evidence": "Раздел «Не делать»."
+      },
+      {
+        "composite_id": "architecture_critic:do-not-change-005",
+        "decision": "preserved",
+        "reason": "Требование удаления мёртвого кода сохранено; в PS-движке заготовок нет и не появляется.",
+        "evidence": "Требуемое поведение / 9."
+      },
+      {
+        "composite_id": "architecture_critic:do-not-change-006",
+        "decision": "preserved",
+        "reason": "Fail-closed ошибки при непарсируемом профиле, запрещённом ключе и явном отсутствии файла сохранены и расширены.",
+        "evidence": "Требуемое поведение / 8."
+      }
+    ],
+    "requirement_refs": [
+      {
+        "id": "REQ-001",
+        "final_refs": [
+          "Требуемое поведение / 1"
+        ]
+      },
+      {
+        "id": "REQ-002",
+        "final_refs": [
+          "Требуемое поведение / 2"
+        ]
+      },
+      {
+        "id": "REQ-003",
+        "final_refs": [
+          "Требуемое поведение / 3"
+        ]
+      },
+      {
+        "id": "REQ-004",
+        "final_refs": [
+          "Требуемое поведение / 4"
+        ]
+      },
+      {
+        "id": "REQ-005",
+        "final_refs": [
+          "Требуемое поведение / 5"
+        ]
+      },
+      {
+        "id": "REQ-006",
+        "final_refs": [
+          "Требуемое поведение / 6"
+        ]
+      },
+      {
+        "id": "REQ-007",
+        "final_refs": [
+          "Требуемое поведение / 7"
+        ]
+      },
+      {
+        "id": "REQ-008",
+        "final_refs": [
+          "Требуемое поведение / 8"
+        ]
+      },
+      {
+        "id": "REQ-009",
+        "final_refs": [
+          "Требуемое поведение / 9"
+        ]
+      },
+      {
+        "id": "REQ-010",
+        "final_refs": [
+          "Требуемое поведение / 10"
+        ]
+      }
+    ],
+    "final_spec_text": "# user-profile-council-config\n\n## Классификация\n\n- Сложность: M\n- Риск: medium\n\n## Цель\n\nНастройки моделей ревьюеров совета (привязки «роль → модель», профили моделей и провайдеров) хранятся в конфиге профиля пользователя, а не в проекте; проект переопределяет профиль по каждому полю внутри именованной сущности, если задаёт его сам; существующие проектные конфиги работают без изменений.\n\n## Текущее поведение\n\n- Весь совет настраивается только в проектном `bsl-flow.yaml`: `llm.providers` (protocol, base_url, token_env), `llm.models` (профили вида `reviewer`), `review.council.roles.<роль>.{enabled, required, model, fallback}` — разбор в `Get-BSLFlowCouncilPolicy` (global/skills/1c-spec-review/scripts/Council.Common.ps1).\n- Секреты уже вынесены из репозитория: незакоммиченный `.bsl-flow/providers.local.yaml` перекрывает `token`/`base_url`; литеральные токены в `bsl-flow.yaml` запрещены fail-closed.\n- Пользовательского уровня конфигурации нет: ни один файл профиля не читается и не мержится; резолвер пути пользовательского конфига отсутствует.\n- `Get-BSLFlowCouncilPolicyHash` (Council.Engine.ps1) считается по сырому проектному `bsl-flow.yaml` (Invoke-CouncilReview.ps1).\n- Стартовый гейт admission (Invoke-CouncilReview.ps1: `BF_BLOCKED: council cannot start`) блокирует совет, если у включённой роли нет резолвимого credential.\n\n## Требуемое поведение\n\n1. Новый опциональный файл профиля: `%USERPROFILE%\\.bsl-flow\\config.yaml` (Windows) / `$HOME/.bsl-flow/config.yaml` (POSIX). Отсутствие файла — допустимое штатное состояние; поведение при этом идентично текущему. Пустой файл или файл, содержащий только комментарии, считается валидным и эквивалентен отсутствию профиля.\n2. Профиль может определять только: `llm.providers.<имя>.{protocol, base_url, token_env}`, `llm.models.<имя>.{provider, model, effort, cost_estimate_usd}` и `review.council.roles.<роль>.model`. (`endpoint` и `transport_capability_version` в PS-парсере — вычисляемые поля провайдера и из YAML не читаются.) Иные ключи (включая `review.council.{enabled, required, budget, legacy_mode, max_parallel, allow_local_http, request_timeout_seconds}`, `review.reviewer.*`, `review.routing`, `review.thresholds`) в профиле запрещены и отклоняются fail-closed с именем файла и ключа.\n3. Литеральные токены в профиле запрещены так же, как в проектном конфиге; credential резолвится только через `token_env` провайдера или локальный оверлей.\n4. Эффективная политика = профиль как база, проект поверх с пополевым переопределением внутри каждой именованной сущности: для каждого именованного провайдера, профиля модели и роли каждое поле, явно заданное в проекте, вытесняет соответствующее поле профиля; поля, не заданные в проекте, сохраняются из профиля; сущности, заданные только в одном источнике, включаются в набор. Существующий оверлей `.bsl-flow/providers.local.yaml` применяется после мержа профиля и проекта к определениям провайдеров до построения role bindings и admission-гейта и сохраняет высший приоритет для `token`/`base_url`.\n5. `Get-BSLFlowCouncilPolicyHash` вычисляется по каноническому представлению эффективной политики: рекурсивно отсортированные ключи, только разрешённые поля из allowlist, JSON без незначащих пробелов, UTF-8; вычисляемые поля (`endpoint`, `transport_capability_version`) исключаются. Изменение релевантной части профиля меняет hash. Для конфигураций без профиля и без локального оверлея сохраняется текущий алгоритм хеширования сырого проектного `bsl-flow.yaml`, чтобы не инвалидировать ранее записанные результаты; при наличии профиля или оверлея используется новый алгоритм. Текущая версия JSON-схемы council-review не изменяется; поля аудита в этой версии не добавляются.\n6. Стартовый гейт admission и построение role bindings (Invoke-CouncilReview.ps1 / Council.Engine.ps1) оцениваются по эффективной политике после применения локального оверлея к провайдерам: роль, чья модель и credential резолвятся только через профиль, проходит гейт на общих основаниях; все ссылки на провайдера в role bindings учитывают итоговые `token`/`base_url` оверлея.\n7. Путь файла профиля переопределяется переменной окружения `BSL_FLOW_USER_CONFIG` (полный путь к файлу) — для тестов и CI. Если переменная задана, указанный файл обязан существовать и быть читаемым; иначе запуск spec review завершается явной ошибкой с указанием пути. Если переменная не задана, отсутствие файла по умолчанию штатно.\n8. Непарсируемый профиль, запрещённый ключ, литеральный токен или заданный через `BSL_FLOW_USER_CONFIG` отсутствующий/нечитаемый файл → запуск spec review завершается явной ошибкой с именем файла и ключа/пути; тихое игнорирование профиля запрещено.\n9. Мёртвого кода по итогам изменения остаться не должно: резолвер пути профиля и мерж реализуются как вызываемые функции основного пути spec review (в PS-движке заготовки вроде Go `TrustedConfigRoot()` нет и не появляется).\n10. Документация: INSTALL.md и `1c-spec-review` описывают файл профиля, приоритеты и пример; проектный шаблон (bootstrap merge) для новых проектов не навязывает привязки «роль → модель» как единственное место настройки.\n\n## Контекст 1С\n\n- Конфигурация/подсистема: BSL Flow (PowerShell 7); метаданные 1С не изменяются.\n- Затрагиваемые механизмы: загрузка конфига в Invoke-CouncilReview.ps1; `Get-BSLFlowCouncilPolicy`, `Get-BSLFlowLocalProviderOverlay` в Council.Common.ps1; `Get-BSLFlowCouncilPolicyHash` в Council.Engine.ps1; стартовый гейт admission в Invoke-CouncilReview.ps1; новый модуль профиля (Council.Profile.ps1); bootstrap-шаблоны; INSTALL.md; global/skills/1c-spec-review.\n- Evidence path: spec review → чтение проектного `bsl-flow.yaml` → чтение профиля → merge → применение локального оверлея к провайдерам → парс эффективной политики → построение role bindings → гейт → совет. Внешних side effects, кроме чтения локальных файлов и env, нет.\n- 1С runtime: не запускается.\n\n## Не делать\n\n- Не хранить секреты в профиле (v1): токены остаются в `.bsl-flow/providers.local.yaml` / env.\n- Не менять одиночный маршрут ревью (`review.reviewer.*`) и `review.routing` в этой версии.\n- Не менять промпты, рубрики и семантику вердиктов совета.\n- Не создавать файл профиля автоматически и не мигрировать существующие проектные конфиги молча.\n- Не вводить YAML-библиотеку: парсинг профиля — в стиле существующего allowlist-парсера council policy.\n- Не вводить дополнительные уровни конфигурации помимо «профиль → проект → локальный оверлей».\n\n## Критерии приёмки\n\n- GIVEN проект задаёт `review.council.roles.chair.model: reviewer`, а профиль задаёт `chair.model: personal`\n  WHEN эффективная политика резолвится\n  THEN привязка роли — `reviewer`, профильное значение вытеснено проектным.\n- GIVEN проект не определяет провайдер и профиль модели, а профиль определяет оба\n  WHEN выполняются построение role bindings и стартовый гейт\n  THEN роль резолвится через профиль, credential берётся из `token_env` провайдера профиля, гейт пройден.\n- GIVEN проект задаёт `llm.providers.openai.base_url: project-url`, а профиль задаёт тот же провайдер с `token_env: PROFILE_TOKEN` и `protocol: https`\n  WHEN эффективная политика резолвится\n  THEN итоговый провайдер имеет `base_url: project-url`, `token_env: PROFILE_TOKEN`, `protocol: https`.\n- GIVEN проект задаёт `llm.models.reviewer.provider: openai`, а профиль задаёт `llm.models.reviewer.{model, effort, cost_estimate_usd}`\n  WHEN эффективная политика резолвится\n  THEN итоговый профиль модели имеет `provider: openai` и сохранённые профильные `model`, `effort`, `cost_estimate_usd`.\n- GIVEN файл профиля отсутствует\n  WHEN выполняется spec review на репозитории с текущим `bsl-flow.yaml`\n  THEN поведение и результат гейта идентичны текущему (регрессия запрещена).\n- GIVEN файл профиля пуст или содержит только комментарии\n  WHEN команда читает политику\n  THEN ошибок нет, поведение идентично отсутствию профиля.\n- GIVEN профиль содержит литеральный токен или ключ вне allowlist\n  WHEN команда читает политику\n  THEN запуск завершается ошибкой с именем файла и ключа, совет не стартует.\n- GIVEN `BSL_FLOW_USER_CONFIG` задаёт путь к несуществующему или нечитаемому файлу\n  WHEN команда читает политику\n  THEN запуск завершается ошибкой с указанием пути.\n- GIVEN один проектный файл и два разных валидных содержимого профиля\n  WHEN считается `Get-BSLFlowCouncilPolicyHash`\n  THEN hash различается между профилями и отличается от «проект без профиля».\n- GIVEN проект без профиля и без локального оверлея\n  WHEN считается `Get-BSLFlowCouncilPolicyHash`\n  THEN hash совпадает с текущей реализацией (обратная совместимость сохранена).\n- GIVEN каноническое представление фиксированной эффективной политики\n  WHEN вычисляется хеш на разных платформах и запусках\n  THEN результат идентичен (воспроизводимость канонической сериализации).\n- GIVEN `.bsl-flow/providers.local.yaml` задаёт токен, а провайдер профиля — `token_env`\n  WHEN credential резолвится для роли из профиля\n  THEN локальный токен имеет приоритет над `token_env`, и role binding использует локальный `base_url`, если он задан в оверлее.\n\n## Требуемые проверки\n\n- [x] Static — allowlist ключей профиля, запрет литеральных токенов, отсутствие мёртвого `TrustedConfigRoot`.\n- [x] Unit — матрица приоритетов «профиль/проект/оверлей» с пополевым переопределением, reject неизвестных ключей, чувствительность `PolicyHash`, резолв пути профиля по ОС и через `BSL_FLOW_USER_CONFIG`, поведение при отсутствии/пустом/нечитаемом файле.\n- [x] Integration — гейт и `BuildRoleBindings` на эффективной политике с учётом оверлея без сети (fixture-эндпоинт); регрессионный случай «профиль отсутствует»; обратная совместимость hash.\n- [ ] UI — не требуется.\n- [ ] Smoke — не требуется.\n- [x] Independent review — M/medium: обязательна по проектной политике.\n\n## Неопределённости / допущения\n\n- Пополевое переопределение внутри именованных сущностей зафиксировано как каноническая семантика; тесты покрывают частичные определения проекта.\n- Каноническое представление для `PolicyHash` описано в требовании 5; тесты проверяют точный ожидаемый хеш известной политики.\n- Предполагается, что `review.council.{enabled, legacy_mode, budget}` продолжают читаться только из проекта; если реализация покажет иное, требование 2 уточняется в ревью.\n\n## Дополнение 2026-09-16 (откат native-cross-platform-cli)\n\nГейты этой спеки были заякорены в Go-коде (`cli/internal/councilengine/policy.go` — разбор policy, `cli/specreview_cmd.go` — admission-гейт, `cli/internal/platform/configpaths.go` — пути конфигурации), удалённом откатом `native-cross-platform-cli` 2026-09-16. Концепция переносится на PS-совет (policy-хелперы `Council.Common.ps1`). Статус изменения: **ПЕРЕСМОТРЕНО** — переанкеровано на PowerShell, см. ниже.\n\n## Переанкеровка 2026-09-16 (PowerShell)\n\nСпека переанкерована на PS-совет: разбор политики — `Get-BSLFlowCouncilPolicy` (Council.Common.ps1), hash — `Get-BSLFlowCouncilPolicyHash` (Council.Engine.ps1), admission-гейт и role bindings — Invoke-CouncilReview.ps1; путь пользовательского профиля — `%USERPROFILE%\\.bsl-flow\\config.yaml` / `$HOME/.bsl-flow/config.yaml` с override `BSL_FLOW_USER_CONFIG`. Поля провайдера `endpoint`/`transport_capability_version` в PS-парсере вычисляемые и в allowlist профиля не входят (требование 2 уточнено при переанкеровке). PS-порт admission-гейта уже выполнен в `2f49e13` (Invoke-CouncilReview.ps1). Статус изменения: **АКТИВНО** — реализация разрешена в PowerShell; независимое ревью M/medium обязательно по проектной политике.",
+    "final_design_text": null
+  },
+  "reconciliation": {
+    "review_sha256": "3903d7c941cfadbc5cf080efd4cfcb4a20da81dbb88a0e32e66d94671cf14c2f",
+    "draft_spec_sha256": "4f55833ef8f527ffff3486ba6684b86b95414570300cb23f787ba945934771ff",
+    "final_spec_sha256": "8cb849b3ab20883e5bfa03cdde5eb8741cd4b2598238efde6a133c45f1a71a21",
+    "draft_design_sha256": null,
+    "final_design_sha256": null
+  },
+  "gate": {
+    "structural_only": true,
+    "passed": true
+  }
+}

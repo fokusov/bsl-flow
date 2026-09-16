@@ -387,9 +387,8 @@ function New-BFManagedCouncilHostAdapter {
         (Join-Path $taskSkillRoot 'adapters/ProfiledCodex.ps1')
     )
     . (Join-Path $reviewRoot 'scripts/Council.Common.ps1')
-    $configPath = Join-Path $State.project_path 'bsl-flow.yaml'
-    $configText = if (Test-Path -LiteralPath $configPath -PathType Leaf) { [IO.File]::ReadAllText($configPath) } else { '' }
-    $council = Get-BSLFlowCouncilPolicy $configText
+    . (Join-Path $reviewRoot 'scripts/Council.Profile.ps1')
+    $council = (Get-BSLFlowCouncilEffectivePolicy -ProjectRoot $State.project_path).policy
     $fallbackRoles = @(Get-BFManagedCouncilFallbackRoles -Council $council -ProjectPath $State.project_path)
     if ($fallbackRoles.Count -eq 0) {
         return [ordered]@{ capabilities = @{}; fallback_runner = $null; fallback_roles = @() }
@@ -618,9 +617,9 @@ function Invoke-BFProfileSpecCritic {
     if($maxInput -lt 1024 -or $maxInput -gt 1048576){throw 'BF_INVALID: review input bound is outside the supported range.'}
     # Council is the default managed spec_review route. The chair reconciliation
     # is inline in review.json v2; no separate spec_reconcile worker is dispatched.
-    . (Join-Path $reviewRoot 'scripts/Council.Common.ps1')
+    . (Join-Path $reviewRoot 'scripts/Council.Profile.ps1')
     $managedCouncil=$null
-    try { $managedCouncil=Get-BSLFlowCouncilPolicy $configText } catch { throw }
+    try { $managedCouncil=(Get-BSLFlowCouncilEffectivePolicy -ProjectRoot $State.project_path).policy } catch { throw }
     $changeName=Split-Path (Get-BFChangePath $State) -Leaf
     $preparedPath=Join-Path $State.project_path ('.bsl-flow/reports/spec-review/' + $changeName + '.council/publication/prepared.json')
     if((Test-Path -LiteralPath $preparedPath -PathType Leaf) -and

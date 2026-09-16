@@ -52,17 +52,19 @@ function Invoke-BSLFlowCouncilReview {
 
     $projectRoot = [System.IO.Path]::GetFullPath($ProjectPath).TrimEnd('\', '/')
     $changeDir = Join-Path $projectRoot "openspec\changes\$ChangeName"
-    $configPath = Join-Path $projectRoot 'bsl-flow.yaml'
-    $configText = if (Test-Path -LiteralPath $configPath -PathType Leaf) { Get-Content -Raw -LiteralPath $configPath } else { '' }
+    # Council policy = user profile (base) merged under the project config;
+    # hash and admission gate evaluate the effective merged policy.
+    . (Join-Path $PSScriptRoot 'Council.Profile.ps1')
+    $effective = Get-BSLFlowCouncilEffectivePolicy -ProjectRoot $projectRoot
     # Council policy throws BF_MIGRATION_BLOCKED for explicit legacy opencode
     # unless the separate compatibility route was chosen.
-    $council = Get-BSLFlowCouncilPolicy $configText
+    $council = $effective.policy
     if (-not [bool]$council.enabled) { throw 'Council route requires review.council.enabled true.' }
     if ($council.legacy_mode -ceq 'opencode_compat') { throw 'Legacy OpenCode compatibility route selected; council dispatch is skipped.' }
 
-    $policyHash = Get-BSLFlowCouncilPolicyHash $configPath
+    $policyHash = $effective.hash
     if ($MaxInputBytes -eq 0) {
-        $MaxInputBytes = [int]::Parse((Get-BSLFlowYamlValue $configText @('review', 'input', 'max_file_bytes') '262144'), [Globalization.CultureInfo]::InvariantCulture)
+        $MaxInputBytes = [int]::Parse((Get-BSLFlowYamlValue $effective.project_text @('review', 'input', 'max_file_bytes') '262144'), [Globalization.CultureInfo]::InvariantCulture)
     }
     if ($MaxInputBytes -lt 1024 -or $MaxInputBytes -gt 1048576) { throw 'review.input.max_file_bytes must be between 1024 and 1048576.' }
     $snapshot = New-BSLFlowCouncilSnapshot -ChangeDir $changeDir -MaxBytes $MaxInputBytes -EvidenceText $EvidenceText -PolicyHash $policyHash

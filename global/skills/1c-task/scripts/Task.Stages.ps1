@@ -142,9 +142,9 @@ function Invoke-BFSpecReviewStage {
     $councilEnabled=$false
     $configPath=Join-Path $State.project_path 'bsl-flow.yaml'
     if(Test-Path -LiteralPath $configPath -PathType Leaf){
-        . (Join-Path $reviewScripts 'Council.Common.ps1')
-        $council=Get-BSLFlowCouncilPolicy (Get-Content -Raw -LiteralPath $configPath)
-        $councilEnabled=[bool]$council.enabled -and $council.legacy_mode -cne 'opencode_compat'
+        . (Join-Path $reviewScripts 'Council.Profile.ps1')
+        $effectiveCouncil=Get-BSLFlowCouncilEffectivePolicy -ProjectRoot $State.project_path
+        $councilEnabled=[bool]$effectiveCouncil.policy.enabled -and $effectiveCouncil.policy.legacy_mode -cne 'opencode_compat'
     }
     if($councilEnabled){
         $councilEvidenceCommand=if($null -ne $ProviderContext){Get-Command Get-BFProviderManagedCouncilEvidence -CommandType Function -ErrorAction SilentlyContinue}else{Get-Command Get-BFManagedCouncilEvidence -CommandType Function -ErrorAction SilentlyContinue}

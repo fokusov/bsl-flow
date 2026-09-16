@@ -97,8 +97,10 @@ if ($Complexity -notin @('S', 'M', 'L') -or $Risk -notin @('low', 'medium', 'hig
 $configText = if (Test-Path -LiteralPath $configPath -PathType Leaf) { Get-Content -Raw -LiteralPath $configPath } else { '' }
 $councilRouting = $null
 try {
-    . (Join-Path $PSScriptRoot 'Council.Common.ps1')
-    $councilRouting = Get-BSLFlowCouncilPolicy $configText
+    # The council route sees the effective policy: user profile merged under
+    # the project config. Routing switches themselves stay project-owned.
+    . (Join-Path $PSScriptRoot 'Council.Profile.ps1')
+    $councilRouting = (Get-BSLFlowCouncilEffectivePolicy -ProjectRoot $projectRoot).policy
 }
 catch { throw }
 

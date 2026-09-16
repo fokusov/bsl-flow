@@ -6,14 +6,22 @@ Set-StrictMode -Version Latest
 # One writer persists aggregate artifacts. No model dispatch here.
 
 function Get-BSLFlowCouncilPolicyHash {
-    param([Parameter(Mandatory)][string]$PolicyPath)
-    if (-not (Test-Path -LiteralPath $PolicyPath -PathType Leaf)) {
-        throw "Council policy file not found: $PolicyPath"
-    }
+    # -PolicyText hashes the effective merged policy (project + user profile)
+    # directly; -PolicyPath keeps the legacy raw-file behavior.
+    param(
+        [Parameter(Mandatory, Position = 0, ParameterSetName = 'Path')][string]$PolicyPath,
+        [Parameter(Mandatory, ParameterSetName = 'Text')][AllowEmptyString()][string]$PolicyText
+    )
     # The council snapshot hashes the decoded UTF-8 policy text. Read it through
     # the same BOM-stripping decoder during recovery, so a UTF-8 BOM is encoding
     # metadata rather than a false policy change.
     $utf8 = [System.Text.UTF8Encoding]::new($false)
+    if ($PSCmdlet.ParameterSetName -ceq 'Text') {
+        return Get-BSLFlowBytesSha256 ($utf8.GetBytes($PolicyText))
+    }
+    if (-not (Test-Path -LiteralPath $PolicyPath -PathType Leaf)) {
+        throw "Council policy file not found: $PolicyPath"
+    }
     $text = [System.IO.File]::ReadAllText($PolicyPath, $utf8)
     return Get-BSLFlowBytesSha256 ($utf8.GetBytes($text))
 }
@@ -617,7 +625,10 @@ function Resume-BSLFlowCouncilPublication {
     if ($ProjectPath) {
         $policyPath = Join-Path ([System.IO.Path]::GetFullPath($ProjectPath).TrimEnd('\', '/')) 'bsl-flow.yaml'
         if (-not (Test-Path -LiteralPath $policyPath -PathType Leaf)) { throw 'BF_BLOCKED: current council policy is missing; refusing to publish recovery bytes.' }
-        if ((Get-BSLFlowCouncilPolicyHash $policyPath) -cne [string]$canonicalReviewObject.inputs.policy_hash) {
+        . (Join-Path $PSScriptRoot 'Council.Profile.ps1')
+        try { $effectivePolicy = Get-BSLFlowCouncilEffectivePolicy -ProjectRoot $ProjectPath }
+        catch { throw ('BF_BLOCKED: current council policy could not be resolved: ' + $_.Exception.Message) }
+        if ($effectivePolicy.hash -cne [string]$canonicalReviewObject.inputs.policy_hash) {
             throw 'BF_BLOCKED: council policy changed after the publication was prepared.'
         }
     }

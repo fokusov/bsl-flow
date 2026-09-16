@@ -7,34 +7,34 @@
 
 ## Цель
 
-Настройки моделей ревьюеров совета (привязки «роль → модель», профили моделей и провайдеров) хранятся в конфиге профиля пользователя, а не в проекте; проект переопределяет профиль по каждому именованному ключу, если задаёт его сам; существующие проектные конфиги работают без изменений.
+Настройки моделей ревьюеров совета (привязки «роль → модель», профили моделей и провайдеров) хранятся в конфиге профиля пользователя, а не в проекте; проект переопределяет профиль по каждому полю внутри именованной сущности, если задаёт его сам; существующие проектные конфиги работают без изменений.
 
 ## Текущее поведение
 
-- Весь совет настраивается только в проектном `bsl-flow.yaml`: `llm.providers` (protocol, base_url, token_env), `llm.models` (профили вида `reviewer`), `review.council.roles.<роль>.{enabled, required, model, fallback}` (cli/internal/councilengine/policy.go: `ParseCouncilPolicy`, `ProviderConfig`, `ModelConfig`, `RoleConfig`).
+- Весь совет настраивается только в проектном `bsl-flow.yaml`: `llm.providers` (protocol, base_url, token_env), `llm.models` (профили вида `reviewer`), `review.council.roles.<роль>.{enabled, required, model, fallback}` — разбор в `Get-BSLFlowCouncilPolicy` (global/skills/1c-spec-review/scripts/Council.Common.ps1).
 - Секреты уже вынесены из репозитория: незакоммиченный `.bsl-flow/providers.local.yaml` перекрывает `token`/`base_url`; литеральные токены в `bsl-flow.yaml` запрещены fail-closed.
-- Пользовательского уровня конфигурации нет: `TrustedConfigRoot()` в cli/internal/platform/configpaths.go определён, но ни разу не вызывается; ни один файл профиля не читается и не мержится.
-- `PolicyHash` считается по сырому проектному `bsl-flow.yaml`.
-- Стартовый гейт `assertCouncilRoutesStart` (cli/specreview_cmd.go) блокирует совет, если у включённой роли нет резолвимого credential.
+- Пользовательского уровня конфигурации нет: ни один файл профиля не читается и не мержится; резолвер пути пользовательского конфига отсутствует.
+- `Get-BSLFlowCouncilPolicyHash` (Council.Engine.ps1) считается по сырому проектному `bsl-flow.yaml` (Invoke-CouncilReview.ps1).
+- Стартовый гейт admission (Invoke-CouncilReview.ps1: `BF_BLOCKED: council cannot start`) блокирует совет, если у включённой роли нет резолвимого credential.
 
 ## Требуемое поведение
 
-1. Новый опциональный файл профиля: `%USERPROFILE%\.bsl-flow\config.yaml` (Windows) / `$HOME/.bsl-flow/config.yaml` (POSIX). Отсутствие файла — допустимое штатное состояние; поведение при этом идентично текущему.
-2. Профиль может определять только: `llm.providers.<имя>.{protocol, base_url, token_env, endpoint, transport_capability_version}`, `llm.models.<имя>.{provider, model, effort, cost_estimate_usd}` и `review.council.roles.<роль>.model`. Иные ключи (включая `review.council.{enabled, required, budget, legacy_mode}`, `review.reviewer.*`, `review.routing`, `review.thresholds`) в профиле запрещены и отклоняются fail-closed с именем файла и ключа.
+1. Новый опциональный файл профиля: `%USERPROFILE%\.bsl-flow\config.yaml` (Windows) / `$HOME/.bsl-flow/config.yaml` (POSIX). Отсутствие файла — допустимое штатное состояние; поведение при этом идентично текущему. Пустой файл или файл, содержащий только комментарии, считается валидным и эквивалентен отсутствию профиля.
+2. Профиль может определять только: `llm.providers.<имя>.{protocol, base_url, token_env}`, `llm.models.<имя>.{provider, model, effort, cost_estimate_usd}` и `review.council.roles.<роль>.model`. (`endpoint` и `transport_capability_version` в PS-парсере — вычисляемые поля провайдера и из YAML не читаются.) Иные ключи (включая `review.council.{enabled, required, budget, legacy_mode, max_parallel, allow_local_http, request_timeout_seconds}`, `review.reviewer.*`, `review.routing`, `review.thresholds`) в профиле запрещены и отклоняются fail-closed с именем файла и ключа.
 3. Литеральные токены в профиле запрещены так же, как в проектном конфиге; credential резолвится только через `token_env` провайдера или локальный оверлей.
-4. Эффективная политика = профиль как база, проект поверх: для каждого именованного провайдера, профиля модели и роли определение проекта целиком вытесняет определение профиля; сущности, заданные только в профиле, дополняют набор. Существующий оверлей `.bsl-flow/providers.local.yaml` применяется после мержа и сохраняет высший приоритет для `token`/`base_url`.
-5. `PolicyHash` вычисляется по эффективной мерженной политике, а не по сырому файлу проекта: изменение релевантной части профиля меняет hash; записываемый результат совета остаётся валидным по актуальной JSON-схеме council-review (при добавлении полей аудита — bump версии схемы).
-6. Гейт `assertCouncilRoutesStart` и `BuildRoleBindings` оцениваются по эффективной политике: роль, чья модель и credential резолвятся только через профиль, проходит гейт на общих основаниях.
-7. Путь файла профиля переопределяется переменной окружения `BSL_FLOW_USER_CONFIG` (полный путь к файлу) — для тестов и CI.
-8. Непарсируемый профиль или запрещённый ключ → запуск spec review завершается явной ошибкой с именем файла и ключа; тихое игнорирование профиля запрещено.
-9. Неиспользуемая заготовка `TrustedConfigRoot()` удаляется; если при реализации окажется нужной — она должна быть реально вызвана. Мёртвого кода по итогам изменения остаться не должно.
+4. Эффективная политика = профиль как база, проект поверх с пополевым переопределением внутри каждой именованной сущности: для каждого именованного провайдера, профиля модели и роли каждое поле, явно заданное в проекте, вытесняет соответствующее поле профиля; поля, не заданные в проекте, сохраняются из профиля; сущности, заданные только в одном источнике, включаются в набор. Существующий оверлей `.bsl-flow/providers.local.yaml` применяется после мержа профиля и проекта к определениям провайдеров до построения role bindings и admission-гейта и сохраняет высший приоритет для `token`/`base_url`.
+5. `Get-BSLFlowCouncilPolicyHash` вычисляется по каноническому представлению эффективной политики: рекурсивно отсортированные ключи, только разрешённые поля из allowlist, JSON без незначащих пробелов, UTF-8; вычисляемые поля (`endpoint`, `transport_capability_version`) исключаются. Изменение релевантной части профиля меняет hash. Для конфигураций без профиля и без локального оверлея сохраняется текущий алгоритм хеширования сырого проектного `bsl-flow.yaml`, чтобы не инвалидировать ранее записанные результаты; при наличии профиля или оверлея используется новый алгоритм. Текущая версия JSON-схемы council-review не изменяется; поля аудита в этой версии не добавляются.
+6. Стартовый гейт admission и построение role bindings (Invoke-CouncilReview.ps1 / Council.Engine.ps1) оцениваются по эффективной политике после применения локального оверлея к провайдерам: роль, чья модель и credential резолвятся только через профиль, проходит гейт на общих основаниях; все ссылки на провайдера в role bindings учитывают итоговые `token`/`base_url` оверлея.
+7. Путь файла профиля переопределяется переменной окружения `BSL_FLOW_USER_CONFIG` (полный путь к файлу) — для тестов и CI. Если переменная задана, указанный файл обязан существовать и быть читаемым; иначе запуск spec review завершается явной ошибкой с указанием пути. Если переменная не задана, отсутствие файла по умолчанию штатно.
+8. Непарсируемый профиль, запрещённый ключ, литеральный токен или заданный через `BSL_FLOW_USER_CONFIG` отсутствующий/нечитаемый файл → запуск spec review завершается явной ошибкой с именем файла и ключа/пути; тихое игнорирование профиля запрещено.
+9. Мёртвого кода по итогам изменения остаться не должно: резолвер пути профиля и мерж реализуются как вызываемые функции основного пути spec review (в PS-движке заготовки вроде Go `TrustedConfigRoot()` нет и не появляется).
 10. Документация: INSTALL.md и `1c-spec-review` описывают файл профиля, приоритеты и пример; проектный шаблон (bootstrap merge) для новых проектов не навязывает привязки «роль → модель» как единственное место настройки.
 
 ## Контекст 1С
 
-- Конфигурация/подсистема: BSL Flow CLI; метаданные 1С не изменяются.
-- Затрагиваемые механизмы: загрузка конфига в cli/specreview_cmd.go; `ParseCouncilPolicy`, `ProviderConfig`/`ModelConfig`/`RoleConfig`, `PolicyHash`, `ResolveCredential`, `LocalProviderOverlay` в cli/internal/councilengine/policy.go; стартовый гейт `assertCouncilRoutesStart`; cli/internal/platform/configpaths.go; bootstrap-шаблоны (cli/internal/bootstrap/merge.go); INSTALL.md; global/skills/1c-spec-review.
-- Evidence path: spec review → чтение проектного `bsl-flow.yaml` → чтение профиля → merge → парс эффективной политики → `BuildRoleBindings` → локальный оверлей → гейт → совет. Внешних side effects, кроме чтения локальных файлов и env, нет.
+- Конфигурация/подсистема: BSL Flow (PowerShell 7); метаданные 1С не изменяются.
+- Затрагиваемые механизмы: загрузка конфига в Invoke-CouncilReview.ps1; `Get-BSLFlowCouncilPolicy`, `Get-BSLFlowLocalProviderOverlay` в Council.Common.ps1; `Get-BSLFlowCouncilPolicyHash` в Council.Engine.ps1; стартовый гейт admission в Invoke-CouncilReview.ps1; новый модуль профиля (Council.Profile.ps1); bootstrap-шаблоны; INSTALL.md; global/skills/1c-spec-review.
+- Evidence path: spec review → чтение проектного `bsl-flow.yaml` → чтение профиля → merge → применение локального оверлея к провайдерам → парс эффективной политики → построение role bindings → гейт → совет. Внешних side effects, кроме чтения локальных файлов и env, нет.
 - 1С runtime: не запускается.
 
 ## Не делать
@@ -52,37 +52,58 @@
   WHEN эффективная политика резолвится
   THEN привязка роли — `reviewer`, профильное значение вытеснено проектным.
 - GIVEN проект не определяет провайдер и профиль модели, а профиль определяет оба
-  WHEN выполняются `BuildRoleBindings` и стартовый гейт
+  WHEN выполняются построение role bindings и стартовый гейт
   THEN роль резолвится через профиль, credential берётся из `token_env` провайдера профиля, гейт пройден.
+- GIVEN проект задаёт `llm.providers.openai.base_url: project-url`, а профиль задаёт тот же провайдер с `token_env: PROFILE_TOKEN` и `protocol: https`
+  WHEN эффективная политика резолвится
+  THEN итоговый провайдер имеет `base_url: project-url`, `token_env: PROFILE_TOKEN`, `protocol: https`.
+- GIVEN проект задаёт `llm.models.reviewer.provider: openai`, а профиль задаёт `llm.models.reviewer.{model, effort, cost_estimate_usd}`
+  WHEN эффективная политика резолвится
+  THEN итоговый профиль модели имеет `provider: openai` и сохранённые профильные `model`, `effort`, `cost_estimate_usd`.
 - GIVEN файл профиля отсутствует
   WHEN выполняется spec review на репозитории с текущим `bsl-flow.yaml`
   THEN поведение и результат гейта идентичны текущему (регрессия запрещена).
+- GIVEN файл профиля пуст или содержит только комментарии
+  WHEN команда читает политику
+  THEN ошибок нет, поведение идентично отсутствию профиля.
 - GIVEN профиль содержит литеральный токен или ключ вне allowlist
   WHEN команда читает политику
   THEN запуск завершается ошибкой с именем файла и ключа, совет не стартует.
+- GIVEN `BSL_FLOW_USER_CONFIG` задаёт путь к несуществующему или нечитаемому файлу
+  WHEN команда читает политику
+  THEN запуск завершается ошибкой с указанием пути.
 - GIVEN один проектный файл и два разных валидных содержимого профиля
-  WHEN считается `PolicyHash`
+  WHEN считается `Get-BSLFlowCouncilPolicyHash`
   THEN hash различается между профилями и отличается от «проект без профиля».
+- GIVEN проект без профиля и без локального оверлея
+  WHEN считается `Get-BSLFlowCouncilPolicyHash`
+  THEN hash совпадает с текущей реализацией (обратная совместимость сохранена).
+- GIVEN каноническое представление фиксированной эффективной политики
+  WHEN вычисляется хеш на разных платформах и запусках
+  THEN результат идентичен (воспроизводимость канонической сериализации).
 - GIVEN `.bsl-flow/providers.local.yaml` задаёт токен, а провайдер профиля — `token_env`
   WHEN credential резолвится для роли из профиля
-  THEN локальный токен имеет приоритет над `token_env`.
+  THEN локальный токен имеет приоритет над `token_env`, и role binding использует локальный `base_url`, если он задан в оверлее.
 
 ## Требуемые проверки
 
 - [x] Static — allowlist ключей профиля, запрет литеральных токенов, отсутствие мёртвого `TrustedConfigRoot`.
-- [x] Unit — матрица приоритетов «профиль/проект/оверлей», reject неизвестных ключей, чувствительность `PolicyHash`, резолв пути профиля по ОС и через `BSL_FLOW_USER_CONFIG`.
-- [x] Integration — гейт и `BuildRoleBindings` на эффективной политике без сети (fixture-эндпоинт); регрессионный случай «профиль отсутствует».
+- [x] Unit — матрица приоритетов «профиль/проект/оверлей» с пополевым переопределением, reject неизвестных ключей, чувствительность `PolicyHash`, резолв пути профиля по ОС и через `BSL_FLOW_USER_CONFIG`, поведение при отсутствии/пустом/нечитаемом файле.
+- [x] Integration — гейт и `BuildRoleBindings` на эффективной политике с учётом оверлея без сети (fixture-эндпоинт); регрессионный случай «профиль отсутствует»; обратная совместимость hash.
 - [ ] UI — не требуется.
 - [ ] Smoke — не требуется.
 - [x] Independent review — M/medium: обязательна по проектной политике.
 
 ## Неопределённости / допущения
 
-- Каноническая форма мержа для `PolicyHash` (представление) фиксируется в тестах; требование — чувствительность к содержимому профиля и воспроизводимость аудита.
+- Пополевое переопределение внутри именованных сущностей зафиксировано как каноническая семантика; тесты покрывают частичные определения проекта.
+- Каноническое представление для `PolicyHash` описано в требовании 5; тесты проверяют точный ожидаемый хеш известной политики.
 - Предполагается, что `review.council.{enabled, legacy_mode, budget}` продолжают читаться только из проекта; если реализация покажет иное, требование 2 уточняется в ревью.
-
----
 
 ## Дополнение 2026-09-16 (откат native-cross-platform-cli)
 
-Гейты этой спеки были заякорены в Go-коде (`cli/internal/councilengine/policy.go` — разбор policy, `cli/specreview_cmd.go` — admission-гейт, `cli/internal/platform/configpaths.go` — пути конфигурации), удалённом откатом `native-cross-platform-cli` 2026-09-16. Концепция переносится на PS-совет (policy-хелперы `Council.Common.ps1`). Статус изменения: **ON HOLD** до переанкеровки на PowerShell перед реализацией.
+Гейты этой спеки были заякорены в Go-коде (`cli/internal/councilengine/policy.go` — разбор policy, `cli/specreview_cmd.go` — admission-гейт, `cli/internal/platform/configpaths.go` — пути конфигурации), удалённом откатом `native-cross-platform-cli` 2026-09-16. Концепция переносится на PS-совет (policy-хелперы `Council.Common.ps1`). Статус изменения: **ПЕРЕСМОТРЕНО** — переанкеровано на PowerShell, см. ниже.
+
+## Переанкеровка 2026-09-16 (PowerShell)
+
+Спека переанкерована на PS-совет: разбор политики — `Get-BSLFlowCouncilPolicy` (Council.Common.ps1), hash — `Get-BSLFlowCouncilPolicyHash` (Council.Engine.ps1), admission-гейт и role bindings — Invoke-CouncilReview.ps1; путь пользовательского профиля — `%USERPROFILE%\.bsl-flow\config.yaml` / `$HOME/.bsl-flow/config.yaml` с override `BSL_FLOW_USER_CONFIG`. Поля провайдера `endpoint`/`transport_capability_version` в PS-парсере вычисляемые и в allowlist профиля не входят (требование 2 уточнено при переанкеровке). PS-порт admission-гейта уже выполнен в `2f49e13` (Invoke-CouncilReview.ps1). Статус изменения: **АКТИВНО** — реализация разрешена в PowerShell; независимое ревью M/medium обязательно по проектной политике.

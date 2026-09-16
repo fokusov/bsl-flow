@@ -19,6 +19,8 @@ Read project `bsl-flow.yaml` and classify the change as S/M/L plus low/medium/hi
 - The review route comes from the same `bsl-flow.yaml`: `review.council.enabled: true` dispatches the API council (chair plus independent critics, budget ledger, council final gate) through `Invoke-CouncilReview.ps1`; without it `Invoke-1CSpecReview.ps1` uses the isolated single-reviewer OpenCode route. Never silently switch routes to satisfy a review requirement, and do not treat the per-role council `fallback: current_agent` policy as a route-level fallback — role fallback applies only inside a started council cycle after admission, never to a route that refused to start.
 - Never silently waive a required review because the council providers or the configured model are unavailable. Report the blocker.
 
+Council model bindings may come from the optional user profile config `%USERPROFILE%\.bsl-flow\config.yaml` (path override: `BSL_FLOW_USER_CONFIG`). The profile is the base layer: project `bsl-flow.yaml` overrides it per named provider, model profile and role binding, and `.bsl-flow/providers.local.yaml` keeps the highest priority for `token`/`base_url`. The profile may define only `llm.providers.<name>`, `llm.models.<name>` and `review.council.roles.<role>.model`; any other key or a literal token fails the run with the file and key named, and an absent profile file changes nothing.
+
 ## Inputs and artifacts
 
 Work in `openspec/changes/<change>/`. Require `spec.md` and `original-task.md`; include `design.md` only when it already exists. Keep these sidecars in the same change:
