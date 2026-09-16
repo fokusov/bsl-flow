@@ -8,6 +8,10 @@
 
 В поставку на дату этой проверки (2026-09-10) входили Go CLI со встроенным пакетом, ограниченная диагностика и исправление source-only ошибок, локальная очередь и выдача принятых исходников (Go CLI удалён откатом 2026-09-16, см. примечание выше). Машина состояний остаётся в PowerShell 7. Готовый exe не требует Go, но требует PowerShell 7, Git и настроенные model hosts; полная автономная разработка произвольных доработок 1С пока не подтверждена.
 
+## Дополнение 2026-09-16: первый полный offline-прогон пакета после отката
+
+На HEAD `e1f083a` (ветка `codex/managed-sdlc`, PowerShell-only поставка 0.8.0-dev.3) выполнен полный непрерывный прогон `scripts/Test-BSLFlowPackage.ps1 -PackageRoot .` на PowerShell 7.6.6: один запуск, exit code 0, «All BSL Flow v0.8.0-dev.3 offline package tests passed. Host checks: False.» — 44 внешних suite (test-tooling, ADR index, task context/architecture, council validation/engine/transport/fallback/routing/cycle/lifecycle, storage, fence, lifecycle, hardening, resume, crash recovery, native recovery и остальные) плюс встроенные проверки пакета: AST-разбор всех `*.ps1`, инвентарь обязательных файлов, gitignore-пробы, изолированные install/rollback/bootstrap-идемпотентность. Лог: `work/package-suite-post-rollback-20260916.log` (1089 строк; scan на FAIL/BLOCKED/ERROR — чисто). Это первый полный PASS пакета, зафиксированный после удаления Go CLI; сегментированный прогон 2026-09-10 выше остаётся исторической записью. Не входили в этот прогон: `-HostChecks` (живые host-утверждения OpenCode) и удалённый CI при push — обе проверки остаются отдельными гейтами.
+
 ## Managed native increment 0.8.0-dev.2
 
 Публичный CLI завершил задачу расширения в разрешённой тестовой БП: acceptance revision 21, оригинальный JUnit 5/5 PASS, local handoff выдан. Первый запуск остановился после успешных load/update из-за неверного пути отчёта. Сохранены исходный BLOCKED, последующее COM control-read recovery и отдельный успешный test-only attempt; повторных load/update не выполнялось. Точные identity, hashes и границы доказательств — в [native runtime](docs/NATIVE_RUNTIME_RU.md).
