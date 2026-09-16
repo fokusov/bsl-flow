@@ -1,146 +1,897 @@
 {
-  "schema_version": 1,
-  "reviewed_at_utc": "2026-09-14T07:15:08.9296850Z",
-  "review_iteration": 1,
-  "reviewer_verdict": "REVISE",
+  "schema_version": 2,
+  "reviewed_at_utc": "2026-09-16T15:18:22.6772177Z",
+  "council_schema_version": 1,
   "verdict": "REVISE",
-  "summary": "The spec faithfully covers the original ask — a clone-local, cross-worktree task catalog with list/show of all statuses (incl. completed/cancelled), planned tasks carrying exactly title/description/priority/labels/depends_on, and borrows Backlog.md UX without porting its architecture. Architecture claims were verified against cli/internal/repository: hash-linked revisions as source of truth with current.json as a derived projection, the v1 status enum, UUID-based status/next/context, and the trusted request lacking title/priority/labels. The spec is disciplined about deferring activation, adoption, and pre-dispatch dependency gating. Two material problems remain: (1) an internal contradiction between §17 (adopt does not write to the canonical store this version) and the design's `adopt --apply` command plus adoption tests that perform canonical continuation; (2) dependency cycle/concurrent-edge graph-lock machinery that exceeds the task's plain `dependencies` field. Optional UX commands (activate/archive/history/overview) enlarge the surface but are defensible borrowings.",
-  "scores": {
-    "intent_fidelity": 5,
-    "minimality": 3,
-    "completeness": 5,
-    "architecture_fit": 5,
-    "testability": 5,
-    "assumption_discipline": 5,
-    "clarity": 3
+  "diversity": "multi_role_single_model",
+  "fallback_visible": false,
+  "inputs": {
+    "original_task_sha256": "343b3d57a5417bad4fde0e1c8ea415006967b566d14f23f63d14b1786c5c467c",
+    "spec_sha256": "74e14b727d0c36ac7a765bef9f15279b689c77d864d1ad0a8a9dd4f1717b2575",
+    "design_sha256": "2593de87dc9d0ab9700ef39459e919d7bbc9a8428f8ad24b9f5811ccf8890b69",
+    "policy_hash": "1a06606303e4cd9c49928ffd3fcda137820a6627718cdc4cd8fa54d2fa8b1899"
   },
-  "weighted_score": 4.5,
-  "overengineering": {
-    "architectural_decision_count": 8,
-    "required_count": 0,
-    "justified_count": 0,
-    "optional_count": 6,
-    "unjustified_count": 2,
-    "index": 12,
-    "optional_ratio": 0.75,
-    "unjustified_ratio": 0.25,
-    "normalized_index": 0.5,
-    "items": [
+  "manifest": {
+    "version": 1,
+    "requirements": [
       {
-        "spec_ref": "§5",
-        "item": "task activate command (native controller capability gating)",
-        "necessity": "optional",
-        "evidence": "Original task asks for view commands plus planned tasks; it does not request a planned→controller bridge. Spec correctly defers the actual write and returns staged BLOCKED.",
-        "simpler_direction": "Keep the BLOCKED stub as a clean deferral, or remove activate from this spec's command surface and leave it entirely to the deferred native controller write slice."
+        "id": "REQ-001",
+        "source_hash": "a5fdafc02c73bf339f970480d4732d4b0b1ff95a512e52c63506b398f47f463f",
+        "draft_ref": "Требуемое поведение / 1"
       },
       {
-        "spec_ref": "§9, §14",
-        "item": "archive/unarchive presentation flag commands",
-        "necessity": "optional",
-        "evidence": "Original task only asks to view tasks including completed; hiding via archive is a Backlog.md UX borrowing not in the ask.",
-        "simpler_direction": "Mark archive/unarchive as an optional UX addition rather than a first-version requirement."
+        "id": "REQ-002",
+        "source_hash": "f15b63cc6276de8171a818917875d6e3ebb7695b9d1b7b1a525cc0a4caa85566",
+        "draft_ref": "Требуемое поведение / 2"
       },
       {
-        "spec_ref": "§12",
-        "item": "task history timeline command",
-        "necessity": "optional",
-        "evidence": "Original ask covers list + details of a specific task; a revision timeline is an additional Backlog.md UX borrowing.",
-        "simpler_direction": "Treat history as optional; do not let it add disproportionate acceptance/verification requirements."
+        "id": "REQ-003",
+        "source_hash": "b9bbf187027ceefa7f56ab373aef1b06129e9c4b0543f43d578158a927e8327a",
+        "draft_ref": "Требуемое поведение / 3"
       },
       {
-        "spec_ref": "§13",
-        "item": "task overview counts/board command",
-        "necessity": "optional",
-        "evidence": "Totals/board view is not in the original ask; defensible as Backlog.md UX.",
-        "simpler_direction": "Treat overview as optional UX."
+        "id": "REQ-004",
+        "source_hash": "0ffde126e32653404ec809c90b10c6ec224440d0a50789589365aeccbbd108fc",
+        "draft_ref": "Требуемое поведение / 4"
       },
       {
-        "spec_ref": "§8",
-        "item": "Dependency self-reference/duplicate/cycle validation",
-        "necessity": "optional",
-        "evidence": "Original task only requires a `dependencies` field; it does not require graph validation. Data hygiene is reasonable but not required.",
-        "simpler_direction": "Keep self-reference and duplicate-ID rejection (cheap, meaningful); cycle detection is acceptable but optional."
+        "id": "REQ-005",
+        "source_hash": "d4387e0372fc4be4ba276a778393ad7f8da3d9696ad1e981fc17cd9d9b7cabe9",
+        "draft_ref": "Требуемое поведение / 5"
       },
       {
-        "spec_ref": "§8 + acceptance (concurrent edges) + design 'Dependencies'/'Concurrency'",
-        "item": "Repository graph lock / generation-CAS serialization of concurrent dependency edges",
-        "necessity": "unjustified",
-        "evidence": "No demonstrated concurrent multi-writer risk for a clone-local single-user tracker; the 'two concurrent writers A→B and B→A' acceptance test and the generation-CAS alternative are speculative.",
-        "simpler_direction": "Validate dependencies against the current graph under a simple per-write check; drop the generation-CAS alternative and the contrived concurrent-edge acceptance test."
+        "id": "REQ-006",
+        "source_hash": "169eb47d91392df2f3e4fdab80efc37350bb86240c62995bea7d4b14b2fa43a8",
+        "draft_ref": "Требуемое поведение / 6"
       },
       {
-        "spec_ref": "§16",
-        "item": "Derived catalog/index.json cache with rebuild rules",
-        "necessity": "optional",
-        "evidence": "Spec itself states the index is not a required artifact and is never read as truth; introducing an optional cache write path adds surface for no correctness benefit.",
-        "simpler_direction": "Omit the cache entirely in v1; reads derive from journals directly."
+        "id": "REQ-007",
+        "source_hash": "ccd111d9c727b7fd0e8640019dab412ba70379cd666ba7f9ec06184524ef1b13",
+        "draft_ref": "Требуемое поведение / 7"
       },
       {
-        "spec_ref": "§17 + design 'Команды и read model'",
-        "item": "adopt command (--preview/--apply) and migration receipts",
-        "necessity": "unjustified",
-        "evidence": "Full adoption is deferred to a separate spec, and §17 states adopt does not write to the canonical store, yet the design lists adopt --apply and adoption tests doing canonical continuation. Contradictory and, in this version, unwarranted.",
-        "simpler_direction": "Restrict this spec to read-only legacy discovery; remove the adopt write command and its --apply/continuation tests from scope."
+        "id": "REQ-008",
+        "source_hash": "cfdd7a95d25b27029fd67fe330466270d1de162754da4128d1f7745d4856620b",
+        "draft_ref": "Требуемое поведение / 8"
+      },
+      {
+        "id": "REQ-009",
+        "source_hash": "835219678a459e650457df7f2650c8a4480bbcdc4ba5863249a4991dc2ba1d98",
+        "draft_ref": "Требуемое поведение / 9"
+      },
+      {
+        "id": "REQ-010",
+        "source_hash": "7095497b235537a7e039d1b31c0d4540956ca91251fb5844ff3a7dd589fcc6cd",
+        "draft_ref": "Требуемое поведение / 10"
+      },
+      {
+        "id": "REQ-011",
+        "source_hash": "d35b5d1a34d15622e17fc51c0bad00ff241c1d6886a7c8aac7f0113e13305791",
+        "draft_ref": "Требуемое поведение / 11"
+      },
+      {
+        "id": "REQ-012",
+        "source_hash": "be068b648b703b797f99fad60bb83ceb329733f4ce058b74bf5f4ddd51621a17",
+        "draft_ref": "Требуемое поведение / 12"
+      },
+      {
+        "id": "REQ-013",
+        "source_hash": "8301fac4ae31d62afd7353f61643bf29a48ffac488cc853a2c1664e90f981aa9",
+        "draft_ref": "Требуемое поведение / 13"
+      },
+      {
+        "id": "REQ-014",
+        "source_hash": "ec1eae0fc0b1f1544f2fec05fe877dfe4826abd6bf4f3bc2e5482c2d4428eb85",
+        "draft_ref": "Требуемое поведение / 14"
+      },
+      {
+        "id": "REQ-015",
+        "source_hash": "d21c5d0923968c2d2ff7077e5331a2a426f2fc63d3a08ea2d14606dbcb5947f0",
+        "draft_ref": "Требуемое поведение / 15"
+      },
+      {
+        "id": "REQ-016",
+        "source_hash": "05eb40c3f36592ca184c6e3c149a5352f8db8dd8b555fc140ef6182fa26a22b5",
+        "draft_ref": "Требуемое поведение / 16"
+      },
+      {
+        "id": "REQ-017",
+        "source_hash": "9b1fb683fdadec19aca66590980383d9b5dba6c780fa230b899ac477dc481845",
+        "draft_ref": "Требуемое поведение / 17"
+      },
+      {
+        "id": "REQ-018",
+        "source_hash": "58c8b6c2411bf7674c3a4f030e965fc71cc430213db856a1028d9d6fa94cbabf",
+        "draft_ref": "Требуемое поведение / 18"
+      },
+      {
+        "id": "REQ-019",
+        "source_hash": "88d28807c817519b9e3892f80707af371a484e0e3efd716a59768e03f3fc2ccb",
+        "draft_ref": "Требуемое поведение / 19"
+      },
+      {
+        "id": "REQ-020",
+        "source_hash": "91b8daa19c26a4366f7a092348951e97dc16113d13ff481dba10fb16aab9b187",
+        "draft_ref": "Требуемое поведение / 20"
       }
     ]
   },
-  "blocking_findings": [],
-  "findings": [
+  "members": [
     {
-      "id": "R-001",
-      "severity": "medium",
-      "category": "clarity",
-      "spec_ref": "§17 vs Technical design 'Команды и read model' and 'Стратегия проверки'",
-      "issue": "Contradiction about adopt. §17 states full adoption is deferred and 'в этой версии явный `adopt` не выполняет запись в canonical store'. The design lists `task registry adopt --source <worktree>|--all --preview|--apply` and the verification strategy describes 'Adoption tests ... выполняют canonical continuation' and a 'portable artifact manifest'. An implementer cannot tell whether `adopt --apply` writes to the canonical store in this version or not, and the command name differs between the two (`task registry adopt` vs the registry action `adopt`).",
-      "evidence": "spec.md §17: 'в этой версии явный `adopt` не выполняет запись в canonical store'; design.md line 53: '`task registry adopt --source <worktree>|--all --preview|--apply`'; design.md line 105: 'Adoption tests ... выполняют canonical continuation/repeated discovery'.",
-      "suggested_direction": "Make the adopt boundary unambiguous: keep only read-only legacy discovery in this spec and drop `adopt --apply` (and the canonical-continuation adoption tests), or explicitly state what `adopt` does in this version and move only lineage-receipt/rebind to the deferred spec. Align the command name between spec and design."
+      "schema_version": 1,
+      "role": "intent_critic",
+      "attempt_id": "71cb7cfc27db4c90a536174fd8d40a0d",
+      "status": "completed",
+      "summary": "Role intent_critic completed its structured result.",
+      "requested": {
+        "provider": "deepseek",
+        "model": "deepseek-v4-pro",
+        "effort": "medium"
+      },
+      "observed": {
+        "provider": "deepseek",
+        "model": "deepseek-v4-pro",
+        "effort": null
+      },
+      "execution_mode": "direct_api",
+      "fallback_reason": "",
+      "input_hashes": {
+        "original_task_sha256": "343b3d57a5417bad4fde0e1c8ea415006967b566d14f23f63d14b1786c5c467c",
+        "spec_sha256": "74e14b727d0c36ac7a765bef9f15279b689c77d864d1ad0a8a9dd4f1717b2575",
+        "design_sha256": "2593de87dc9d0ab9700ef39459e919d7bbc9a8428f8ad24b9f5811ccf8890b69",
+        "evidence_sha256": null,
+        "policy_hash": "1a06606303e4cd9c49928ffd3fcda137820a6627718cdc4cd8fa54d2fa8b1899",
+        "rubric_sha256": "d73b8870846afb76beccba9ca3bdab55644c893156718db825b4c99ff9db11be"
+      },
+      "payload_sha256": "5237f1133b66c317102ddf825dc38aaa5b36c7832578f126319284592533d2e0",
+      "usage": {
+        "input_tokens": 6861,
+        "output_tokens": 7339,
+        "reasoning_tokens": 6393
+      },
+      "cost_state": "provider_usage_reported",
+      "dispatched_at_utc": "2026-09-16T15:09:24.4630111Z",
+      "completed_at_utc": "2026-09-16T15:11:18.19456Z"
     },
     {
-      "id": "R-002",
-      "severity": "medium",
-      "category": "overengineering",
-      "spec_ref": "§8 + acceptance criteria (concurrent edges) + design 'Dependencies'/'Concurrency и recovery'/'Риски'",
-      "issue": "The original task requires only a `dependencies` field on planned tasks. The spec adds self-reference/duplicate rejection (fine), full cycle detection, a repository-wide graph lock, a 'generation-CAS' alternative, and a dedicated acceptance test for two concurrent writers adding A→B and B→A. For a clone-local single-user tracker there is no demonstrated concurrent-writer risk; the generation-CAS framing and the concurrent-edge acceptance test are speculative machinery that enlarges the design and test matrix beyond the ask.",
-      "evidence": "original task: 'planned-задача первой версии содержит title, description, priority, labels и dependencies' (no validation/concurrency requirement); spec §8: 'репозиторий graph lock либо эквивалентным generation-CAS'; acceptance: 'два concurrent writers ... A→B и B→A'.",
-      "suggested_direction": "Keep self-reference and duplicate-ID rejection. Validate cycles against the current verified graph under a single simple lock (or a single per-write validation), and remove the generation-CAS alternative and the contrived concurrent-edge acceptance test."
+      "schema_version": 1,
+      "role": "architecture_critic",
+      "attempt_id": "1830e3d5a08a4dd6b5338a5867ff0510",
+      "status": "completed",
+      "summary": "Role architecture_critic completed its structured result.",
+      "requested": {
+        "provider": "deepseek",
+        "model": "deepseek-v4-pro",
+        "effort": "medium"
+      },
+      "observed": {
+        "provider": "deepseek",
+        "model": "deepseek-v4-pro",
+        "effort": null
+      },
+      "execution_mode": "direct_api",
+      "fallback_reason": "",
+      "input_hashes": {
+        "original_task_sha256": "343b3d57a5417bad4fde0e1c8ea415006967b566d14f23f63d14b1786c5c467c",
+        "spec_sha256": "74e14b727d0c36ac7a765bef9f15279b689c77d864d1ad0a8a9dd4f1717b2575",
+        "design_sha256": "2593de87dc9d0ab9700ef39459e919d7bbc9a8428f8ad24b9f5811ccf8890b69",
+        "evidence_sha256": null,
+        "policy_hash": "1a06606303e4cd9c49928ffd3fcda137820a6627718cdc4cd8fa54d2fa8b1899",
+        "rubric_sha256": "6011c5b31248f82676d01bef8aefa3a7b05fcf3ff947a3ebda0343c00c6e8af8"
+      },
+      "payload_sha256": "0d395156640389bde99e7322a4ebf182017c3505cd5a5eda11595275c3cdcbe8",
+      "usage": {
+        "input_tokens": 6867,
+        "output_tokens": 8465,
+        "reasoning_tokens": 7213
+      },
+      "cost_state": "provider_usage_reported",
+      "dispatched_at_utc": "2026-09-16T15:09:24.4631221Z",
+      "completed_at_utc": "2026-09-16T15:11:42.4979701Z"
     },
     {
-      "id": "R-003",
-      "severity": "low",
-      "category": "overengineering",
-      "spec_ref": "§5, §12, §13, §14",
-      "issue": "`activate`, `history`, `overview`, and `archive/unarchive` go beyond the original ask (view all tasks incl. completed, statuses, details of a specific task; planned tasks with five fields). They are defensible Backlog.md UX borrowings and `activate` is deferred, but each carries its own acceptance criteria and verification requirements, enlarging the CLI surface and test matrix relative to the stated goal. The spec does not distinguish required core from borrowed/optional UX.",
-      "evidence": "original task scope: 'просмотра всех задач проекта, включая завершённые, их статусов и подробностей конкретной задачи'; spec lists these commands with per-command acceptance criteria.",
-      "suggested_direction": "Explicitly mark activate/history/overview/archive as optional UX additions (not first-version acceptance requirements), keeping list/show + create/edit as the mandatory core."
+      "schema_version": 1,
+      "role": "executability_critic",
+      "attempt_id": "8264d25572f24f13bdb6e9119eaa8596",
+      "status": "completed",
+      "summary": "Role executability_critic completed its structured result.",
+      "requested": {
+        "provider": "deepseek",
+        "model": "deepseek-v4-pro",
+        "effort": "medium"
+      },
+      "observed": {
+        "provider": "deepseek",
+        "model": "deepseek-v4-pro",
+        "effort": null
+      },
+      "execution_mode": "direct_api",
+      "fallback_reason": "",
+      "input_hashes": {
+        "original_task_sha256": "343b3d57a5417bad4fde0e1c8ea415006967b566d14f23f63d14b1786c5c467c",
+        "spec_sha256": "74e14b727d0c36ac7a765bef9f15279b689c77d864d1ad0a8a9dd4f1717b2575",
+        "design_sha256": "2593de87dc9d0ab9700ef39459e919d7bbc9a8428f8ad24b9f5811ccf8890b69",
+        "evidence_sha256": null,
+        "policy_hash": "1a06606303e4cd9c49928ffd3fcda137820a6627718cdc4cd8fa54d2fa8b1899",
+        "rubric_sha256": "f526689b950af6cb862cbb6dce8ab259e52f37ede4a081cee269d7f5698751ed"
+      },
+      "payload_sha256": "f6c9654cec8e2853c2d3912b7319c0d9c78fa691627a0f262df2812b6d347218",
+      "usage": {
+        "input_tokens": 6859,
+        "output_tokens": 10504,
+        "reasoning_tokens": 8283
+      },
+      "cost_state": "provider_usage_reported",
+      "dispatched_at_utc": "2026-09-16T15:11:42.8515546Z",
+      "completed_at_utc": "2026-09-16T15:14:09.5607969Z"
+    },
+    {
+      "schema_version": 1,
+      "role": "chair",
+      "attempt_id": "d571c05a0e6844eb86e87cc5c70841cf",
+      "status": "completed",
+      "summary": "Chair reconciliation completed.",
+      "requested": {
+        "provider": "deepseek",
+        "model": "deepseek-v4-pro",
+        "effort": "medium"
+      },
+      "observed": {
+        "provider": "deepseek",
+        "model": "deepseek-v4-pro",
+        "effort": null
+      },
+      "execution_mode": "direct_api",
+      "fallback_reason": "",
+      "input_hashes": {
+        "original_task_sha256": "343b3d57a5417bad4fde0e1c8ea415006967b566d14f23f63d14b1786c5c467c",
+        "spec_sha256": "74e14b727d0c36ac7a765bef9f15279b689c77d864d1ad0a8a9dd4f1717b2575",
+        "design_sha256": "2593de87dc9d0ab9700ef39459e919d7bbc9a8428f8ad24b9f5811ccf8890b69",
+        "evidence_sha256": null,
+        "policy_hash": "1a06606303e4cd9c49928ffd3fcda137820a6627718cdc4cd8fa54d2fa8b1899",
+        "rubric_sha256": "04f1f52ee03ac8ef5df6d88fe419bca2c382b0a72421930e37c576d29e3ffe7a",
+        "member_aggregate_sha256": "56b7cc21918b9d4691d1c028c1f8ac9198ac4deca4275504ea570939e98e6f5a"
+      },
+      "payload_sha256": "20c3a9fd5299bb532b93a28e261246c248d3def667ff82dbe7e1944c76543359",
+      "usage": {
+        "input_tokens": 14347,
+        "output_tokens": 19238,
+        "reasoning_tokens": 9210
+      },
+      "cost_state": "provider_usage_reported",
+      "dispatched_at_utc": "2026-09-16T15:14:09.8462299Z",
+      "completed_at_utc": "2026-09-16T15:18:22.5924808Z"
     }
   ],
-  "do_not_change": [
-    "§1 repository store resolved under the verified Git common dir with one clone-local store per clone — directly satisfies the whole-repo/all-worktrees + clone-local requirements.",
-    "§2 derived catalog/overview/board/search data is never authoritative and cannot authorize execution/acceptance — correct and matches the existing hash-linked journal architecture.",
-    "§3 planned task fields (title/description/priority/labels/depends_on) with milestones/assignee/comments/due-dates excluded — faithful to the original task and avoids Backlog.md feature creep.",
-    "§7 depends_on is metadata only; no automatic dependency execution and the pre-dispatch gate is deferred — a clean, well-scoped deferral.",
-    "§10-§11 list row and show projection redaction (no raw prompt/evidence/credentials) — correct given journals already contain prompts and runtime evidence.",
-    "§14 exit-code contract (0 / 2 BF_INVALID / 11 BF_BLOCKED/BF_CONFLICT) — matches the existing controller error classes observed in cli/internal/repository (KindError BF_INVALID/BF_BLOCKED/BF_CONFLICT).",
-    "§15 corrupt/torn journal never hides other tasks and surfaces as diagnostics — correct robustness for an append-only hash chain.",
-    "§16 index.json is never read as truth and is fully rebuildable from journals — correct principle; only the optional cache write path is questionable, not the rule itself.",
-    "§17 read-only legacy discovery with byte-preservation and conflict-surfacing (excluding the adopt-write contradiction) — correct migration-safety boundary.",
-    "'Не делать' section — correctly refuses Backlog.md's Markdown-per-task storage, browser UI, MCP server, milestones, and any second authoritative database."
+  "findings": [
+    {
+      "composite_id": "intent_critic:F-001",
+      "role": "intent_critic",
+      "id": "F-001",
+      "severity": "high",
+      "category": "scope_creep",
+      "spec_ref": "spec.md Требование 5, 17, 18; design.md Команды и read model, Legacy discovery",
+      "issue": "Spec significantly expands scope beyond original request for viewing commands by specifying write lifecycle commands (create/edit/activate/archive/unarchive) and migration/adoption flows not mentioned in the original task.",
+      "evidence": "Original task: 'Нужны команды CLI для просмотра всех задач проекта...'; no write or activation commands requested. Spec adds 'task activate', 'task archive|unarchive', 'adopt' (deferred but defined), and detailed write validations.",
+      "suggested_direction": "Limit v1 specification to read-only commands (list/show/history/overview) and planned metadata fields; move activation, archiving, and adoption to a separate follow-up specification after explicit user request."
+    },
+    {
+      "composite_id": "intent_critic:F-002",
+      "role": "intent_critic",
+      "id": "F-002",
+      "severity": "medium",
+      "category": "scope_creep",
+      "spec_ref": "spec.md Требование 6, 9; design.md Команды и read model",
+      "issue": "Archive/unarchive feature and archived presentation flag are added without being requested and could hide completed tasks from default list, conflicting with the original requirement that completed tasks be viewable.",
+      "evidence": "Original task: 'просмотра всех задач проекта, включая завершённые'. Spec requirement 9 makes default list exclude archived tasks; if a completed task is archived, it is hidden unless explicit filter is used.",
+      "suggested_direction": "Remove archive/unarchive from v1 or clarify that completed tasks are always included by default regardless of archive state, or obtain explicit user agreement for archive semantics."
+    },
+    {
+      "composite_id": "intent_critic:F-003",
+      "role": "intent_critic",
+      "id": "F-003",
+      "severity": "medium",
+      "category": "overengineering",
+      "spec_ref": "spec.md Требования 8, 15, 17, 18; design.md Concurrency and recovery, Legacy discovery, Risks",
+      "issue": "The spec includes extensive robustness requirements (corrupt journal diagnostics, concurrency locks, legacy discovery, adoption lineage) that may be beyond the minimal first specification requested.",
+      "evidence": "Original task asks for spec for a local project task tracker with viewing commands; it does not mention corruption handling, concurrent writers, or legacy adoption. These are implementation-level concerns that could be deferred.",
+      "suggested_direction": "Trim the first specification to core functional requirements; defer advanced reliability and migration features to a later iteration or separate spec."
+    },
+    {
+      "composite_id": "intent_critic:F-004",
+      "role": "intent_critic",
+      "id": "F-004",
+      "severity": "low",
+      "category": "clarity",
+      "spec_ref": "spec.md Неопределённости / допущения, Переанкеровка 2026-09-16; design.md Unified task journal, Переанкеровка 2026-09-16 (PowerShell)",
+      "issue": "The spec contains internal inconsistencies and historical artifacts: references to 'schema v2' vs 'store schema v1', status 'ON HOLD' vs 'АКТИВНО', and mentions of removed Go implementation create confusion about current state.",
+      "evidence": "Original task did not include version history or engine debates; spec.md has both 'ON HOLD' and 'АКТИВНО' statuses, and design.md notes 'schema v2' refers to historical Go model while PS uses v1, which is not required by original task.",
+      "suggested_direction": "Clean the specification to a single consistent current state, removing historical implementation notes that are irrelevant to the requested first spec."
+    },
+    {
+      "composite_id": "architecture_critic:F-001",
+      "role": "architecture_critic",
+      "id": "F-001",
+      "severity": "high",
+      "category": "clarity",
+      "spec_ref": "design.md 'Решение' diagram includes repository.json, tasks/<uuid>/current.json, catalog/index.json, migrations/*.json; design.md 'Переанкеровка 2026-09-16 (PowerShell)' states repository.json not used, current.json and catalog/index.json not created, migrations absent.",
+      "issue": "Design contains superseded Go-architecture artifacts alongside the final PS v1 revision. Readers may implement repository.json, current.json, catalog/index.json, or migrations/ despite them being forbidden by the reanchoring note. This creates a real risk of delivering the wrong store layout.",
+      "evidence": "The conflicting lines coexist in one document without marking the first diagram as historical.",
+      "suggested_direction": "Rewrite the design body to reflect only the PS v1 layout: <common dir>/bsl-flow/tasks/<uuid>/revisions, graph lock only. Move all Go-era text into a clearly separated obsolete/historical appendix or delete it."
+    },
+    {
+      "composite_id": "architecture_critic:F-002",
+      "role": "architecture_critic",
+      "id": "F-002",
+      "severity": "medium",
+      "category": "clarity",
+      "spec_ref": "design.md 'Unified task journal' says 'Task schema v2 добавляет стабильную карточку'; design.md reanchoring says 'термин «schema v2» исходного текста относится к исторической Go-модели, PS-реализация использует store schema v1'; spec.md reanchoring says 'schema/store version v1'.",
+      "issue": "The design uses both 'task schema v2' and 'store schema v1' without a clear current PS journal schema version. This can confuse implementers about whether the journal schema is v1 or v2 and which fields belong to the v1 planned metadata.",
+      "evidence": "The term 'schema v2' is still prominent in the main body after the reanchoring note.",
+      "suggested_direction": "Define a single unambiguous PS journal/schema version (prefer v1) and update all references, including the heading and field descriptions."
+    },
+    {
+      "composite_id": "architecture_critic:F-003",
+      "role": "architecture_critic",
+      "id": "F-003",
+      "severity": "medium",
+      "category": "overengineering",
+      "spec_ref": "spec.md requirement 5: 'В v1 PS-реализации реализуется именно staged-`BLOCKED` путь; включение активации — отдельный controller write slice.'; design.md 'Repository и worktree boundary' says 'Existing controller functions get task location through repository resolver, а не конструируют `.bsl-flow/tasks` из текущего worktree.'",
+      "issue": "In the v1 vertical slice, no repository task can be activated or enter existing controller lifecycle. Changing all existing controller functions to resolve task location through the new repository resolver broadens the change set and risks regressions in checkout-local v1 task handling without a corresponding requirement.",
+      "evidence": "The design asserts controller functions should use the resolver even though the only v1 activation path returns BLOCKED and does not create a runnable repository task.",
+      "suggested_direction": "Keep existing controller lifecycle and checkout-local v1 task resolution unchanged in this slice. Scope repository resolution solely to the new registry/read/planned-metadata commands and document activation as a future separate controller write slice."
+    },
+    {
+      "composite_id": "architecture_critic:F-004",
+      "role": "architecture_critic",
+      "id": "F-004",
+      "severity": "medium",
+      "category": "missing_requirement",
+      "spec_ref": "spec.md required behavior 9 uses `bsl-flow task list --project <любая-worktree>`; spec acceptance criteria use `task list`; original-task.md requests 'команды CLI для просмотра всех задач проекта'; design.md reanchoring says 'Команды доступны как действия ... контроллера Invoke-BSLFlowTask.ps1 ..., а не как subкоманды `task ...` отдельного CLI.'",
+      "issue": "The final design abandons the public `task ...` subcommand surface that the spec and acceptance tests still require, without specifying how `bsl-flow task list` maps to controller actions. This may leave the requested CLI command missing or ambiguous.",
+      "evidence": "The design indicates no separate `task ...` CLI, while the spec and original request still reference that interface.",
+      "suggested_direction": "Either implement the `task list|show|history|overview` CLI wrapper around controller actions, or explicitly update the spec and acceptance criteria to the controller action invocation and provide the exact shell-level usage. Ensure the user-facing command name is explicit."
+    },
+    {
+      "composite_id": "architecture_critic:F-005",
+      "role": "architecture_critic",
+      "id": "F-005",
+      "severity": "low",
+      "category": "clarity",
+      "spec_ref": "design.md 'Concurrency и recovery' says 'Отдельный протокол `commit_outcome=unknown` и удержание неизвестных temporary paths не вводятся.'; design.md Risks table row 'Rename видим, но durability не подтверждена' mitigation says 'Directory sync and explicit unknown commit reconciliation'.",
+      "issue": "Two parts of the design make opposite statements about unknown commit reconciliation. This is likely another stale/Go-era artifact, but it makes the recovery contract ambiguous for torn journals.",
+      "evidence": "The risk table still contains the explicit reconciliation protocol, while the concurrency section forbids it.",
+      "suggested_direction": "Remove the stale risk/mitigation row or clarify that PS v1 relies on directory sync and hash-chain verification without a separate unknown-commit protocol; update all references consistently."
+    },
+    {
+      "composite_id": "executability_critic:F-001",
+      "role": "executability_critic",
+      "id": "F-001",
+      "severity": "high",
+      "category": "missing_requirement",
+      "spec_ref": "spec.md req 14; spec.md acceptance criteria (JSON and human modes); design.md JSON schemas separated",
+      "issue": "No concrete JSON schemas, field names, types, or envelope structures are defined for read/write outputs, error bodies, cursor, or filter inputs. This prevents implementing and testing schema_version:1 outputs and controller-shaped errors.",
+      "evidence": "spec.md: \"read-команды имеют один versioned noninteractive JSON document (`schema_version: 1`)... Ошибка CLI пишет controller-shaped JSON в JSON mode...\" but no schema file or field-level contract is provided. design.md: \"JSON schemas разделены на write inputs и read envelopes\" without listing them.",
+      "suggested_direction": "Add explicit JSON Schema definitions (or normative field tables) for list/show/history/overview/create/edit/activate/archive/unarchive outputs and inputs, including error object structure, cursor object, and exact filter parameter names/types. Ensure all acceptance criteria can reference these schemas."
+    },
+    {
+      "composite_id": "executability_critic:F-002",
+      "role": "executability_critic",
+      "id": "F-002",
+      "severity": "high",
+      "category": "clarity",
+      "spec_ref": "spec.md req 13; spec.md req 7; spec.md acceptance criteria (overview)",
+      "issue": "Requirement 13 requires overview to return counts of dependency-blocked and stale-completed tasks, but Requirement 7 explicitly defers definitions of fresh effective completed/stale-completed and dependency-blocked to a separate specification. No v1 definition is provided, making the overview count semantics impossible to implement unambiguously.",
+      "evidence": "spec.md req 13: \"... число archived, dependency-blocked, corrupt и stale-completed задач...\" vs req 7: \"... понятия `fresh effective completed`/`stale-completed` в этой версии не определены и отложены в отдельную спецификацию...\"",
+      "suggested_direction": "Either remove these two counts from v1 overview, define them operationally (e.g., always 0 or derived from a placeholder diagnostic), or clearly mark them as out-of-scope metrics that must be returned as null/0 with a note. Ensure requirement 13 is consistent with deferred concepts."
+    },
+    {
+      "composite_id": "executability_critic:F-003",
+      "role": "executability_critic",
+      "id": "F-003",
+      "severity": "high",
+      "category": "clarity",
+      "spec_ref": "spec.md req 9; design.md Команды и read model",
+      "issue": "Filter, sort, limit, and cursor semantics are underspecified: exact filter parameter names, accepted value formats (e.g., ISO timestamps for updated-before/after), default sort direction, allowed sort keys, default/maximum limit, cursor structure, and behavior for invalid or unknown filters are not defined. This prevents deterministic and testable implementation of list/overview.",
+      "evidence": "spec.md req 9: \"Поддерживаются точные фильтры `status`, `stage`, `priority`, `label`, `updated-before|after`, `archived`, deterministic sort, bounded `limit` и opaque cursor.\" design.md: \"Default sort: `updated_at desc`, затем UUID ordinal.\" but no parameter syntax, bounds, or error handling.",
+      "suggested_direction": "Define exact CLI/JSON filter parameter names, value formats, accepted sort keys and direction, default and maximum limit, cursor composition/validation rules, and failure behavior for invalid filters. Include examples."
+    },
+    {
+      "composite_id": "executability_critic:F-004",
+      "role": "executability_critic",
+      "id": "F-004",
+      "severity": "high",
+      "category": "clarity",
+      "spec_ref": "spec.md req 17; spec.md acceptance criteria (legacy discovery); design.md Legacy discovery",
+      "issue": "Legacy discovery conflict detection and verified history matching algorithm are not specified. It is unclear how to compute a verified prefix/hash for a legacy journal, when two histories are considered identical vs conflicting, and what diagnostic fields appear for a conflict. This makes the acceptance criterion 'конфликтующий UUID показан диагностикой' untestable.",
+      "evidence": "spec.md req 17: \"Совпадающий UUID с одинаковой verified history дедуплицируется; различающаяся неподтверждённая history показывается как conflict...\" design.md: \"Catalog merge использует `(task_id, verified prefix/hash)`...\" but no algorithm or hash definition.",
+      "suggested_direction": "Specify the exact verified history computation (e.g., hash chain over immutable revisions, canonical serialization), the equality threshold for deduplication, and the required conflict output fields/schema."
+    },
+    {
+      "composite_id": "executability_critic:F-005",
+      "role": "executability_critic",
+      "id": "F-005",
+      "severity": "high",
+      "category": "missing_requirement",
+      "spec_ref": "spec.md req 5; spec.md acceptance criteria (staged BLOCKED activation); design.md Команды и read model",
+      "issue": "The trusted request schema and the full validation rules required before returning staged `BLOCKED` are not defined. Requirement 5 says activation must 'выполняет полную валидацию trusted request', but the current controller contract is not included or referenced, and no validation checklist (required fields, title constraints, worktree/project root checks, baseline/cleanliness rules) is provided.",
+      "evidence": "spec.md req 5: \"`task activate` принимает полный trusted request текущего controller contract... В v1 PS-реализации реализуется именно staged-`BLOCKED` путь... activation выполняет полную валидацию trusted request...\" but trusted request schema is absent.",
+      "suggested_direction": "Include or reference the trusted request JSON schema and list the validation steps (field completeness, types, worktree/project root existence, baseline checks) that must pass before the staged BLOCKED response is returned, including which failure reasons map to BF_INVALID vs BF_BLOCKED."
+    },
+    {
+      "composite_id": "executability_critic:F-006",
+      "role": "executability_critic",
+      "id": "F-006",
+      "severity": "medium",
+      "category": "clarity",
+      "spec_ref": "spec.md req 15; spec.md acceptance criteria (corrupt journal); design.md Concurrency и recovery",
+      "issue": "Detection thresholds for corruption, torn, or conflicted journals are not concretely defined. It is unclear what constitutes a torn journal (e.g., missing revision file, broken hash chain, incomplete write), how to identify the task/source identity safely, and what exact diagnostic health values should be returned for each case.",
+      "evidence": "spec.md req 15: \"Повреждённый, torn или конфликтующий journal... List/overview возвращают diagnostic entry... health=corrupt|conflict|orphaned; show/history... завершаются BLOCKED...\" but no detection criteria or recovery rules.",
+      "suggested_direction": "Define concrete corruption/torn/conflict detection rules (e.g., hash chain validation, file format validation, incomplete revision detection) and specify exact diagnostic projection fields and identity extraction for corrupted directories."
+    },
+    {
+      "composite_id": "executability_critic:F-007",
+      "role": "executability_critic",
+      "id": "F-007",
+      "severity": "medium",
+      "category": "clarity",
+      "spec_ref": "spec.md req 18; spec.md acceptance criteria (worktree deletion); design.md Repository и worktree boundary",
+      "issue": "Freshness diagnostic `stale|orphaned` is required when a task references absolute live inputs that no longer exist, but the exact set of live inputs to check (baseline, worker path, evidence files?), the path resolution method, and the output representation are not specified. This makes the acceptance criterion partially untestable.",
+      "evidence": "spec.md req 18: \"если запись ссылается на абсолютный live input (baseline/worker/evidence), которого больше нет, read-проекция помечает её `stale|orphaned`...\" but no list of fields or detection algorithm.",
+      "suggested_direction": "Enumerate the controller-owned input fields that must be checked for existence, define how to compare paths (canonical absolute paths), and specify the exact diagnostic field/value in list/show/overview outputs."
+    },
+    {
+      "composite_id": "executability_critic:F-008",
+      "role": "executability_critic",
+      "id": "F-008",
+      "severity": "low",
+      "category": "clarity",
+      "spec_ref": "spec.md req 3; spec.md req 4; spec.md acceptance criteria (metadata validation)",
+      "issue": "Exact constraints for planned metadata fields are incomplete: maximum length for title/description, allowed characters/charset for labels, case sensitivity, uniqueness rules, and whether empty label arrays are allowed. These constraints affect validation and schema compliance but are not defined.",
+      "evidence": "spec.md req 3: \"Обязательны непустой `title`... unique `labels` и уникальные `depends_on`...\" but no length/charset/empty rules. design.md: \"Labels/title/description считаются untrusted display data и экранируются...\" only addresses output.",
+      "suggested_direction": "Specify validation limits for title/description length, label string format and uniqueness (e.g., case-sensitive, trim), depends_on array uniqueness, and reject/trim behavior for invalid metadata; include error mapping for BF_INVALID."
+    }
   ],
-  "confidence": 0.82,
-  "reviewer": {
-    "provider": "opencode",
-    "agent": "bsl-flow-spec-reviewer",
-    "model": "deepseek/deepseek-v4-pro"
+  "protected": [
+    {
+      "composite_id": "intent_critic:do-not-change-001",
+      "role": "intent_critic",
+      "item": "Store location under git common dir to cover all worktrees and remain clone-local"
+    },
+    {
+      "composite_id": "intent_critic:do-not-change-002",
+      "role": "intent_critic",
+      "item": "Planned task metadata fields: title, description, priority, labels, dependencies"
+    },
+    {
+      "composite_id": "intent_critic:do-not-change-003",
+      "role": "intent_critic",
+      "item": "Default list includes completed and cancelled tasks (non-archived)"
+    },
+    {
+      "composite_id": "intent_critic:do-not-change-004",
+      "role": "intent_critic",
+      "item": "Data not committed to Git and not synchronized remotely"
+    },
+    {
+      "composite_id": "intent_critic:do-not-change-005",
+      "role": "intent_critic",
+      "item": "Explicit avoidance of copying Backlog.md architecture (no Markdown per task, no SQL/daemon)"
+    },
+    {
+      "composite_id": "executability_critic:do-not-change-001",
+      "role": "executability_critic",
+      "item": "PS-native vertical slice: commands implemented as controller actions in global/skills/1c-task, no Go engine"
+    },
+    {
+      "composite_id": "executability_critic:do-not-change-002",
+      "role": "executability_critic",
+      "item": "Canonical store path <git-common-dir>/bsl-flow/tasks/<uuid>/revisions with deterministic repository_id SHA-256 first 16 hex"
+    },
+    {
+      "composite_id": "executability_critic:do-not-change-003",
+      "role": "executability_critic",
+      "item": "No derived artifacts (current.json, catalog/index.json) in v1; read commands derive from journals"
+    },
+    {
+      "composite_id": "executability_critic:do-not-change-004",
+      "role": "executability_critic",
+      "item": "Legacy discovery is read-only; no automatic move/adoption in this version"
+    },
+    {
+      "composite_id": "executability_critic:do-not-change-005",
+      "role": "executability_critic",
+      "item": "Exit code contract 0/2/11 and error classes BF_INVALID/BF_BLOCKED/BF_CONFLICT"
+    },
+    {
+      "composite_id": "executability_critic:do-not-change-006",
+      "role": "executability_critic",
+      "item": "depends_on remains metadata-only; no automatic dependency execution or dispatch gating in v1"
+    }
+  ],
+  "questions": [],
+  "chair": {
+    "verdict": "REVISE",
+    "decisions": [
+      {
+        "composite_id": "intent_critic:F-001",
+        "decision": "partially_accepted",
+        "reason": "Original request includes planned tasks and a local tracker; some write commands are needed to create planned metadata. Activation and adoption are explicitly non-functional in v1 or deferred.",
+        "evidence": "original-task.md: 'planned-задача первой версии содержит title...'; spec.md req 5/17.",
+        "resolution": "Keep create/edit/archive/unarchive for planned tasks; keep activation as staged BLOCKED validation only; keep adoption separate. Remove full adoption implementation from v1.",
+        "accepted_scope": "Keep create/edit, archive/unarchive, staged blocked activation, planned metadata.",
+        "rejected_scope": "Remove real activation execution and adoption from v1; don't treat them as in-scope write commands.",
+        "resolution_refs": [
+          "Требуемое поведение / 3",
+          "Требуемое поведение / 4",
+          "Требуемое поведение / 5",
+          "Требуемое поведение / 17"
+        ]
+      },
+      {
+        "composite_id": "intent_critic:F-002",
+        "decision": "rejected",
+        "reason": "Archive is an explicit user action and filter; default list continues to include all completed and cancelled tasks unless they are explicitly archived. Archived tasks remain accessible via filter.",
+        "evidence": "spec.md req 9: default returns all non-archived including completed/cancelled; archived only by explicit filter.",
+        "resolution": "No change. Clarify in final spec that completed/cancelled are hidden only if user explicitly archived them.",
+        "resolution_refs": []
+      },
+      {
+        "composite_id": "intent_critic:F-003",
+        "decision": "rejected",
+        "reason": "Robustness requirements (corrupt journals, concurrency, legacy discovery) are necessary for a reliable clone-local tracker and are already specified at a high level; they do not introduce unnecessary architecture.",
+        "evidence": "original-task.md: local project task tracker; spec.md req 8/15/17/18.",
+        "resolution": "No change.",
+        "resolution_refs": []
+      },
+      {
+        "composite_id": "intent_critic:F-004",
+        "decision": "accepted",
+        "reason": "Spec contained historical Go/ON HOLD artifacts and schema version contradictions.",
+        "evidence": "spec.md 'Дополнение 2026-09-16' and 'Переанкеровка 2026-09-16'; design.md 'schema v2' vs store schema v1.",
+        "resolution": "Rewrite final spec and design to a single current PS-native v1 state, removing obsolete implementation notes.",
+        "resolution_refs": [
+          "Требуемое поведение / 1",
+          "Требуемое поведение / 20"
+        ]
+      },
+      {
+        "composite_id": "architecture_critic:F-001",
+        "decision": "accepted",
+        "reason": "Design body contained superseded Go layout (repository.json, current.json, catalog/index.json, migrations) conflicting with reanchoring note.",
+        "evidence": "design.md diagram vs reanchoring note.",
+        "resolution": "Rewrite design to reflect only PS v1 layout: <common dir>/bsl-flow/tasks/<uuid>/revisions and graph lock.",
+        "resolution_refs": [
+          "Требуемое поведение / 1",
+          "Требуемое поведение / 16"
+        ]
+      },
+      {
+        "composite_id": "architecture_critic:F-002",
+        "decision": "accepted",
+        "reason": "Unclear journal schema version: 'schema v2' vs 'store schema v1'.",
+        "evidence": "design.md 'Unified task journal' vs reanchoring note.",
+        "resolution": "Define single unambiguous PS journal/store schema version v1 in final spec and design.",
+        "resolution_refs": [
+          "Требуемое поведение / 3"
+        ]
+      },
+      {
+        "composite_id": "architecture_critic:F-003",
+        "decision": "partially_accepted",
+        "reason": "Changing existing controller functions to use repository resolver broadens change and risks regression. Repository resolver should be used only by new registry commands and staged activation, not for legacy checkout-local v1 tasks.",
+        "evidence": "design.md 'Repository и worktree boundary' statement vs spec v1 staged BLOCKED activation.",
+        "resolution": "Clarify that existing controller lifecycle and checkout-local v1 resolution remain unchanged; repository resolution is scoped to registry/planned-metadata commands.",
+        "accepted_scope": "Repository resolver used by new registry commands and staged activation validation.",
+        "rejected_scope": "Do not change existing controller functions for checkout-local v1 tasks.",
+        "resolution_refs": [
+          "Требуемое поведение / 5",
+          "Требуемое поведение / 20"
+        ]
+      },
+      {
+        "composite_id": "architecture_critic:F-004",
+        "decision": "accepted",
+        "reason": "Spec and acceptance criteria require `bsl-flow task list` CLI, but design says commands are controller actions, not subcommands.",
+        "evidence": "spec.md req 9 and acceptance criteria vs design reanchoring note.",
+        "resolution": "Specify a thin `bsl-flow task` CLI wrapper mapping subcommands to Invoke-BSLFlowTask actions.",
+        "resolution_refs": [
+          "Требуемое поведение / 20"
+        ]
+      },
+      {
+        "composite_id": "architecture_critic:F-005",
+        "decision": "accepted",
+        "reason": "Unknown commit reconciliation contradiction between concurrency section and risks table.",
+        "evidence": "design.md 'Concurrency и recovery' vs Risks row.",
+        "resolution": "Remove the stale risk row or clarify that PS v1 relies on directory sync and hash-chain verification without a separate unknown-commit protocol.",
+        "resolution_refs": [
+          "Требуемое поведение / 15"
+        ]
+      },
+      {
+        "composite_id": "executability_critic:F-001",
+        "decision": "accepted",
+        "reason": "No concrete JSON schemas, field names, types, or envelopes for outputs/inputs/errors/cursor/filters are defined.",
+        "evidence": "spec.md req 14 and acceptance criteria; design.md JSON schemas separated.",
+        "resolution": "Add normative field tables for list/show/history/overview/create/edit/activate/archive/unarchive outputs, error object, cursor and filter parameters.",
+        "resolution_refs": [
+          "Требуемое поведение / 14"
+        ]
+      },
+      {
+        "composite_id": "executability_critic:F-002",
+        "decision": "accepted",
+        "reason": "Overview requires dependency-blocked and stale-completed counts, but these concepts are explicitly deferred and undefined.",
+        "evidence": "spec.md req 13 vs req 7.",
+        "resolution": "Remove dependency-blocked and stale-completed counts from v1 overview; keep only defined counts including corrupt and orphaned.",
+        "resolution_refs": [
+          "Требуемое поведение / 13"
+        ]
+      },
+      {
+        "composite_id": "executability_critic:F-003",
+        "decision": "accepted",
+        "reason": "Filter, sort, limit, cursor semantics underspecified.",
+        "evidence": "spec.md req 9 and design.md default sort mention only.",
+        "resolution": "Define exact parameter names, value formats, sort keys, direction, limits, cursor behavior and invalid filter error mapping.",
+        "resolution_refs": [
+          "Требуемое поведение / 9"
+        ]
+      },
+      {
+        "composite_id": "executability_critic:F-004",
+        "decision": "accepted",
+        "reason": "Legacy conflict detection and verified history matching algorithm not specified.",
+        "evidence": "spec.md req 17 and design.md Legacy discovery.",
+        "resolution": "Define verified history hash as SHA-256 over ordered revision hashes; deduplicate if identical, conflict if divergent.",
+        "resolution_refs": [
+          "Требуемое поведение / 17"
+        ]
+      },
+      {
+        "composite_id": "executability_critic:F-005",
+        "decision": "accepted",
+        "reason": "Trusted request schema and validation rules missing for staged BLOCKED activation.",
+        "evidence": "spec.md req 5.",
+        "resolution": "Define minimal trusted request schema v1 and validation checklist before returning staged BLOCKED.",
+        "resolution_refs": [
+          "Требуемое поведение / 5"
+        ]
+      },
+      {
+        "composite_id": "executability_critic:F-006",
+        "decision": "accepted",
+        "reason": "Corruption/torn/conflict detection thresholds not concretely defined.",
+        "evidence": "spec.md req 15.",
+        "resolution": "Define concretely: JSON parse failure, missing required fields, broken hash chain, missing referenced parent; conflict as divergent histories; orphaned as directory without verified chain root.",
+        "resolution_refs": [
+          "Требуемое поведение / 15"
+        ]
+      },
+      {
+        "composite_id": "executability_critic:F-007",
+        "decision": "accepted",
+        "reason": "Freshness diagnostic `stale|orphaned` inputs not enumerated.",
+        "evidence": "spec.md req 18.",
+        "resolution": "Enumerate controller-owned absolute live input fields: baseline_path, worker_path, evidence_path; if any missing or inaccessible, mark stale; orphaned reserved for invalid directory identity.",
+        "resolution_refs": [
+          "Требуемое поведение / 18"
+        ]
+      },
+      {
+        "composite_id": "executability_critic:F-008",
+        "decision": "accepted",
+        "reason": "Metadata constraints (length, charset, uniqueness) incomplete.",
+        "evidence": "spec.md req 3.",
+        "resolution": "Define title max 200 chars, description max 5000, labels trimmed 1-50 chars, case-sensitive, unique, max 20 items; depends_on unique UUID strings.",
+        "resolution_refs": [
+          "Требуемое поведение / 3"
+        ]
+      }
+    ],
+    "protected_decisions": [
+      {
+        "composite_id": "intent_critic:do-not-change-001",
+        "decision": "preserved",
+        "reason": "Clone-local store under git common dir is necessary to cover all worktrees and remains clone-local.",
+        "evidence": "original-task.md and spec.md req 1."
+      },
+      {
+        "composite_id": "intent_critic:do-not-change-002",
+        "decision": "preserved",
+        "reason": "Planned metadata fields are explicitly agreed in original task.",
+        "evidence": "original-task.md 'planned-задача первой версии содержит...'."
+      },
+      {
+        "composite_id": "intent_critic:do-not-change-003",
+        "decision": "preserved",
+        "reason": "Default list must include completed and cancelled tasks unless archived.",
+        "evidence": "spec.md req 9 and original request."
+      },
+      {
+        "composite_id": "intent_critic:do-not-change-004",
+        "decision": "preserved",
+        "reason": "Data must remain local and not committed to Git.",
+        "evidence": "original-task.md and spec.md req 1/19."
+      },
+      {
+        "composite_id": "intent_critic:do-not-change-005",
+        "decision": "preserved",
+        "reason": "Avoid copying Backlog.md architecture; no Markdown per task, no SQL/daemon.",
+        "evidence": "spec.md Не делать."
+      },
+      {
+        "composite_id": "executability_critic:do-not-change-001",
+        "decision": "preserved",
+        "reason": "PS-native vertical slice is the final agreed implementation after reanchoring.",
+        "evidence": "spec.md Переанкеровка 2026-09-16."
+      },
+      {
+        "composite_id": "executability_critic:do-not-change-002",
+        "decision": "preserved",
+        "reason": "Canonical store path and deterministic repository_id are specified in final state.",
+        "evidence": "spec.md Переанкеровка and design.md note."
+      },
+      {
+        "composite_id": "executability_critic:do-not-change-003",
+        "decision": "preserved",
+        "reason": "No derived artifacts in v1; read commands derive from journals.",
+        "evidence": "spec.md req 16 and design.md note."
+      },
+      {
+        "composite_id": "executability_critic:do-not-change-004",
+        "decision": "preserved",
+        "reason": "Legacy discovery read-only; no automatic move/adoption.",
+        "evidence": "spec.md req 17."
+      },
+      {
+        "composite_id": "executability_critic:do-not-change-005",
+        "decision": "preserved",
+        "reason": "Exit code contract must remain stable.",
+        "evidence": "spec.md req 14."
+      },
+      {
+        "composite_id": "executability_critic:do-not-change-006",
+        "decision": "preserved",
+        "reason": "depends_on remains metadata-only; no automatic dependency execution or dispatch gating.",
+        "evidence": "spec.md req 7."
+      }
+    ],
+    "requirement_refs": [
+      {
+        "id": "REQ-001",
+        "final_refs": [
+          "Требуемое поведение / 1"
+        ]
+      },
+      {
+        "id": "REQ-002",
+        "final_refs": [
+          "Требуемое поведение / 2"
+        ]
+      },
+      {
+        "id": "REQ-003",
+        "final_refs": [
+          "Требуемое поведение / 3"
+        ]
+      },
+      {
+        "id": "REQ-004",
+        "final_refs": [
+          "Требуемое поведение / 4"
+        ]
+      },
+      {
+        "id": "REQ-005",
+        "final_refs": [
+          "Требуемое поведение / 5"
+        ]
+      },
+      {
+        "id": "REQ-006",
+        "final_refs": [
+          "Требуемое поведение / 6"
+        ]
+      },
+      {
+        "id": "REQ-007",
+        "final_refs": [
+          "Требуемое поведение / 7"
+        ]
+      },
+      {
+        "id": "REQ-008",
+        "final_refs": [
+          "Требуемое поведение / 8"
+        ]
+      },
+      {
+        "id": "REQ-009",
+        "final_refs": [
+          "Требуемое поведение / 9"
+        ]
+      },
+      {
+        "id": "REQ-010",
+        "final_refs": [
+          "Требуемое поведение / 10"
+        ]
+      },
+      {
+        "id": "REQ-011",
+        "final_refs": [
+          "Требуемое поведение / 11"
+        ]
+      },
+      {
+        "id": "REQ-012",
+        "final_refs": [
+          "Требуемое поведение / 12"
+        ]
+      },
+      {
+        "id": "REQ-013",
+        "final_refs": [
+          "Требуемое поведение / 13"
+        ]
+      },
+      {
+        "id": "REQ-014",
+        "final_refs": [
+          "Требуемое поведение / 14"
+        ]
+      },
+      {
+        "id": "REQ-015",
+        "final_refs": [
+          "Требуемое поведение / 15"
+        ]
+      },
+      {
+        "id": "REQ-016",
+        "final_refs": [
+          "Требуемое поведение / 16"
+        ]
+      },
+      {
+        "id": "REQ-017",
+        "final_refs": [
+          "Требуемое поведение / 17"
+        ]
+      },
+      {
+        "id": "REQ-018",
+        "final_refs": [
+          "Требуемое поведение / 18"
+        ]
+      },
+      {
+        "id": "REQ-019",
+        "final_refs": [
+          "Требуемое поведение / 19"
+        ]
+      },
+      {
+        "id": "REQ-020",
+        "final_refs": [
+          "Требуемое поведение / 20"
+        ]
+      }
+    ],
+    "final_spec_text": "# Локальный проектный task tracker BSL Flow\n\n## Классификация\n- Сложность: L\n- Риск: high\n\n## Цель\nДобавить в BSL Flow единый локальный каталог задач одного Git-клона, доступный из любого worktree, с planned-задачами, сохранением завершённой истории и стабильными human/JSON read-командами, не создавая второй источник истины рядом с controller journals.\n\n## Текущее поведение\n- Controller (global/skills/1c-task, Invoke-BSLFlowTask.ps1) хранит каждую зарегистрированную задачу в checkout-local `.bsl-flow/tasks/<uuid>/revisions`; hash-linked revisions являются источником истины, а `current.json` — производной проекцией.\n- Действия `Status|Next|Context` требуют заранее известный UUID. Команд перечисления, поиска, overview и истории нет.\n- Статусы ограничены исполняемым lifecycle `ready|running|needs_input|blocked|failed|completed|cancelled`; planned-задачи отсутствуют.\n- Task store привязан к переданному project root. Задачи, созданные из разных Git worktree одного клона, не образуют общего каталога.\n- Trusted request не имеет отдельного короткого title, priority, labels или межзадачных dependencies.\n\n## Требуемое поведение\n\n### Требуемое поведение / 1\nДля Git-репозитория BSL Flow разрешает один clone-local repository store относительно проверенного абсолютного `git common dir`. `repository_id` — детерминированный (первые 16 hex SHA-256 нормализованного абсолютного пути git common dir). Все worktree, принадлежащие тому же common dir, используют один store. Сеть, Git remote и внешний сервис для каталога не требуются.\n\n### Требуемое поведение / 2\nИстиной каждой новой planned/controller-задачи остаётся один immutable hash-linked journal. Каталог, overview, board-проекции и поисковые индексы являются полностью восстанавливаемыми derived data и не могут разрешать execution, acceptance или publication.\n\n### Требуемое поведение / 3\nНовая задача создаётся с UUID и статусом `planned`. Обязательны непустой `title` и schema version; optional поля первой версии: `description`, `priority=low|medium|high|critical`, уникальные `labels` и уникальные `depends_on` UUID того же repository store. Milestones, assignee, comments, due dates и произвольные custom fields не входят в v1.\nКонстанты полей:\n- `title`: строка, обрезается, 1–200 символов.\n- `description`: строка, опционально, 0–5000 символов.\n- `priority`: enum `low|medium|high|critical`, default `medium`.\n- `labels`: массив строк; каждый элемент обрезается, 1–50 символов, регистрозависимый, уникальный; максимум 20 элементов.\n- `depends_on`: массив UUID строк; элементы уникальны; формат каждого — UUID v4; существование зависимости не проверяется при создании/редактировании.\n\n### Требуемое поведение / 4\nPlanned-задача не имеет execution authorization, worker path, baseline, active attempt или ложного stage. Её metadata редактируется через optimistic `expected_revision`; удаление journal и переиспользование UUID запрещены.\n\n### Требуемое поведение / 5\n`task activate` принимает полный trusted request текущего controller contract, проверяет выбранный worktree/project root и добавляет новую revision того же task ID со статусом `ready`. В v1 PS-реализации активация выполняет полную валидацию trusted request и возвращает staged `BLOCKED` без revision. Включение нативной активации — отдельный controller write slice.\nTrusted request schema v1 (обязательные поля):\n- `task_id`: UUID string, должен совпадать с целевой задачей.\n- `project_root`: absolute path string, должен существовать и быть внутри worktree того же common dir.\n- `title`: non-empty string, проходит проверку из требования 3.\n- `priority`: enum из требования 3.\n- `labels`: массив строк, как в требовании 3.\n- `depends_on`: массив UUID, как в требовании 3.\n- `controller_contract`: строковая константа `repository-store-aware/v1`.\nValidation: обязательные поля присутствуют и имеют корректные типы; `project_root` существует и принадлежит worktree; `controller_contract` объявлен. При ошибке валидации возвращается `BF_INVALID` без создания revision. При успешной валидации, но отсутствии capability нативной активации, возвращается `BF_BLOCKED` без создания revision.\n\n### Требуемое поведение / 6\nДля активированной задачи существующий controller lifecycle и authority сохраняются. `archived` является presentation flag, а не execution status и не меняет `next_action`, acceptance, recovery или dependency result.\n\n### Требуемое поведение / 7\n`depends_on` является metadata planned-задачи: незавершённые зависимости не запрещают создание или активацию, межзадачной транзакции и автоматического запуска dependency нет. Controller-owned pre-dispatch gate и понятия `fresh effective completed`/`stale-completed` в этой версии не определены и отложены в отдельную спецификацию native controller write slice. `run` в этой версии не использует `depends_on`.\n\n### Требуемое поведение / 8\nСоздание/редактирование dependency должно отклонять self-reference, duplicate ID и цикл по текущим валидным journals. Проверка графа и публикация dependency revision сериализуются общим repository graph lock либо эквивалентным generation-CAS, поэтому встречные concurrent edges не могут обе пройти на одном snapshot. Проверка результатов dependency перед dispatch не входит в metadata-only contract требования 7 и требует отдельной спецификации.\n\n### Требуемое поведение / 9\n`bsl-flow task list --project <любая-worktree>` по умолчанию возвращает все неархивированные задачи repository store, включая `planned`, `completed` и `cancelled`.\nПоддерживаются точные фильтры:\n- `--status`: comma-separated список из enum `planned|ready|running|needs_input|blocked|failed|completed|cancelled`.\n- `--stage`: comma-separated список stage строк.\n- `--priority`: comma-separated список из `low|medium|high|critical`.\n- `--label`: comma-separated список; задача соответствует, если содержит хотя бы одну из указанных меток (OR).\n- `--updated-before`: RFC3339 UTC timestamp; включительно.\n- `--updated-after`: RFC3339 UTC timestamp; включительно.\n- `--archived`: `false|true|all`, default `false`; `false` — только неархивированные, `true` — только архивированные, `all` — обе.\n- `--sort`: `created_at|updated_at|priority|status|title`, default `updated_at`.\n- `--order`: `asc|desc`, default: для `updated_at|created_at` — `desc`, для прочих — `asc`.\n- `--limit`: integer 1–200, default 50.\n- `--cursor`: opaque string из предыдущего ответа; при изменении фильтров или repository cursor невалиден.\nПриоритет сортировки (asc): `low`, `medium`, `high`, `critical`; статус (asc): `planned`, `ready`, `running`, `needs_input`, `blocked`, `failed`, `completed`, `cancelled`; title — лексикографический. Tie-breaker всегда UUID ascending. Невалидное значение любого параметра приводит к `BF_INVALID`.\n\n### Требуемое поведение / 10\nСтрока списка не содержит полный prompt, raw events/evidence или secrets. Она содержит task ID, title, lifecycle status, stage/next action при наличии, priority, labels, dependency summary, created/updated time, originating/current worktree identity и diagnostic state.\n\n### Требуемое поведение / 11\n`task show` возвращает карточку и безопасную controller projection: request summary, criteria IDs/observations, status/stage/next action, blockers/question, dependency graph, attempts summary, acceptance summary и evidence references. Raw provider bodies, credentials и private runtime input не выводятся.\n\n### Требуемое поведение / 12\n`task history` строит deterministic chronological timeline из проверенных revisions/events: metadata changes, activation, stage/attempt terminals, user updates, blockers, acceptance, cancellation и archive changes. По умолчанию payload/evidence content не разворачивается; ссылки и hashes сохраняются.\n\n### Требуемое поведение / 13\n`task overview` возвращает totals по lifecycle status/stage/priority, counts `needs_input|blocked|running|completed|planned`, число archived, corrupt и orphaned задач, а также время построения и scope identity. Counts `dependency-blocked` и `stale-completed` в v1 не возвращаются, так как соответствующие понятия отложены.\n\n### Требуемое поведение / 14\nВсе read-команды имеют один versioned noninteractive JSON document (`schema_version: 1`) на stdout и отдельный стабильный human-readable table/detail output. Write-команды возвращают поля `schema_version`, `task_id`, `revision`, `status`, `archived`, `priority`, `title`, `next_action`; read-команды — `schema_version`, `repository_id` и allowlisted проекции задач. Exit-контракт зафиксирован: `0` — успех, `2` — `BF_INVALID`, `11` — `BF_BLOCKED`/`BF_CONFLICT`. Ошибка CLI пишет controller-shaped JSON в JSON mode либо concise stderr в human mode; первое поле blocker-сообщения — класс (`BF_INVALID`, `BF_BLOCKED`, `BF_CONFLICT`).\n\n### Требуемое поведение / 15\nПовреждённый, torn или конфликтующий journal не должен молча исчезать и не должен делать невидимыми остальные задачи.\nДетекция:\n- `corrupt`: JSON parse failure, отсутствие обязательных полей (`task_id`, `revision`, `parent_hash`, `payload`), или hash chain не сходится (вычисленный SHA-256 канонической сериализации не совпадает с заявленным).\n- `conflict`: один и тот же `task_id` имеет различающуюся verified history из разных источников (canonical store против legacy discovery).\n- `orphaned`: каталог задачи или legacy path обнаружен, но не удаётся установить verified chain root (например, нет ни одной валидной revision с известным `task_id`).\nList/overview возвращают diagnostic entry с известным task/source identity и `health=corrupt|conflict|orphaned`; `show/history` конкретной повреждённой задачи завершаются `BF_BLOCKED` с точной причиной.\n\n### Требуемое поведение / 16\nRead-команды строят результат непосредственно из авторитетных journals. Производный `catalog/index.json` не является обязательным артефактом, никогда не читается как источник истины и, если сохраняется, содержит source revision/hash и полностью восстанавливается из journals. Отсутствие или повреждение производного артефакта не влияет на read-результат и не отменяет подтверждённую revision.\n\n### Требуемое поведение / 17\nExisting checkout-local `.bsl-flow/tasks` остаются читаемыми через legacy discovery (read-only), их bytes не переписываются. Verified history hash определяется как SHA-256 от конкатенации 64-hex revision hashes в хронологическом порядке. Совпадающий UUID с одинаковой verified history дедуплицируется; различающаяся неподтверждённая history показывается как conflict и никогда не выполняется молча. Automatic destructive move запрещён. Полный adoption принадлежит отдельной спецификации `native-task-activation-adoption`; команды этого контракта (включая legacy discovery) не выполняют запись в canonical store.\n\n### Требуемое поведение / 18\nRepository store переживает удаление рабочего worktree: worktree path является provenance/execution binding, но не местом хранения canonical task history. Историческое `completed`/`accepted` состояние сохраняется независимо от живых входов. Для controller-задач проверяются абсолютные live inputs: `baseline_path`, `worker_path`, `evidence_path` (если присутствуют). Если хотя бы один из перечисленных путей отсутствует или недоступен, read-проекция помечает запись `freshness=stale`; diagnostic не меняет исторический статус и не служит execution/acceptance gate в этой версии.\n\n### Требуемое поведение / 19\nRegistry metadata и output не должны содержать runtime credentials, Authorization headers или raw private evidence. Clone-local хранение не означает разрешение на передачу данных внешней модели либо Git remote.\n\n### Требуемое поведение / 20\nРеализация — PS-native vertical slice: `create|edit|list|show|history|overview|archive|unarchive` реализуются в PowerShell (global/skills/1c-task, новый Task.Registry.ps1 + действия Invoke-BSLFlowTask.ps1) и не требуют иного движка. Команды доступны как действия `Create, EditRegistry, List, Show, History, Overview, ArchiveTask, UnarchiveTask, Activate` контроллера. Дополнительно предоставляется тонкая обёртка `bsl-flow task <subcommand>`, которая маппит subcommands на соответствующие действия контроллера: `list` → `Invoke-BSLFlowTask -Action List`, `show` → `Show`, `history` → `History`, `overview` → `Overview`, `create` → `Create`, `edit` → `EditRegistry`, `archive` → `ArchiveTask`, `unarchive` → `UnarchiveTask`, `activate` → `Activate`. Automatic conversion существующих checkout-local задач в repository store запрещён.\n\n## Нормативные JSON-схемы (v1)\n\n### Общий read envelope\n| Поле | Тип | Обязательность | Описание |\n|---|---|---|---|\n| `schema_version` | integer | да | Всегда `1` |\n| `repository_id` | string | да | 16 hex символов |\n\n### List response\n| Поле | Тип | Обязательность | Описание |\n|---|---|---|---|\n| `tasks` | array of task list item | да | Отсортированные задачи согласно фильтрам |\n| `next_cursor` | string\\|null | да | Opaque cursor для следующей страницы; `null` если нет |\n\nTask list item:\n| Поле | Тип | Обязательность | Описание |\n|---|---|---|---|\n| `task_id` | string (UUID) | да | |\n| `title` | string | да | |\n| `status` | string | да | lifecycle status |\n| `stage` | string\\|null | да | stage или `null` для planned |\n| `next_action` | string\\|null | да | next action или `null` |\n| `priority` | string | да | enum |\n| `labels` | array of string | да | |\n| `dependency_summary` | object | да | `{total: integer, by_status: object}` |\n| `created_at` | string RFC3339 | да | |\n| `updated_at` | string RFC3339 | да | |\n| `origin_worktree` | string | да | |\n| `current_worktree` | string\\|null | да | |\n| `diagnostic_state` | string\\|null | да | `corrupt\\|conflict\\|orphaned` или `null` |\n\n### Show response\nВ дополнение к полям task list item:\n| Поле | Тип | Обязательность | Описание |\n|---|---|---|---|\n| `request_summary` | object | да | безопасная сводка trusted request |\n| `criteria_ids` | array of string | да | |\n| `observations` | array of string | да | |\n| `blockers` | array of string | да | |\n| `question` | string\\|null | да | |\n| `dependency_graph` | object | да | `{nodes: array of UUID, edges: array of {from,to}}` |\n| `attempts_summary` | object | да | `{total, terminal, active}` |\n| `acceptance_summary` | object | да | `{status, criteria_passed, criteria_total}` |\n| `evidence_references` | array of object | да | `[{path, hash}]` |\n\n### History response\n| Поле | Тип | Обязательность | Описание |\n|---|---|---|---|\n| `timeline` | array of event | да | |\n\nEvent:\n| Поле | Тип | Обязательность | Описание |\n|---|---|---|---|\n| `timestamp` | string RFC3339 | да | |\n| `type` | string | да | `metadata_change\\|activation\\|stage_terminal\\|attempt_terminal\\|user_update\\|blocker\\|acceptance\\|cancellation\\|archive_change` |\n| `revision_hash` | string | да | |\n| `summary` | string | да | человекочитаемое описание |\n| `evidence_reference` | object\\|null | да | `{path, hash}` или `null` |\n\n### Overview response\n| Поле | Тип | Обязательность | Описание |\n|---|---|---|---|\n| `totals_by_status` | object | да | ключи — status enum, значения integer |\n| `totals_by_stage` | object | да | |\n| `totals_by_priority` | object | да | |\n| `counts` | object | да | `{needs_input, blocked, running, completed, planned, archived, corrupt, orphaned}` |\n| `generated_at` | string RFC3339 | да | |\n| `scope_identity` | string | да | repository_id |\n\n### Write response\n| Поле | Тип | Обязательность | Описание |\n|---|---|---|---|\n| `schema_version` | integer | да | `1` |\n| `task_id` | string (UUID) | да | |\n| `revision` | string | да | revision hash |\n| `status` | string | да | текущий lifecycle status |\n| `archived` | boolean | да | |\n| `priority` | string | да | |\n| `title` | string | да | |\n| `next_action` | string\\|null | да | |\n\n### Error response\n| Поле | Тип | Обязательность | Описание |\n|---|---|---|---|\n| `error` | object | да | |\n`error` object:\n| Поле | Тип | Обязательность | Описание |\n|---|---|---|---|\n| `class` | string | да | `BF_INVALID\\|BF_BLOCKED\\|BF_CONFLICT` |\n| `message` | string | да | человекочитаемое сообщение без secrets |\n\n## Контекст 1С\n- Конфигурация/подсистема: BSL Flow (PowerShell 7); метаданные 1С не изменяются.\n- Затрагиваемые механизмы: действия Invoke-BSLFlowTask.ps1 (реестровые команды + JSON/human output), Task.Storage.ps1 (checkout-local v1, legacy read-only discovery), новый Task.Registry.ps1 (repository store, revisions, graph lock), output schemas, документация.\n- Evidence path: CLI → resolve Git common dir/repository identity → validate journal(s) → derive catalog/detail/overview либо append one revision → existing controller gate. Внешних side effects, кроме локальных файлов и Git metadata reads, нет.\n- 1С runtime: не запускается; target/credentials не читаются task catalog commands.\n\n## Не делать\n- Не копировать Markdown-per-task storage, browser UI, MCP server, milestones и document/decision management Backlog.md.\n- Не создавать SQL/daemon/cloud service или второй authoritative task database.\n- Не коммитить clone-local registry и execution evidence в Git.\n- Не удалять completed/cancelled tasks автоматически.\n- Не выводить raw prompts/evidence в list/overview.\n- Не считать archived новым execution status.\n- Не запускать dependency автоматически и не строить distributed scheduler.\n- Не переписывать legacy journals при чтении или adoption.\n- Не создавать `tasks.md`.\n- Не использовать Go-движок или автоматическую конвертацию checkout-local → repository store.\n\n## Критерии приёмки\n- GIVEN два worktree одного клона создают разные planned-задачи WHEN `task list` выполняется из любого из них THEN обе задачи видны в одном repository scope с теми же UUID и canonical store identity.\n- GIVEN два независимых клона одного remote WHEN в одном создана задача THEN второй клон её не видит и Git status не содержит registry files.\n- GIVEN planned-задача активируется valid trusted request после объявления совместимой native controller capability WHEN controller читает её по прежнему UUID THEN появляется `ready` revision с сохранённой metadata, а второго ID/journal нет.\n- GIVEN native controller capability ещё не готова либо выбран legacy engine WHEN вызывается `task activate` для repository planned-задачи THEN команда возвращает staged `BLOCKED`, не создаёт revision и не переносит задачу в checkout-local v1 store.\n- GIVEN planned-задача без execution authorization WHEN вызывается `run` THEN attempt не создаётся и возвращается явный activation blocker.\n- GIVEN planned-задача ссылается на существующую и на отсутствующую dependency WHEN metadata валидируется и сохраняется THEN edges сохранены; отсутствие dependency не блокирует создание/редактирование, а execution gating не применяется в этой версии.\n- GIVEN попытка создать dependency cycle либо self-reference WHEN metadata validation выполняется THEN write отклоняется без новой revision.\n- GIVEN два concurrent writers пытаются добавить edges `A→B` и `B→A` WHEN graph mutations публикуются THEN не более одной revision проходит repository graph critical section, вторая получает cycle/conflict без revision.\n- GIVEN repository содержит planned, running, completed, cancelled и archived задачи WHEN выполняется default `task list` THEN возвращены все неархивированные статусы, включая completed/cancelled; archived доступны только явным фильтром.\n- GIVEN один journal повреждён, а остальные валидны WHEN выполняются list и overview THEN валидные задачи присутствуют, повреждённая отображается диагностически и не считается выполненной.\n- GIVEN index отсутствует, устарел или оборван WHEN выполняется read command THEN результат пересобирается из authoritative journals и совпадает с результатом чистой полной rebuild.\n- GIVEN legacy task обнаружена в checkout-local `.bsl-flow/tasks` WHEN выполняется read-команда из любого worktree THEN задача видна с `source=legacy`, исходные bytes journal не изменены, а конфликтующий UUID показан диагностикой.\n- GIVEN JSON и human modes получают один набор задач WHEN применены одинаковые filters/sort/cursor THEN membership/order совпадают, JSON проходит schema v1, secrets/raw evidence отсутствуют.\n\n## Требуемые проверки\n- [x] Static — closed schemas, CLI help/docs, package inventory и запрет secrets/raw evidence в catalog outputs.\n- [x] Unit — repository identity/common-dir resolution, metadata validation, dependency cycles, filters/sort/cursors, redaction, status/archive separation и deterministic timeline.\n- [x] Integration — несколько реальных temporary Git worktree, concurrent writers/встречные dependency edges, completed retention, corrupt/torn journals, read-derivation без производного index, legacy read-only discovery и worktree deletion.\n- [x] Compatibility — historical v1 task fixtures читаются без изменения bytes/hashes; UUID conflicts fail closed.\n- [ ] UI — отдельный UI не требуется.\n- [ ] 1С runtime — не требуется для этой feature.\n\n## Неопределённости / допущения\n- Clone-local repository store размещается под verified Git common dir; путь заморожен: `<git common dir>/bsl-flow/tasks/<uuid>/revisions`, schema/store version v1.\n- Fuzzy full-text search и board view могут быть добавлены поверх того же read model, но не входят в первую реализацию.\n- Adoption старых journals отложен в отдельную спецификацию; automatic destructive move запрещён.\n- Эта feature зависит от стабильного Git CLI; реализуется как PS-native vertical slice.\n",
+    "final_design_text": "# Technical design (PS-native v1)\n\n## Store layout\n```\n<git-common-dir>/bsl-flow/\n  tasks/<uuid>/revisions/*.json\n  bsl-flow-graph.lock\n```\n`repository_id` = первые 16 hex SHA-256 нормализованного абсолютного пути git common dir. Файлы `repository.json`, `current.json`, `catalog/index.json`, `migrations/` не создаются в v1.\n\n## Journal format\nКаждая задача — immutable hash-linked journal: каждая revision содержит `task_id`, `revision` (hash), `parent_hash`, `payload`. Hash вычисляется как SHA-256 канонической сериализации полей. Первая planned revision содержит metadata: `title`, `description`, `priority`, `labels`, `depends_on`, `archived=false`. Controller state добавляется только после активации, но в v1 активация всегда возвращает staged BLOCKED без записи.\n\n## Commands\nКоманды доступны как действия контроллера `Invoke-BSLFlowTask.ps1` (`Create, EditRegistry, List, Show, History, Overview, ArchiveTask, UnarchiveTask, Activate`). Предоставляется тонкая обёртка `bsl-flow task <subcommand>` для вызова действий с параметрами, например `bsl-flow task list --project . --status planned,completed`.\n\n## Reads\nВсе read-команды строят результат напрямую из journals; производные артефакты не используются и не создаются. При отсутствии/повреждении какого-либо journal остальные задачи остаются видимыми; повреждённая задача выводится диагностически.\n\n## Concurrency\n- Per-task lock + `expected_revision` для изменений одной задачи.\n- Repository graph lock `<store>/bsl-flow-graph.lock` для валидации и публикации `depends_on` изменений.\n- Атомарная публикация revision: temporary file → fsync → rename → directory sync; только подтверждённый rename считается authoritative. Отдельный протокол unknown commit reconciliation не вводится; torn journal обнаруживается по hash chain и не создаёт ложную revision.\n\n## Legacy discovery\nLegacy `.bsl-flow/tasks` в verified worktree roots обрабатываются read-only. Verified history hash = SHA-256 конкатенации 64-hex revision hashes в порядке возрастания. Совпадение hash дедуплицируется; расхождение показывается как `health=conflict` с `source=legacy`. Запись в canonical store из legacy discovery не выполняется.\n\n## Security\n- Пути common dir и task directories проходят no-symlink/no-reparse escape checks.\n- List/overview не содержат prompt, raw payload, credentials, provider bodies.\n- Show/history используют allowlisted проекции.\n- Labels/title/description экранируются в terminal output.\n"
   },
-  "inputs": {
-    "original_task_sha256": "343b3d57a5417bad4fde0e1c8ea415006967b566d14f23f63d14b1786c5c467c",
-    "spec_sha256": "a8e411dd00ca1efc74743724d2ce481eeaad27c25d32d95c5a2e74e399cc467f",
-    "design_sha256": "8f7d5993631a46130aac5c402b9f8816099ac3d63832e2b2a7c186b2dae72968"
+  "reconciliation": {
+    "review_sha256": "f0998de7de6a37333507e0d041d77b8a40f3425025338aa6aa2882d811f93de7",
+    "draft_spec_sha256": "74e14b727d0c36ac7a765bef9f15279b689c77d864d1ad0a8a9dd4f1717b2575",
+    "final_spec_sha256": "cde883d791f80de62b1a0ed35d037fcb4417727c46aebf455f888daf0818c665",
+    "draft_design_sha256": "2593de87dc9d0ab9700ef39459e919d7bbc9a8428f8ad24b9f5811ccf8890b69",
+    "final_design_sha256": "bde4939d0889bccf1f39bf1993c2f315caddc375d7dbfb261e2db8eeff35b38a"
   },
   "gate": {
-    "pass_weighted_score": 4.3,
-    "block_below_weighted_score": 3.5,
-    "max_overengineering_index_for_pass": 1,
-    "max_unjustified_ratio_for_pass": 0.0
+    "structural_only": true,
+    "passed": true
   }
 }

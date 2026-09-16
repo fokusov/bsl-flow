@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "checked_at_utc": "2026-09-14T07:17:44.4506762Z",
+  "checked_at_utc": "2026-09-16T16:44:29.1788174Z",
   "passed": true,
   "errors": [],
   "warnings": [],
   "stats": {
-    "characters": 13818,
-    "lines": 119
+    "characters": 21209,
+    "lines": 249
   }
 }

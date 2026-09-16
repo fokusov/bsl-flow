@@ -1,13 +1,15 @@
 {
-  "schema_version": 1,
-  "checked_at_utc": "2026-09-14T07:17:44.5372920Z",
+  "schema_version": 2,
+  "checked_at_utc": "2026-09-16T15:18:23.7091640Z",
   "passed": true,
-  "review_iteration": 1,
+  "review_schema": 2,
+  "verdict": "REVISE",
+  "diversity": "multi_role_single_model",
   "inputs": {
-    "review_sha256": "229815233b5e713f9bced351993ed83a5218dc97ca6f0039813ca423ebb33449",
+    "review_sha256": "13138d1057f0a48a6553fe7b8c7e39b06613d06ba4f8e2dac89da43c7a1b82c4",
     "reconciliation_sha256": "e18f2050b56f4521ee1e3d846b1a206b81a0ce47f5277f54fd62db20b32d7bb1",
-    "final_spec_sha256": "02005e3356db35b9961f2af341793e707e21ebfb1e58067666660cdd60257841",
-    "final_design_sha256": "83157d1b69def98a97c1f734e7ff42b2a4d073fdc3ff68cac2fd3738af820504",
+    "final_spec_sha256": "cde883d791f80de62b1a0ed35d037fcb4417727c46aebf455f888daf0818c665",
+    "final_design_sha256": "bde4939d0889bccf1f39bf1993c2f315caddc375d7dbfb261e2db8eeff35b38a",
     "original_task_sha256": "343b3d57a5417bad4fde0e1c8ea415006967b566d14f23f63d14b1786c5c467c"
   },
   "errors": []
