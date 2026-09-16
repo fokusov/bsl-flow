@@ -3,6 +3,8 @@
 param([string]$PackageRoot,[string]$PublicationRoot,[switch]$KeepFixture)
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
+# git emits UTF-8 tree names; the OEM console code page would mojibake them before comparison.
+[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false)
 if(-not $PackageRoot){$PackageRoot=Split-Path $PSScriptRoot -Parent}
 $PackageRoot=[IO.Path]::GetFullPath($PackageRoot)
 $core=Join-Path $PackageRoot 'global/skills/1c-task/scripts'
