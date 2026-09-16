@@ -93,7 +93,7 @@ BSL Flow не сканирует диски рекурсивно и не ска�
   -VanessaDirectory "D:\1c-tools\vanessa-automation"
 ```
 
-Инвентаризация проверяет только верхний уровень этих каталогов по точным маскам: `YAxUnit*.cfe`, `vanessa-automation*.epf`, `VAExtension*.cfe` и `client_mcp.cfe`. Отсутствующий каталог или файл получает состояние `not_configured`; несколько кандидатов или пустой файл — `blocked`. Найденный файл означает только `files_found`: установку в базе, совместимость и готовность ещё нужно подтвердить инвентаризацией базы и минимальным runtime-пилотом. Подробности — в [руководстве по тестовому окружению](TEST_ENVIRONMENT_GUIDE_RU.md).
+Инвентаризация проверяет только верхний уровень этих каталогов по точным маскам: `YAxUnit*.cfe`, `vanessa-automation*.epf`, `VAExtension*.cfe` и `client_mcp.cfe`. Отсутствующий каталог или файл получает состояние `not_configured`; несколько кандидатов или пустой файл — `blocked`. Найденный файл означает только `files_found`: установку в базе, совместимость и готовность ещё нужно подтвердить инвентаризацией базы и минимальным runtime-пилотом. Подробности — в [руководстве по тестовому окружению](docs/TEST_ENVIRONMENT_GUIDE_RU.md).
 
 На машине без этих инструментов BSL Flow всё равно устанавливается, но проверки, которым нужен отсутствующий provider, остаются `BLOCKED`. Framework не скачивает сторонние релизы молча. Vanessa Automation — внешний EPF-runner; YAxUnit и необязательный `VAExtension` имеют отдельные требования к установке в базу.
 
@@ -104,7 +104,7 @@ BSL Flow не сканирует диски рекурсивно и не ска�
 - `scripts/` — установщики и offline regression checks;
 - `docs/` — руководство по фреймворку, архитектура, контракты runtime/публикации/покрытия;
 - [CHANGELOG.md](CHANGELOG.md) — история версий и принятые решения;
-- [TEST_ENVIRONMENT_GUIDE_RU.md](TEST_ENVIRONMENT_GUIDE_RU.md) — постоянное окружение YAxUnit/Vanessa.
+- [TEST_ENVIRONMENT_GUIDE_RU.md](docs/TEST_ENVIRONMENT_GUIDE_RU.md) — постоянное окружение YAxUnit/Vanessa.
 
 ## Для кого
 

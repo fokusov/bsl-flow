@@ -89,7 +89,7 @@ BSL Flow does not recursively search disks or silently download test tools. The 
   -VanessaDirectory "D:\1c-tools\vanessa-automation"
 ```
 
-Inventory checks only the top level of those exact directories: `YAxUnit*.cfe`, `vanessa-automation*.epf`, `VAExtension*.cfe` and `client_mcp.cfe`. A missing directory or artifact becomes `not_configured`; multiple candidates or an empty file become `blocked`. A discovered file is only `files_found`: database installation, compatibility and readiness still require inspection and a focused runtime pilot. See the [test environment guide](TEST_ENVIRONMENT_GUIDE_RU.md).
+Inventory checks only the top level of those exact directories: `YAxUnit*.cfe`, `vanessa-automation*.epf`, `VAExtension*.cfe` and `client_mcp.cfe`. A missing directory or artifact becomes `not_configured`; multiple candidates or an empty file become `blocked`. A discovered file is only `files_found`: database installation, compatibility and readiness still require inspection and a focused runtime pilot. See the [test environment guide](docs/TEST_ENVIRONMENT_GUIDE_RU.md).
 
 On a machine without these tools, BSL Flow still installs, but tests that require the missing provider stay `BLOCKED`. The framework does not silently download third-party releases. Vanessa Automation is an external EPF runner; YAxUnit and optional `VAExtension` have separate database-installation requirements.
 
@@ -99,7 +99,7 @@ On a machine without these tools, BSL Flow still installs, but tests that requir
 - `global/openspec/` — the OpenSpec schema and templates;
 - `scripts/` — installers and offline regression checks;
 - `docs/` — framework guide, architecture decisions, and observed managed-host contract;
-- [TEST_ENVIRONMENT_GUIDE_RU.md](TEST_ENVIRONMENT_GUIDE_RU.md) — persistent YAxUnit/Vanessa test environment;
+- [TEST_ENVIRONMENT_GUIDE_RU.md](docs/TEST_ENVIRONMENT_GUIDE_RU.md) — persistent YAxUnit/Vanessa test environment;
 - [CHANGELOG.md](CHANGELOG.md) — release history and accepted decisions;
 
 ## Who it is for
