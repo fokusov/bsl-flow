@@ -106,11 +106,15 @@ $requiredFiles = @(
     'global\skills\1c-spec-review\scripts\Review.Common.ps1',
     'global\skills\1c-spec-review\scripts\Test-1CSpec.ps1',
     'global\skills\1c-spec-review\scripts\Invoke-1CSpecReview.ps1',
+    'global\skills\1c-spec-review\scripts\Council.Profile.ps1',
+    'global\skills\1c-spec-review\scripts\Invoke-1CSpecContractLint.ps1',
     'global\skills\1c-spec-review\scripts\Test-1CSpecFinal.ps1',
     'global\skills\1c-spec-review\scripts\Add-1CSpecRunMetric.ps1',
     'global\skills\1c-task\SKILL.md',
     'global\skills\1c-task\scripts\Invoke-BSLFlowTask.ps1',
     'global\skills\1c-task\scripts\Task.Storage.ps1',
+    'global\skills\1c-task\scripts\Task.Registry.ps1',
+    'global\skills\1c-implement\scripts\ExecutionGraph.ps1',
     'global\skills\1c-task\scripts\Task.Memory.ps1',
     'global\skills\1c-task\scripts\Task.Contracts.ps1',
     'global\skills\1c-task\scripts\Task.Architecture.ps1',
@@ -136,6 +140,7 @@ $requiredFiles = @(
     'global\skills\1c-task\schemas\worker-result.schema.json',
     'global\skills\1c-task\references\task-contract.md',
     'scripts\Test-TaskStorage.ps1',
+    'scripts\bsl-flow.ps1',
     'scripts\Test-TaskLifecycle.ps1',
     'scripts\Test-TaskHardening.ps1',
     'scripts\Test-TaskResume.ps1',
@@ -200,13 +205,13 @@ foreach ($relative in $requiredFiles) {
     Assert-True ($ignoreProbe.ExitCode -ne 0) "Required package file is hidden by .gitignore: $relative"
 }
 & (Join-Path $packageRoot 'scripts\Test-1CTestTooling.ps1') -PackageRoot $packageRoot
-foreach ($suite in @('Test-ADRIndex.ps1', 'Test-TaskContext.ps1', 'Test-TaskArchitectureBundle.ps1', 'Test-TaskResumePilot.ps1', 'Test-ProjectArchitectureIndex.ps1', 'Test-TaskMemory.ps1', 'Test-ProjectUpgrade.ps1', 'Test-WorkstationSetup.ps1', 'Test-InteractiveTestPilot.ps1', 'Test-ExternalArtifactEvidence.ps1', 'Test-TestStarter.ps1', 'Test-TestEvidence.ps1', 'Test-ExtensionIdentitySafety.ps1', 'Test-AgentAudit.ps1', 'Test-OpenCodeAdapter.ps1', 'Test-ReviewReliability.ps1', 'Test-TaskManagedReview.ps1', 'Test-BFProfiledCodexHostCapability.ps1')) {
+foreach ($suite in @('Test-ADRIndex.ps1', 'Test-TaskContext.ps1', 'Test-TaskArchitectureBundle.ps1', 'Test-TaskResumePilot.ps1', 'Test-ProjectArchitectureIndex.ps1', 'Test-TaskMemory.ps1', 'Test-ProjectUpgrade.ps1', 'Test-WorkstationSetup.ps1', 'Test-InteractiveTestPilot.ps1', 'Test-ExternalArtifactEvidence.ps1', 'Test-TestStarter.ps1', 'Test-TestEvidence.ps1', 'Test-ExtensionIdentitySafety.ps1', 'Test-AgentAudit.ps1', 'Test-OpenCodeAdapter.ps1', 'Test-ReviewReliability.ps1', 'Test-TaskManagedReview.ps1', 'Test-BFProfiledCodexHostCapability.ps1', 'Test-SpecContractLint.ps1', 'Test-ExecutionGraphDiscipline.ps1')) {
     & (Join-Path $packageRoot "scripts\$suite") -PackageRoot $packageRoot
 }
-foreach ($suite in @('Test-CouncilValidation.ps1', 'Test-CouncilEngine.ps1', 'Test-CouncilTransport.ps1', 'Test-CouncilFallback.ps1', 'Test-CouncilRouting.ps1', 'Test-CouncilCycle.ps1', 'Test-CouncilLifecycle.ps1')) {
+foreach ($suite in @('Test-CouncilValidation.ps1', 'Test-CouncilEngine.ps1', 'Test-CouncilTransport.ps1', 'Test-CouncilFallback.ps1', 'Test-CouncilRouting.ps1', 'Test-CouncilCycle.ps1', 'Test-CouncilLifecycle.ps1', 'Test-CouncilProfile.ps1')) {
     & (Join-Path $packageRoot "global\skills\1c-spec-review\scripts\$suite") -PackageRoot $packageRoot
 }
-foreach ($suite in @('Test-TaskStorage.ps1', 'Test-LegacyNativeFence.ps1', 'Test-TaskLifecycle.ps1', 'Test-TaskHardening.ps1', 'Test-TaskResume.ps1', 'Test-TaskCrashRecovery.ps1', 'Test-TaskRepair.ps1', 'Test-TaskDelivery.ps1', 'Test-TaskRunner.ps1', 'Test-RunnerRecovery.ps1', 'Test-TaskRuntime.ps1', 'Test-NativeController.ps1', 'Test-NativeRecovery.ps1', 'Test-NativeReuse.ps1', 'Test-RequirementCoverage.ps1', 'Test-CoverageController.ps1', 'Test-PublicationGit.ps1', 'Test-TaskPublication.ps1')) {
+foreach ($suite in @('Test-TaskStorage.ps1', 'Test-TaskRegistry.ps1', 'Test-TaskRegistryConcurrency.ps1', 'Test-LegacyNativeFence.ps1', 'Test-TaskLifecycle.ps1', 'Test-TaskHardening.ps1', 'Test-TaskResume.ps1', 'Test-TaskCrashRecovery.ps1', 'Test-TaskRepair.ps1', 'Test-TaskDelivery.ps1', 'Test-TaskRunner.ps1', 'Test-RunnerRecovery.ps1', 'Test-TaskRuntime.ps1', 'Test-NativeController.ps1', 'Test-NativeRecovery.ps1', 'Test-NativeReuse.ps1', 'Test-RequirementCoverage.ps1', 'Test-CoverageController.ps1', 'Test-PublicationGit.ps1', 'Test-TaskPublication.ps1')) {
     & (Join-Path $packageRoot "scripts\$suite") -PackageRoot $packageRoot
 }
 
@@ -334,7 +339,7 @@ try {
         $taskCommand = Get-Command $installedTaskCli
         foreach ($parameter in @('Action','ProjectPath','TaskId','InputFile','AttemptId','CodexPath','RuntimeAuth')) { Assert-True $taskCommand.Parameters.ContainsKey($parameter) "Installed 1c-task CLI omitted parameter: $parameter" }
         $actionSet = @($taskCommand.Parameters.Action.Attributes | Where-Object { $_ -is [Management.Automation.ValidateSetAttribute] } | ForEach-Object ValidValues)
-        $expectedActions = @('Start','Status','Next','Context','Run','Record','Update','Accept','Resume','Cancel','Deliver','Serve','Publish','PublishResume')
+        $expectedActions = @('Start','Status','Next','Context','Run','Record','Update','Accept','Resume','Cancel','Deliver','Serve','Publish','PublishResume','Create','EditRegistry','List','Show','History','Overview','ArchiveTask','UnarchiveTask','Activate')
         Assert-True ($actionSet.Count -eq $expectedActions.Count) 'Installed 1c-task CLI exposes an unexpected action set.'
         foreach ($action in $expectedActions) { Assert-True ($action -in $actionSet) "Installed 1c-task CLI omitted action: $action" }
     }
