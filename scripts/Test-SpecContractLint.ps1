@@ -186,7 +186,7 @@ checks:
     Write-FixtureText (Join-Path $noExpect 'verification.yaml') $noExpectVerification
     Expect-LintFailure $noExpect $outPath "verification\.yaml: check V-001: missing required field 'expect'" 'V without expect must fail.'
     $emptyExpect = New-ValidFixture $testRoot 'empty-expect'
-    Write-FixtureText (Join-Path $emptyExpect 'verification.yaml') ($validVerification -replace 'expect:\n\s+result: "[^"]*"', 'expect: {}')
+    Write-FixtureText (Join-Path $emptyExpect 'verification.yaml') ($validVerification -replace 'expect:\r?\n\s+result: "[^"]*"', 'expect: {}')
     Expect-LintFailure $emptyExpect $outPath 'check V-001 expect must be a mapping' 'Empty expect mapping must fail.'
     $danglingRequirement = New-ValidFixture $testRoot 'dangling-requirement'
     Write-FixtureText (Join-Path $danglingRequirement 'verification.yaml') ($validVerification -replace 'requirement: R-002', 'requirement: R-009')
