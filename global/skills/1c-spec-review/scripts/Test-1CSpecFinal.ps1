@@ -29,7 +29,61 @@ $finalDesignHash = $null
 $originalTaskHash = $null
 $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
 
-foreach ($required in @($reviewPath, $reconciliationPath, $specPath, $originalTaskPath)) {
+foreach ($required in @($reviewPath, $specPath, $originalTaskPath)) {
+    if (-not (Test-Path -LiteralPath $required -PathType Leaf)) { $errors.Add("Missing required final-validation input: $required") }
+}
+# Dual reader: schema v2 council reviews carry reconciliation inline and must
+# not be rewritten through the legacy v1 path. Historical v1 artifacts stay readable.
+$rawReviewText = $null
+if ($errors.Count -eq 0 -and (Test-Path -LiteralPath $reviewPath -PathType Leaf)) {
+    try { $rawReviewText = [System.IO.File]::ReadAllText($reviewPath, $utf8) }
+    catch { $errors.Add("Invalid review.json: $($_.Exception.Message)") }
+}
+$peekVersion = $null
+if ($rawReviewText) {
+    try { $peekVersion = ($rawReviewText | ConvertFrom-Json -ErrorAction Stop).schema_version } catch { $peekVersion = $null }
+}
+if ($peekVersion -eq 2) {
+    . (Join-Path $PSScriptRoot 'Council.Validation.ps1')
+    $councilReview = $null
+    $councilLint = $null
+    try { $councilReview = $rawReviewText | ConvertFrom-Json -ErrorAction Stop; Assert-BSLFlowCouncilReview $councilReview }
+    catch { $errors.Add("Invalid council review.json v2: $($_.Exception.Message)") }
+    try { $councilLint = & (Join-Path $PSScriptRoot 'Test-1CSpec.ps1') -ChangePath $changeRoot -NoThrow }
+    catch { $errors.Add("Final spec lint could not run: $($_.Exception.Message)") }
+    if ($errors.Count -eq 0) {
+        $gate = Test-BSLFlowCouncilFinalGate -Review $councilReview -OriginalTaskPath $originalTaskPath -SpecPath $specPath -DesignPath $designPath -Lint $councilLint
+        foreach ($message in @($gate.errors)) { $errors.Add([string]$message) }
+    }
+    # Keep the v2 receipt bound to the exact public bytes consumed by the gate.
+    # The reconciliation sidecar is materialized by the managed stage after the
+    # council publication, so it is optional for the direct council route.
+    $v2ReviewHash = if (Test-Path -LiteralPath $reviewPath -PathType Leaf) { try { Get-BSLFlowSha256 $reviewPath } catch { $null } } else { $null }
+    $v2ReconciliationHash = if (Test-Path -LiteralPath $reconciliationPath -PathType Leaf) { try { Get-BSLFlowSha256 $reconciliationPath } catch { $null } } else { $null }
+    $v2FinalSpecHash = if (Test-Path -LiteralPath $specPath -PathType Leaf) { try { Get-BSLFlowSha256 $specPath } catch { $null } } else { $null }
+    $v2FinalDesignHash = if (Test-Path -LiteralPath $designPath -PathType Leaf) { try { Get-BSLFlowSha256 $designPath } catch { $null } } else { $null }
+    $v2OriginalTaskHash = if (Test-Path -LiteralPath $originalTaskPath -PathType Leaf) { try { Get-BSLFlowSha256 $originalTaskPath } catch { $null } } else { $null }
+    $result = [ordered]@{
+        schema_version = 2
+        checked_at_utc = [DateTime]::UtcNow.ToString('o')
+        passed = ($errors.Count -eq 0)
+        review_schema = 2
+        verdict = if ($null -ne $councilReview) { [string]$councilReview.verdict } else { $null }
+        diversity = if ($null -ne $councilReview) { [string]$councilReview.diversity } else { $null }
+        inputs = [ordered]@{
+            review_sha256 = $v2ReviewHash
+            reconciliation_sha256 = $v2ReconciliationHash
+            final_spec_sha256 = $v2FinalSpecHash
+            final_design_sha256 = $v2FinalDesignHash
+            original_task_sha256 = $v2OriginalTaskHash
+        }
+        errors = @($errors)
+    }
+    Write-BSLFlowJsonAtomic -Value $result -Path $outputPath
+    if (-not $result.passed) { throw "Final specification invariant validation failed. See: $outputPath" }
+    return [pscustomobject]$result
+}
+foreach ($required in @($reconciliationPath)) {
     if (-not (Test-Path -LiteralPath $required -PathType Leaf)) { $errors.Add("Missing required final-validation input: $required") }
 }
 if ($errors.Count -eq 0) {

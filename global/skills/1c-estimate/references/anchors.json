@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "units": "hours",
+  "baseline": "middle_3y",
+  "rounding_steps": { "human": 0.5, "ai": 0.25, "timebox": 0.5 },
+  "divergence_threshold_percent": 30,
+  "human_cycle_phases": [
+    { "phase": "Анализ по спеке", "share_of_implementation_core": [0.15, 0.2] },
+    { "phase": "Реализация (ядро)", "share_of_implementation_core": [1.0, 1.0] },
+    { "phase": "Самотестирование", "share_of_implementation_core": [0.25, 0.35] },
+    { "phase": "Исправления по код-ревью", "share_of_implementation_core": [0.15, 0.25] },
+    { "phase": "Краткая пользовательская инструкция", "share_of_implementation_core": [0.05, 0.1] }
+  ],
+  "ai_defaults": { "model": "gpt-6-astra", "effort": "medium", "attempts": { "min": 1, "max": 4 } },
+  "ai_anchor_modifiers": {
+    "match": "fork_drivers",
+    "modifiers": [
+      {
+        "flags": ["external_artifact"],
+        "ai_multiplier": 2.0,
+        "reason": "Parsing an external artifact format (load rules, distribution formats) makes every agent attempt heavier: a single successful attempt can already reach the upper bound of the unmodified anchor, and the conservative decomposition of such tasks starts near 3x the base AI minimum."
+      },
+      {
+        "flags": ["posting"],
+        "ai_multiplier": 1.5,
+        "reason": "Posting documents adds reflection, sequencing and write-back verification to every agent attempt."
+      }
+    ]
+  },
+  "anchors": {
+    "S": {
+      "low":      { "human": { "min": 2,  "max": 6 },   "ai": { "min": 0.5,  "max": 1.5 } },
+      "medium":   { "human": { "min": 3,  "max": 10 },  "ai": { "min": 0.75, "max": 2 } },
+      "high":     { "human": { "min": 5,  "max": 16 },  "ai": { "min": 1,    "max": 3 } }
+    },
+    "M": {
+      "low":      { "human": { "min": 8,  "max": 24 },  "ai": { "min": 1.5,  "max": 4 } },
+      "medium":   { "human": { "min": 12, "max": 40 },  "ai": { "min": 2,    "max": 6 } },
+      "high":     { "human": { "min": 20, "max": 60 },  "ai": { "min": 3,    "max": 9 } }
+    },
+    "L": {
+      "low":      { "human": { "min": 30, "max": 90 },  "ai": { "min": 4,    "max": 12 } },
+      "medium":   { "human": { "min": 50, "max": 140 }, "ai": { "min": 6,    "max": 18 } },
+      "high":     { "human": { "min": 80, "max": 240 }, "ai": { "min": 10,   "max": 30 } }
+    }
+  }
+}

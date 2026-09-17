@@ -1,0 +1,149 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BSL Flow 1c-estimate sidecar v1",
+  "description": "Closed schema for estimate.json beside a finalized OpenSpec 1C change. Human hours use a 0.5h step, AI hours 0.25h, timebox 0.5h; the step itself is enforced by Test-1CEstimate.ps1, not by this schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "change",
+    "created",
+    "kind",
+    "status",
+    "inputs",
+    "classification",
+    "baseline",
+    "ai_basis",
+    "confidence",
+    "assumptions",
+    "fork_drivers"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "change": { "type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+    "created": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$" },
+    "kind": { "enum": ["estimate", "timebox"] },
+    "status": { "const": "final" },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["spec_sha256", "design_sha256", "original_task_sha256"],
+      "properties": {
+        "spec_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "design_sha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+        "original_task_sha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "classification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["complexity", "risk"],
+      "properties": {
+        "complexity": { "enum": ["S", "M", "L"] },
+        "risk": { "enum": ["low", "medium", "high"] }
+      }
+    },
+    "baseline": { "const": "middle_3y" },
+    "ai_basis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "effort", "attempts"],
+      "properties": {
+        "model": { "type": "string", "minLength": 1 },
+        "effort": { "enum": ["low", "medium", "high"] },
+        "attempts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min", "max"],
+          "properties": {
+            "min": { "type": "integer", "minimum": 1 },
+            "max": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    },
+    "blocks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "human", "ai", "justification"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^B-[0-9]{2}$" },
+          "title": { "type": "string", "minLength": 3 },
+          "human": { "$ref": "#/$defs/fork" },
+          "ai": { "$ref": "#/$defs/fork" },
+          "justification": { "type": "string", "minLength": 10 },
+          "drivers": { "type": "array", "items": { "type": "string", "minLength": 3 } }
+        }
+      }
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["human", "ai"],
+      "properties": {
+        "human": { "$ref": "#/$defs/fork" },
+        "ai": { "$ref": "#/$defs/fork" }
+      }
+    },
+    "exclusions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "reason"],
+        "properties": {
+          "title": { "type": "string", "minLength": 3 },
+          "reason": { "type": "string", "minLength": 10 }
+        }
+      }
+    },
+    "timebox_hours": { "type": "number", "exclusiveMinimum": 0 },
+    "confidence": { "enum": ["high", "medium", "low"] },
+    "assumptions": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 5 } },
+    "fork_drivers": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 5 } },
+    "actuals": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "human_hours": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "ai_hours": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "attempts": { "type": ["integer", "null"], "minimum": 1 },
+        "source": { "type": ["string", "null"] },
+        "recorded_at": { "type": ["string", "null"] }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "estimate" } } },
+      "then": { "required": ["blocks", "totals", "exclusions"] }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "timebox" } } },
+      "then": {
+        "required": ["timebox_hours"],
+        "not": {
+          "anyOf": [
+            { "required": ["blocks"] },
+            { "required": ["totals"] },
+            { "required": ["exclusions"] }
+          ]
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "fork": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max"],
+      "properties": {
+        "min": { "type": "number", "exclusiveMinimum": 0 },
+        "max": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    }
+  }
+}

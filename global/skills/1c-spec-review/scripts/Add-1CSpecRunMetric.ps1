@@ -29,6 +29,9 @@ if ($validation.passed -ne $true) { throw 'Metrics are appended only after final
 $specText = Get-Content -Raw -LiteralPath $specPath
 $complexity = [regex]::Match($specText, '(?im)^\s*-\s*(?:Сложность|Complexity):\s*(S|M|L)\s*$').Groups[1].Value.ToUpperInvariant()
 $risk = [regex]::Match($specText, '(?im)^\s*-\s*(?:Риск|Risk):\s*(low|medium|high)\s*$').Groups[1].Value.ToLowerInvariant()
+# Council schema v2 reviews carry the deterministic gate instead of the
+# single-reviewer fields; map them so both routes append the same record shape.
+$councilV2 = ($null -ne $review.schema_version -and [int]$review.schema_version -eq 2)
 
 $pathBytes = [System.Text.Encoding]::UTF8.GetBytes($projectRoot.ToLowerInvariant())
 $sha = [System.Security.Cryptography.SHA256]::Create()
@@ -56,21 +59,30 @@ $record = [ordered]@{
     complexity = $complexity
     risk = $risk
     author = [ordered]@{ model = if ($AuthorModel) { $AuthorModel } else { $null }; reasoning = if ($AuthorReasoning) { $AuthorReasoning } else { $null } }
-    reviewer = $review.reviewer
-    reviewer_verdict = $review.reviewer_verdict
+    reviewer = if ($councilV2) { 'council' } else { $review.reviewer }
+    reviewer_verdict = if ($councilV2) { [string]$review.chair.verdict } else { $review.reviewer_verdict }
     gate_verdict = $review.verdict
-    scores = $review.scores
-    weighted_score = $review.weighted_score
-    overengineering = [ordered]@{
-        architectural_decision_count = $review.overengineering.architectural_decision_count
-        required_count = $review.overengineering.required_count
-        justified_count = $review.overengineering.justified_count
-        optional_count = $review.overengineering.optional_count
-        unjustified_count = $review.overengineering.unjustified_count
-        index = $review.overengineering.index
-        optional_ratio = $review.overengineering.optional_ratio
-        unjustified_ratio = $review.overengineering.unjustified_ratio
-        normalized_index = $review.overengineering.normalized_index
+    scores = if ($councilV2) { $null } else { $review.scores }
+    weighted_score = if ($councilV2) { $null } else { $review.weighted_score }
+    overengineering = if ($councilV2) {
+        [ordered]@{
+            architectural_decision_count = $null; required_count = $null; justified_count = $null
+            optional_count = $null; unjustified_count = $null; index = $null
+            optional_ratio = $null; unjustified_ratio = $null; normalized_index = $null
+        }
+    }
+    else {
+        [ordered]@{
+            architectural_decision_count = $review.overengineering.architectural_decision_count
+            required_count = $review.overengineering.required_count
+            justified_count = $review.overengineering.justified_count
+            optional_count = $review.overengineering.optional_count
+            unjustified_count = $review.overengineering.unjustified_count
+            index = $review.overengineering.index
+            optional_ratio = $review.overengineering.optional_ratio
+            unjustified_ratio = $review.overengineering.unjustified_ratio
+            normalized_index = $review.overengineering.normalized_index
+        }
     }
     findings = [ordered]@{
         total = @($review.findings).Count

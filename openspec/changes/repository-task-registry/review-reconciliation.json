@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "review_source": "council multi_role_single_model (deepseek-v4-pro), 2026-09-16; supersedes the 2026-09-14 Go-era record (see git history 9c81800)",
+  "review_verdict": "REVISE",
+  "final_validation": "passed=True (final-validation.json, schema v2, 2026-09-16)",
+  "summary": "Совет опубликовал пересмотренный финал спеки (17 находок; 14 accepted, 2 rejected как scope creep — write-команды и robustness остаются в объёме, 1 partially_accepted). Опубликованный финал добавил нормативные JSON-схемы (list/show/history/overview/write/error), константы полей (title 1-200, description 0-5000, priority default medium, labels 1-50/макс 20, depends_on UUIDv4 без проверки существования), trusted request schema v1 с controller_contract=repository-store-aware/v1, multi-value фильтры с --sort/--order и --archived false|true|all, таксономию повреждений (corrupt/conflict/orphaned с точными определениями), определение verified history hash, freshness=stale по отсутствующим live inputs и тонкую обёртку bsl-flow task <subcommand>. Реализация выровнена по опубликованному финалу: Task.Registry.ps1 переписан (289 проверок), concurrency-набор 34 проверки, обёртка scripts/bsl-flow.ps1. Задокументированные интерпретации: (1) freshness добавлен в list-строки, т.к. show repository-scoped и без него требование 18 ненаблюдаемо; (2) show-карточка дополнительно несёт description/archived/revision для optimistic expected_revision; (3) origin_worktree='' для repository-строк (creation worktree не входит в закрытый payload v1).",
+  "decisions": [
+    { "finding_id": "intent_critic:F-001/F-002/F-003", "decision": "rejected_by_chair", "resolution": "Отклонены советом как не соответствующие согласованным требованиям (write-команды, archived-флаг и robustness входят в опубликованный финал)." },
+    { "finding_id": "intent_critic:F-004 + architecture_critic:F-001/F-002/F-005", "decision": "accepted", "resolution": "Исторические Go/schema-v2 артефакты удалены из опубликованного текста; единственная текущая модель — store schema v1." },
+    { "finding_id": "architecture_critic:F-003", "decision": "partially_accepted", "resolution": "Резолвер repository store не переписывает существующие controller-функции; run-guard добавляет только явный activation blocker для planned-задач." },
+    { "finding_id": "architecture_critic:F-004", "decision": "accepted", "resolution": "Восстановлена командная поверхность: тонкая обёртка bsl-flow task <subcommand> поверх действий контроллера (требование 20)." },
+    { "finding_id": "executability_critic:F-001..F-008", "decision": "accepted", "resolution": "Опубликованный финал определяет схемы, фильтры/сортировку/курсор, trusted request validation, таксономию повреждений и freshness; реализация и оба тест-набора приведены к ним." }
+  ]
+}

@@ -1,0 +1,240 @@
+{
+  "schema_version": 1,
+  "subjects": [
+    {
+      "id": "controller.state",
+      "kind": "module",
+      "refs": [
+        "global/skills/1c-task/scripts/Task.Storage.ps1",
+        "global/skills/1c-task/scripts/Task.Engine.ps1"
+      ]
+    },
+    {
+      "id": "controller.gates",
+      "kind": "module",
+      "refs": [
+        "global/skills/1c-task/scripts/Task.Gates.ps1",
+        "global/skills/1c-task/scripts/Task.Contracts.ps1",
+        "global/skills/1c-task/scripts/Task.Coverage.ps1"
+      ]
+    },
+    {
+      "id": "controller.execution",
+      "kind": "module",
+      "refs": [
+        "global/skills/1c-task/scripts/Task.Stages.ps1",
+        "global/skills/1c-task/scripts/Task.ManagedReview.ps1"
+      ]
+    },
+    {
+      "id": "controller.recovery",
+      "kind": "module",
+      "refs": [
+        "global/skills/1c-task/scripts/Task.Runner.ps1"
+      ]
+    },
+    {
+      "id": "adapter.codex",
+      "kind": "module",
+      "refs": [
+        "global/skills/1c-task/adapters/Codex.ps1",
+        "global/skills/1c-task/adapters/ProfiledCodex.ps1",
+        "global/skills/1c-task/adapters/Codex.Skills.ps1"
+      ]
+    },
+    {
+      "id": "adapter.opencode",
+      "kind": "module",
+      "refs": [
+        "global/skills/1c-task/adapters/OpenCode.ps1",
+        "global/skills/1c-task/adapters/OpenCode.Events.ps1"
+      ]
+    },
+    {
+      "id": "runtime.native-1c",
+      "kind": "module",
+      "refs": [
+        "global/skills/1c-task/scripts/Task.Runtime.ps1",
+        "global/skills/1c-task/scripts/Task.NativeReuse.ps1",
+        "global/skills/1c-task/scripts/Read-NativeInventory.ps1"
+      ]
+    },
+    {
+      "id": "publication.git",
+      "kind": "module",
+      "refs": [
+        "global/skills/1c-task/scripts/Task.Publication.ps1",
+        "global/skills/1c-task/scripts/Task.PublicationGit.ps1"
+      ]
+    },
+    {
+      "id": "toolset.snapshot",
+      "kind": "module",
+      "refs": [
+        "global/skills/1c-task/scripts/Task.Toolsets.ps1",
+        "scripts/New-BSLFlowToolsetSnapshot.ps1"
+      ]
+    }
+  ],
+  "decisions": [
+    {
+      "id": "ADR-1",
+      "title": "файловый последовательный журнал и один writer",
+      "status": "accepted",
+      "applies_to": ["controller.state"],
+      "source": {
+        "path": "docs/ARCHITECTURE_RU.md",
+        "anchor": "adr-1-файловый-последовательный-журнал-и-один-writer"
+      },
+      "informed_by": [],
+      "supersedes": [],
+      "revisit_triggers": [
+        "Появился подтверждённый распределённый или multi-user writer contract",
+        "Стоимость полного сканирования журнала стала проверенным ограничением"
+      ]
+    },
+    {
+      "id": "ADR-2",
+      "title": "hash dependencies вместо одной revision",
+      "status": "accepted",
+      "applies_to": ["controller.gates"],
+      "source": {
+        "path": "docs/ARCHITECTURE_RU.md",
+        "anchor": "adr-2-hash-dependencies-вместо-одной-revision"
+      },
+      "informed_by": ["ADR-1"],
+      "supersedes": [],
+      "revisit_triggers": [
+        "Матрица зависимостей стала источником пропущенного gate",
+        "Появился доказанно более дешёвый эквивалентный dependency contract"
+      ]
+    },
+    {
+      "id": "ADR-3",
+      "title": "полный manifest worktree, несмотря на source hints",
+      "status": "accepted",
+      "applies_to": ["controller.gates"],
+      "source": {
+        "path": "docs/ARCHITECTURE_RU.md",
+        "anchor": "adr-3-полный-manifest-worktree-несмотря-на-source-hints"
+      },
+      "informed_by": ["ADR-2"],
+      "supersedes": [],
+      "revisit_triggers": [
+        "Полное сканирование worktree стало измеренным узким местом",
+        "Появился безопасный partial manifest с доказанным покрытием изменений"
+      ]
+    },
+    {
+      "id": "ADR-4",
+      "title": "review только критикует, reconciler принимает решения",
+      "status": "accepted",
+      "applies_to": ["adapter.codex", "adapter.opencode"],
+      "source": {
+        "path": "docs/ARCHITECTURE_RU.md",
+        "anchor": "adr-4-review-только-критикует-reconciler-принимает-решения"
+      },
+      "informed_by": ["ADR-2"],
+      "supersedes": [],
+      "revisit_triggers": [
+        "Новый provider не укладывается в critic/reconciler contract",
+        "Лимит correction rounds стал проверенным ограничением"
+      ]
+    },
+    {
+      "id": "ADR-5",
+      "title": "неизвестный эффект требует control read",
+      "status": "accepted",
+      "applies_to": ["controller.recovery", "controller.state"],
+      "source": {
+        "path": "docs/ARCHITECTURE_RU.md",
+        "anchor": "adr-5-неизвестный-эффект-требует-control-read"
+      },
+      "informed_by": ["ADR-1", "ADR-2"],
+      "supersedes": [],
+      "revisit_triggers": [
+        "Появился проверяемый idempotency contract внешней операции",
+        "Для внешнего эффекта определён безопасный control-read contract"
+      ]
+    },
+    {
+      "id": "ADR-6",
+      "title": "первоначальный запрет неподтверждённого runtime (история 0.7)",
+      "status": "superseded",
+      "applies_to": ["runtime.native-1c"],
+      "source": {
+        "path": "docs/ARCHITECTURE_RU.md",
+        "anchor": "adr-6-первоначальный-запрет-неподтверждённого-runtime-история-07"
+      },
+      "informed_by": ["ADR-1"],
+      "supersedes": [],
+      "revisit_triggers": [
+        "Любое расширение runtime-адаптера должно ссылаться на ADR-7, а не на этот исторический запрет"
+      ]
+    },
+    {
+      "id": "ADR-7",
+      "title": "native действия принадлежат controller",
+      "status": "accepted",
+      "applies_to": ["runtime.native-1c", "controller.execution"],
+      "source": {
+        "path": "docs/ARCHITECTURE_RU.md",
+        "anchor": "adr-7-native-действия-принадлежат-controller"
+      },
+      "informed_by": ["ADR-5", "ADR-6"],
+      "supersedes": ["ADR-6"],
+      "revisit_triggers": [
+        "Платформа 1С дала проверяемый способ скрыть `/P` процесса",
+        "Появился подтверждённый adapter для UI или external artifact"
+      ]
+    },
+    {
+      "id": "ADR-8",
+      "title": "независимая оценка тестов перед исполнением",
+      "status": "accepted",
+      "applies_to": ["controller.gates"],
+      "source": {
+        "path": "docs/ARCHITECTURE_RU.md",
+        "anchor": "adr-8-независимая-оценка-тестов-перед-исполнением"
+      },
+      "informed_by": ["ADR-2", "ADR-4"],
+      "supersedes": [],
+      "revisit_triggers": [
+        "Появилось машинно-проверяемое доказательство полноты тестов",
+        "Coverage review перестал ловить реальные пропуски проверок"
+      ]
+    },
+    {
+      "id": "ADR-9",
+      "title": "публикация отделена от acceptance",
+      "status": "accepted",
+      "applies_to": ["publication.git"],
+      "source": {
+        "path": "docs/ARCHITECTURE_RU.md",
+        "anchor": "adr-9-публикация-отделена-от-acceptance"
+      },
+      "informed_by": ["ADR-1", "ADR-2"],
+      "supersedes": [],
+      "revisit_triggers": [
+        "Требуется поддержанный CI/PR или rollback contract",
+        "Появился новый transport/auth profile публикации"
+      ]
+    },
+    {
+      "id": "ADR-10",
+      "title": "архитектурный контекст является производной read-only проекцией",
+      "status": "accepted",
+      "applies_to": ["controller.state", "controller.gates"],
+      "source": {
+        "path": "docs/ARCHITECTURE_RU.md",
+        "anchor": "adr-10-архитектурный-контекст-является-производной-read-only-проекцией"
+      },
+      "informed_by": ["ADR-1", "ADR-2"],
+      "supersedes": [],
+      "revisit_triggers": [
+        "Проектный ADR-index потребуется вне архитектуры самого BSL Flow",
+        "Обнаружено расхождение индекса с нормативным текстом ADR"
+      ]
+    }
+  ]
+}

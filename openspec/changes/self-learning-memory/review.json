@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "reviewed_at_utc": "2026-09-11T08:00:09.9291628Z",
+  "review_iteration": 1,
+  "reviewer_verdict": "REVISE",
+  "verdict": "REVISE",
+  "summary": "Спека точно воспроизводит исходный запрос: отдельный change, проектная память (Experience Ledger), запоминание полезных приёмов и ошибок, возобновление с последней доказанной точки без перечитывания проекта и fail-closed автопродвижение только низкорисковых процедурных знаний. Дисциплина минимальности сильная (запрет vector DB, cross-project, саморедактирования нормативных источников, новой task state machine). Главный недостаток — архитектурное дублирование: Resume Capsule (п.2) и матрица эффектов (п.3, design) заново описывают уже реализованное поведение controller (`task context`, `Resume-BFAttempt`, `side_effects`/`unresolved_effect`) как новое 'Требуемое поведение', не называя существующие контракты. Это прямо рискует разойтись с планом архитектурного контекста, который реализует другой агент, — ровно тот сценарий, который исходный запрос просил исключить. Требуется точечная правка: назвать существующие контракты как потребляемые и зафиксировать только дельту памяти. Мелкие пробелы: неопределённый идентификатор 'run' и неполная таксономия knowledge_class/risk_class с критерием 'согласованности' подтверждений.",
+  "scores": {
+    "intent_fidelity": 5,
+    "minimality": 4,
+    "completeness": 4,
+    "architecture_fit": 3,
+    "testability": 5,
+    "assumption_discipline": 4,
+    "clarity": 4
+  },
+  "weighted_score": 4.2,
+  "overengineering": {
+    "architectural_decision_count": 3,
+    "required_count": 0,
+    "justified_count": 1,
+    "optional_count": 2,
+    "unjustified_count": 0,
+    "index": 2,
+    "optional_ratio": 0.6667,
+    "unjustified_ratio": 0.0,
+    "normalized_index": 0.2222,
+    "items": [
+      {
+        "spec_ref": "Требуемое поведение 3 / design 'матрица эффектов'",
+        "item": "Классификация побочных эффектов и правила восстановления по классу (read-only повторить, source-only сверка manifest/hash, native/external BLOCKED)",
+        "necessity": "justified",
+        "evidence": "Уже реализовано: Task.Engine.ps1 Resume-BFAttempt (восстановление read-only worker, сверка source manifest, native_1c recovery, BLOCKED при отсутствии receipt) и task-contract.md раздел 'Updates and recovery'. Повторное описание не добавляет возможностей.",
+        "simpler_direction": "Сослаться на существующий recovery-контракт по имени и описать только дельту привязки memory bundle к attempt."
+      },
+      {
+        "spec_ref": "design 'Затрагиваемые компоненты' / 'Границы выполнения'",
+        "item": "Отдельная CLI-команда read-only inspection над memory store",
+        "necessity": "optional",
+        "evidence": "Исходный запрос не требует отладочной команды; объяснимость выбора уже покрывается статусом CLI и блокерами, заявленными в самом design.",
+        "simpler_direction": "Отложить до появления доказанной потребности в эксплуатации."
+      },
+      {
+        "spec_ref": "Требуемое поведение 6 / Неопределённости",
+        "item": "Детерминированный replay-набор как альтернативный путь доказательства promotion",
+        "necessity": "optional",
+        "evidence": "Живых подтверждений (3 из 2 задач) достаточно для promotion; replay нужен только для offline-тестов и является вторым путём доказательства.",
+        "simpler_direction": "Оставить только как тестовый механизм, не как продакшн-эквивалент живых подтверждений."
+      }
+    ]
+  },
+  "blocking_findings": [],
+  "findings": [
+    {
+      "id": "R-001",
+      "severity": "high",
+      "category": "architecture_fit",
+      "spec_ref": "Требуемое поведение 2 и 3",
+      "issue": "Resume Capsule и матрица эффектов описываются как новое 'Требуемое поведение', хотя по существу уже реализованы в controller. Resume Capsule (task/attempt IDs, подтверждённая стадия, следующий шаг, fingerprints, blockers, ссылки на доказательства) почти полностью совпадает с уже реализованной read-only проекцией `task context` (этап B плана архитектурного контекста). Матрица эффектов дублирует существующую логику `Resume-BFAttempt` (восстановление read-only worker, сверка source manifest hash, native_1c recovery, BLOCKED при отсутствии receipt) и поля `side_effects`/`unresolved_effect`. Спека не называет эти контракты по имени в 'Требуемом поведении', поэтому реализатор может построить параллельную проекцию и повторно реализовать recovery-логику вместо её потребления.",
+      "evidence": "docs/ARCHITECTURE_CONTEXT_PLAN_RU.md этап B (строки 93-112): `task context` уже возвращает task ID/revision/status/stage, intent/policy/source hashes, Get-BFNext, blockers/question/unknown effect, evidence, следующий шаг. Task.Engine.ps1 Resume-BFAttempt (строки 356-405): классы эффектов и BLOCKED уже реализованы. task-contract.md строки 57-65: recovery source_only/native_1c. Исходный запрос явно требует не смешивать с планом, реализуемым другим агентом.",
+      "suggested_direction": "В 'Требуемом поведении' явно указать, что Resume Capsule расширяет существующий `task context`/`Get-BFNext`, а классы эффектов потребляются из существующего `Resume-BFAttempt`/`side_effects`; новой является только дельта: IDs релевантных memory-записей, рабочий набор файлов/объектов и привязка bundle hash к attempt. В 'Не делать' добавить запрет повторной реализации recovery-классификации."
+    },
+    {
+      "id": "R-002",
+      "severity": "low",
+      "category": "unsupported_assumption",
+      "spec_ref": "Требуемое поведение 2",
+      "issue": "Resume Capsule требует 'идентификаторы task/run/attempt', но в существующей схеме состояния нет сущности 'run': есть task_id, revision, active_attempt и массив attempts. В runner очередей есть queue_id, но не 'run'. Идентификатор 'run' не определён ни в spec, ни в design.",
+      "evidence": "state.schema.json: обязательные поля task_id, revision, attempts, active_attempt — поля 'run' нет. task-contract.md описывает queue_id, но не run.",
+      "suggested_direction": "Заменить на существующие идентификаторы (task_id, revision, attempt_id) либо явно определить, что означает 'run' (например, идентификатор queue-цикла), и зафиксировать его источник."
+    },
+    {
+      "id": "R-003",
+      "severity": "low",
+      "category": "clarity",
+      "spec_ref": "Требуемое поведение 6 и 7 / design 'Минимальный memory event'",
+      "issue": "Порог promotion требует 'трёх согласованных подтверждений из двух задач', но не определено, что делает два наблюдения 'согласованными'. Design вводит поля `knowledge_class` и `risk_class`, а п.7 перечисляет запрещённые категории, однако полная перечислимая таксономия этих полей (и что считается 'процедурным низкорисковым') не зафиксирована как контракт, что допускает разные реализации promotion-матрицы.",
+      "evidence": "spec.md строки 22-23 (порог и запрещённые категории), design.md строка 32 (поля knowledge_class/risk_class без перечисления значений).",
+      "suggested_direction": "Зафиксировать замкнутое перечисление knowledge_class/risk_class в versioned policy-schema и определить критерий 'согласованности' подтверждений (например, совпадение scope + recommended/avoid_action + обязательных fingerprints), либо явно отнести это к design/реализации без изменения контракта промоушена."
+    }
+  ],
+  "do_not_change": [
+    "Раздел 'Не делать' (spec 39-48): запрет vector DB/embeddings, межпроектного переноса памяти, саморедактирования нормативных источников моделью, хранения transcript/секретов/CoT, новой task state machine и runtime 1C для проверки — корректен и соответствует границам проекта и исходному запросу.",
+    "Promotion policy (spec 6-7): интерпретация 'Низкий риск автоматически' как fail-closed автопродвижения только низкорискового процедурного знания с порогом подтверждений и запрещёнными категориями — верна и проверяема.",
+    "Append-only Experience Ledger + перестраиваемый производный индекс (spec 4, 5, 11): соответствует существующей immutable hash-linked revision-архитектуре (.bsl-flow/tasks/<uuid>/revisions, current.json как производная).",
+    "Стратегия проверки (spec 85-93): static/unit/offline integration/smoke без runtime 1С и Computer Use — соразмерна controller-owned локальному состоянию и offline fixtures.",
+    "Классификация L/high и обязательный independent criticism-only review с reconciliation — согласуется с правилами проекта для L/high-risk спецификаций."
+  ],
+  "confidence": 0.8,
+  "reviewer": {
+    "provider": "opencode",
+    "agent": "bsl-flow-spec-reviewer",
+    "model": "deepseek/deepseek-v4-pro"
+  },
+  "inputs": {
+    "original_task_sha256": "8211aad47457d300b54872197ece0d5112bac56084bc2e86cad7815f3186def5",
+    "spec_sha256": "a74984ea317de5e0ff0c4ab842ad39243397ba1783dc8d0403cdb7a039a271a6",
+    "design_sha256": "c7af1b3ff81294804dd0e8d8f74fd350ff125dcde39c0230f4dec98d573587a5"
+  },
+  "gate": {
+    "pass_weighted_score": 4.3,
+    "block_below_weighted_score": 3.5,
+    "max_overengineering_index_for_pass": 1,
+    "max_unjustified_ratio_for_pass": 0.0
+  }
+}

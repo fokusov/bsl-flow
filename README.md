@@ -1,34 +1,42 @@
 # BSL Flow
 
-**A lightweight engineering workflow and task controller for BSL development.**
+[English](README.en.md)
 
-BSL Flow is a public workflow project for AI coding agents working with BSL and 1C:Enterprise projects. It focuses on the minimum engineering process needed to get reliable results without turning every change into a heavyweight software-development ceremony.
+**Лёгкий инженерный процесс и контроллер задач для разработки на BSL.**
 
-The core idea is simple:
+BSL Flow — публичный workflow-проект для AI coding agents, работающих с BSL и проектами 1С:Предприятие. Его цель — оставить минимальный инженерный процесс, который реально снижает риск ошибок, но не превращать каждую доработку в тяжёлый SDD-процесс.
+
+Базовая схема:
 
 ```text
-task
-  -> minimal sufficient specification
-  -> independent specification review
-  -> implementation
-  -> verification and tests
-  -> reusable project knowledge
+задача
+  -> минимально достаточная спецификация
+  -> независимое ревью спецификации
+  -> реализация
+  -> проверка и тесты
+  -> накопление знаний проекта
 ```
 
-## Why BSL Flow
+## Зачем нужен BSL Flow
 
-AI coding agents can produce useful BSL code, but they also tend to overengineer specifications, introduce unnecessary abstractions, expand task scope, and create implementation plans that are harder to follow than the original task.
+AI coding agents хорошо помогают в разработке на BSL, но часто:
 
-BSL Flow is designed around a few constraints:
+- переусложняют спецификации;
+- добавляют лишние архитектурные сущности;
+- расширяют scope задачи;
+- создают implementation plans, которые сложнее самой задачи;
+- делают вывод о корректности кода без фактической проверки.
 
-- **Minimal sufficient design** instead of speculative architecture.
-- **Risk-based workflow** instead of mandatory process for every task.
-- **Independent spec review** to catch scope drift, unsupported assumptions and overengineering.
-- **Evidence-driven verification** instead of "the code looks correct".
-- **BSL / 1C-specific engineering context**: metadata objects, managed forms, client/server boundaries, registers, document posting, integration contracts and test databases.
-- **Two execution modes**: existing skills support assisted work; `1c-task` gives a deterministic controller ownership of registered managed tasks and their evidence gates.
+BSL Flow строится на нескольких принципах:
 
-## Risk-based workflow
+- **Minimal Sufficient Design** вместо архитектуры «на будущее».
+- **Risk-based workflow** вместо обязательного процесса для каждой задачи.
+- **Независимое review спецификаций** для поиска scope drift, assumptions и overengineering.
+- **Evidence-driven verification** вместо «код выглядит корректно».
+- **BSL/1С-специфика**: объекты метаданных, управляемые формы, клиент/сервер, регистры, проведение документов, интеграции и тестовые базы.
+- **Два режима работы**: существующие skills помогают в assisted-режиме; в managed-режиме `1c-task` передаёт последовательность этапов и проверку доказательств детерминированному контроллеру.
+
+## Маршруты по размеру и риску
 
 ```text
 S / low-risk
@@ -42,30 +50,28 @@ inspect -> spec/design -> independent review -> targeted revision
         -> implement -> independent code review -> verify
 ```
 
-The framework is intended to work with tools such as:
+Фреймворк рассчитан на совместную работу с:
 
-- OpenAI Codex and other coding agents;
-- OpenSpec for lightweight specification artifacts;
-- OpenCode with an independent reviewer model;
-- BSL Language Server for static analysis;
-- YAxUnit for unit and integration testing;
-- Vanessa Automation / TestClient for UI and end-to-end scenarios.
+- OpenAI Codex и другими coding agents;
+- OpenSpec для lightweight specification artifacts;
+- API-совместимыми LLM-провайдерами (OpenAI, DeepSeek и другие) для независимого совета ревью;
+- BSL Language Server для статического анализа;
+- YAxUnit для unit/integration тестов;
+- Vanessa Automation / TestClient для UI и end-to-end сценариев.
 
-## Current release
+## Актуальная версия
 
-The working version is **BSL Flow 0.8.0-dev.2**: seven skills, including the `1c-task` controller, immutable task history, risk-based stage routing, isolated Codex workers, source/evidence freshness checks and explicit recovery. The six assisted skills and the separate OpenCode specification reviewer remain available.
+Рабочая версия — **BSL Flow 0.8.0-dev.3**. В ней восемь skills, включая `1c-task`: контроллер сохраняет историю задачи, выбирает обязательные этапы, запускает изолированных Codex workers, проверяет актуальность исходников и доказательств и останавливается при неопределённом результате. Ревью спецификаций выполняет независимый API-совет (`review.council`).
 
-Version 0.8 adds a Go executable with embedded instructions/engine, opt-in bounded source repair with protected test inputs, a local supervisor for registered tasks, and immutable accepted-source handoff. The executable uses the same authoritative PowerShell 7 controller, resolved from the standard machine installation `C:\Program Files\PowerShell\7\pwsh.exe`; Windows PowerShell 5.1 fallback is not supported. See the [0.8 implementation and acceptance plan](docs/PLAN_0.8_RU.md) and [installation guide](INSTALL.md) for the remaining 1C runtime gates.
+Единственный пользовательский вход — `global/skills/1c-task/scripts/Invoke-BSLFlowTask.ps1`; нужны PowerShell 7 из стандартной машинной установки `C:\Program Files\PowerShell\7\pwsh.exe` и Git; fallback на Windows PowerShell 5.1 не поддерживается. По решению владельца (2026-09-16) проект не выпускает Go-бинарник и не поддерживает Linux/macOS в ближайших релизах — история решения в [CHANGELOG.md](CHANGELOG.md).
 
-This is a development release. The managed native adapter has completed a public-controller extension pilot with five YAxUnit tests, control-read recovery and test-only continuation without repeating load/update. New managed native tasks require explicit requirement-to-test mapping and independent coverage review. Accepted snapshots have separate [publication commands](docs/PUBLICATION_RU.md) with exact remote/ref authorization and no automatic push replay; the FILE profile has a real local Git pilot. See the [native runtime contract](docs/NATIVE_RUNTIME_RU.md), [coverage gate](docs/REQUIREMENT_COVERAGE_RU.md), and [remaining acceptance work](docs/SDLC_COMPLETION_RU.md). This evidence does not establish readiness for every 1C business scenario or production deployment.
+Ключевые возможности поверх базового контура: локальный реестр задач клона (`planned`-задачи, `bsl-flow task list/show/history/overview`, общий store для всех worktree); настройки совета ревью в профиле пользователя (`~/.bsl-flow/config.yaml`) с приоритетом «профиль → проект → локальный оверлей»; опциональные машиночитаемые артефакты изменения (`contract/execution/verification.yaml`) с детерминированным линтом. Это development-версия: managed native FILE-адаптер расширения прошёл публичный пилот с оригинальным JUnit 5/5 PASS, но это не подтверждает готовность полного автономного 1С SDLC.
 
-Read the [framework guide](docs/FRAMEWORK_GUIDE_RU.md), [architecture decisions](docs/ARCHITECTURE_RU.md), and [task CLI contract](global/skills/1c-task/references/task-contract.md). The guide explains the benefit, supported workflows, commands, recovery and limitations.
+Начни с [руководства по фреймворку](docs/FRAMEWORK_GUIDE_RU.md). В [описании архитектуры](docs/ARCHITECTURE_RU.md) разобраны выбранные решения и компромиссы, а в [контракте CLI](global/skills/1c-task/references/task-contract.md) — входные JSON, команды и восстановление.
 
-The offline package suite has historical validation in PowerShell 5.1 and 7; the supported runtime for 0.8.0-dev.2 is PowerShell 7 only. A real Codex pilot repaired a source error and reached acceptance. Earlier interactive YAxUnit and Vanessa engine pilots remain historical evidence; current native pilot results and remaining runtime gates are recorded in [verification boundaries](VERIFICATION.md). The temporary restriction on durable Unica jobs remains in force.
+## Установка
 
-## Install
-
-Requirements and the full procedure are in [INSTALL.md](INSTALL.md). On Windows, first inspect the installer plan and then apply it:
+Требования и полный порядок описаны в [INSTALL.md](INSTALL.md). На Windows сначала посмотри план, затем выполни установку:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
@@ -73,19 +79,11 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\Install-BSLFlow.ps1
 ```
 
-For standalone OpenCode:
+Skills ставятся одной копией в общий `%USERPROFILE%\.agents\skills`, доступный Codex и другим агентам; установщик не меняет model routing, providers и credentials.
 
-```powershell
-.\scripts\Install-BSLFlowForOpenCode.ps1
-.\scripts\Install-BSLFlowForOpenCode.ps1 -Apply
-.\scripts\Test-BSLFlowOpenCode.ps1
-```
+## Как находятся YAxUnit и Vanessa
 
-The OpenCode installer does not rewrite `opencode.json`, model routing, providers or credentials.
-
-## YAxUnit and Vanessa discovery
-
-BSL Flow does not recursively search disks or silently download test tools. The one-time workstation profile stores the exact shared catalogs used by all explicitly registered FILE development bases. If no paths are supplied, the defaults are `C:\YAxUnit` and `C:\vanessa-automation`; tools in another location must be registered explicitly:
+BSL Flow не сканирует диски рекурсивно и не скачивает тестовые инструменты молча. Однократный workstation profile хранит точные общие каталоги для всех явно зарегистрированных файловых баз разработки. Если пути не указаны, используются `C:\YAxUnit` и `C:\vanessa-automation`. Другое расположение нужно зарегистрировать явно:
 
 ```powershell
 & "$env:USERPROFILE\.agents\skills\1c-init-project\scripts\Enable-BSLFlowWorkstationProfile.ps1" `
@@ -95,36 +93,31 @@ BSL Flow does not recursively search disks or silently download test tools. The 
   -VanessaDirectory "D:\1c-tools\vanessa-automation"
 ```
 
-Inventory checks only the top level of those exact directories: `YAxUnit*.cfe`, `vanessa-automation*.epf`, `VAExtension*.cfe` and `client_mcp.cfe`. A missing directory or artifact becomes `not_configured`; multiple candidates or an empty file become `blocked`. A discovered file is only `files_found`: database installation, compatibility and readiness still require inspection and a focused runtime pilot. See the [test environment guide](TEST_ENVIRONMENT_GUIDE_RU.md).
+Инвентаризация проверяет только верхний уровень этих каталогов по точным маскам: `YAxUnit*.cfe`, `vanessa-automation*.epf`, `VAExtension*.cfe` и `client_mcp.cfe`. Отсутствующий каталог или файл получает состояние `not_configured`; несколько кандидатов или пустой файл — `blocked`. Найденный файл означает только `files_found`: установку в базе, совместимость и готовность ещё нужно подтвердить инвентаризацией базы и минимальным runtime-пилотом. Подробности — в [руководстве по тестовому окружению](docs/TEST_ENVIRONMENT_GUIDE_RU.md).
 
-On a machine without these tools, BSL Flow still installs, but tests that require the missing provider stay `BLOCKED`. The framework does not silently download third-party releases. Vanessa Automation is an external EPF runner; YAxUnit and optional `VAExtension` have separate database-installation requirements.
+На машине без этих инструментов BSL Flow всё равно устанавливается, но проверки, которым нужен отсутствующий provider, остаются `BLOCKED`. Framework не скачивает сторонние релизы молча. Vanessa Automation — внешний EPF-runner; YAxUnit и необязательный `VAExtension` имеют отдельные требования к установке в базу.
 
-## Repository layout
+## Структура репозитория
 
-- `global/skills/` — installable agent skills;
-- `global/openspec/` — the OpenSpec schema and templates;
-- `scripts/` — installers and offline regression checks;
-- `docs/` — framework guide, architecture decisions, and observed managed-host contract;
-- [OPENCODE_SETUP_RU.md](OPENCODE_SETUP_RU.md) — standalone OpenCode setup;
-- [TEST_ENVIRONMENT_GUIDE_RU.md](TEST_ENVIRONMENT_GUIDE_RU.md) — persistent YAxUnit/Vanessa test environment;
-- [VERIFICATION.md](VERIFICATION.md) — proven and blocked evidence boundaries.
+- `global/skills/` — устанавливаемые agent skills;
+- `global/openspec/` — OpenSpec schema и шаблоны;
+- `scripts/` — установщики и offline regression checks;
+- `docs/` — руководство по фреймворку, архитектура, контракты runtime/публикации/покрытия;
+- [CHANGELOG.md](CHANGELOG.md) — история версий и принятые решения;
+- [TEST_ENVIRONMENT_GUIDE_RU.md](docs/TEST_ENVIRONMENT_GUIDE_RU.md) — постоянное окружение YAxUnit/Vanessa.
 
-## Who it is for
+## Для кого
 
-BSL Flow is primarily aimed at developers and teams using AI-assisted development with BSL / 1C:Enterprise, especially when working with multiple projects, extensions, integrations, enterprise configurations and automated testing.
+BSL Flow ориентирован на разработчиков и команды, которые используют AI-assisted development для BSL / 1С:Предприятие, особенно при работе с большим количеством клиентских проектов, расширениями, интеграциями и автоматизированным тестированием.
 
-## Keywords
+## Ключевые слова
 
-BSL, 1C:Enterprise, 1C development, AI coding agents, Codex, OpenCode, OpenSpec, spec-driven development, SDD, AI-assisted development, specification review, BSL testing, YAxUnit, Vanessa Automation.
+BSL, 1С:Предприятие, разработка 1С, AI coding agents, Codex, OpenSpec, spec-driven development, SDD, AI-assisted development, review спецификаций, YAxUnit, Vanessa Automation.
 
-## Trademark notice
+## Товарные знаки
 
-BSL Flow is an independent project and is not affiliated with or endorsed by 1C Company. 1C and 1C:Enterprise are trademarks of their respective owner and are referenced only to describe compatibility and the target development ecosystem.
+BSL Flow — независимый проект и не связан с фирмой «1С». Обозначения 1С и 1С:Предприятие упоминаются только для описания совместимости и целевой экосистемы разработки.
 
-## License
+## Лицензия
 
-Licensed under the [MIT License](LICENSE).
-
----
-
-Russian documentation will be available in [`README.ru.md`](README.ru.md).
+Проект распространяется по [лицензии MIT](LICENSE).

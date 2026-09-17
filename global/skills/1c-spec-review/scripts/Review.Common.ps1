@@ -1,4 +1,4 @@
-﻿#Requires -Version 7.0
+#Requires -Version 7.0
 Set-StrictMode -Version Latest
 
 function Get-BSLFlowSha256 {
@@ -109,7 +109,9 @@ function Get-BSLFlowAllowedFindingCategories {
     return @(
         'intent_drift',
         'missing_requirement',
+        'lost_requirement',
         'unsupported_assumption',
+        'scope_creep',
         'overengineering',
         'architecture_fit',
         'testability',
@@ -273,6 +275,28 @@ function Assert-BSLFlowReviewReconciliationPayload {
     }
 }
 
+function Get-BSLFlowReviewPolicy {
+    param([AllowEmptyString()][string]$ConfigText)
+    $readMode=Get-BSLFlowYamlValue $ConfigText @('review','permissions','project_read_mode') 'read_search'
+    if($readMode -notin @('read_search','attached_only')){throw "Invalid project_read_mode: $readMode"}
+    foreach($forbidden in @('edit','shell','subagents','web','external_directory')){
+        if(ConvertTo-BSLFlowBoolean (Get-BSLFlowYamlValue $ConfigText @('review','permissions',$forbidden) 'false') "review.permissions.$forbidden"){throw "Unsafe reviewer permission cannot be enabled: $forbidden"}
+    }
+    $culture=[Globalization.CultureInfo]::InvariantCulture
+    $policy=[ordered]@{
+        ReadMode=$readMode
+        PassWeightedScore=[double]::Parse((Get-BSLFlowYamlValue $ConfigText @('review','thresholds','pass_weighted_score') '4.3'),$culture)
+        BlockBelowWeightedScore=[double]::Parse((Get-BSLFlowYamlValue $ConfigText @('review','thresholds','block_below_weighted_score') '3.5'),$culture)
+        MaxOverengineeringIndexForPass=[int]::Parse((Get-BSLFlowYamlValue $ConfigText @('review','thresholds','max_overengineering_index_for_pass') '1'),$culture)
+        MaxUnjustifiedRatioForPass=[double]::Parse((Get-BSLFlowYamlValue $ConfigText @('review','thresholds','max_unjustified_ratio_for_pass') '0'),$culture)
+    }
+    if($policy.PassWeightedScore -lt 1 -or $policy.PassWeightedScore -gt 5 -or $policy.BlockBelowWeightedScore -lt 1 -or $policy.BlockBelowWeightedScore -gt 5){throw 'Review score thresholds must be between 1 and 5.'}
+    if($policy.BlockBelowWeightedScore -gt $policy.PassWeightedScore){throw 'block_below_weighted_score must not exceed pass_weighted_score.'}
+    if($policy.MaxOverengineeringIndexForPass -lt 0){throw 'max_overengineering_index_for_pass must not be negative.'}
+    if($policy.MaxUnjustifiedRatioForPass -lt 0 -or $policy.MaxUnjustifiedRatioForPass -gt 1){throw 'max_unjustified_ratio_for_pass must be between 0 and 1.'}
+    return $policy
+}
+
 function Complete-BSLFlowReview {
     param(
         [Parameter(Mandatory)]$RawReview,
@@ -390,8 +414,26 @@ function Get-BSLFlowJsonFromOpenCodeEvents {
         if ($event.type -eq 'text' -and $event.part -and $event.part.text) { $parts.Add([string]$event.part.text) }
         elseif ($event.type -eq 'error') { throw "OpenCode returned an error event: $line" }
     }
-    $text = ($parts -join '').Trim()
-    if (-not $text) { throw 'OpenCode returned no completed text event.' }
+    if ($parts.Count -eq 0) { throw 'OpenCode returned no completed text event.' }
+
+    # Chunked providers split one JSON document across several text parts and
+    # must reassemble without separators; block providers emit prose and the
+    # fenced review as separate parts, whose boundary needs a newline to keep
+    # the fence on its own line. Try both joins; every extraction guard runs
+    # unchanged for each candidate, so ambiguity is never weakened.
+    $joinErrors = [System.Collections.Generic.List[string]]::new()
+    foreach ($joined in @(($parts -join ''), ($parts -join "`n"))) {
+        $text = $joined.Trim()
+        if (-not $text) { continue }
+        try { return Get-BSLFlowReviewPayloadFromOpenCodeText -Text $text } catch { $joinErrors.Add([string]$_.Exception.Message) }
+    }
+    if ($joinErrors.Count -eq 0) { throw 'OpenCode returned no completed text event.' }
+    throw "OpenCode text was not one JSON object: $($joinErrors[0])"
+}
+
+function Get-BSLFlowReviewPayloadFromOpenCodeText {
+    param([Parameter(Mandatory)][string]$Text)
+    $text = $Text
 
     # OpenCode may surround its final response with prose. Accept one complete,
     # unambiguous fenced block only; schema validation remains the caller's gate.
@@ -470,4 +512,14 @@ function Get-BSLFlowJsonFromOpenCodeEvents {
         return $parsed
     }
     catch { throw "OpenCode text was not one JSON object: $($_.Exception.Message)" }
+}
+
+function Get-BSLFlowBoundedUtf8Snapshot {
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][int]$MaxBytes)
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    if ($bytes.Length -gt $MaxBytes) { throw "Review input exceeds $MaxBytes bytes: $Path" }
+    $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
+    try { $text = $utf8.GetString($bytes) }
+    catch { throw "Review input is not valid UTF-8: $Path" }
+    return [pscustomobject]@{ Bytes = $bytes; Text = $text; Sha256 = Get-BSLFlowBytesSha256 $bytes }
 }

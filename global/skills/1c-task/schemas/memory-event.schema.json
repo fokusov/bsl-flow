@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BSL Flow experience memory event v1",
+  "description": "Append-only controller-owned experience ledger event. Advisory only: no authorization, transition, acceptance or publication authority. event_id hashes the payload without event_id/content_hash; content_hash covers event_id; previous_event_id links the chain.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project_id", "event_id", "timestamp", "record_id", "event_type", "knowledge_class", "risk_class", "scope", "observation", "action", "superseded_by", "evidence_refs", "fingerprints", "source_task_id", "source_attempt_id", "reason", "previous_event_id", "content_hash"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "project_id": {"type": "string", "minLength": 1},
+    "event_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "timestamp": {"type": "string", "minLength": 1},
+    "record_id": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "event_type": {"enum": ["candidate", "confirmed", "shadow", "promoted", "contradicted", "quarantined", "deprecated", "superseded", "reinstated", "rejected"]},
+    "knowledge_class": {"type": ["string", "null"], "enum": ["procedural", "diagnostic", "business_rule", "authorization", "test_or_waiver", "architecture", "controller_policy", "model_routing", "runtime_or_external_effect", null]},
+    "risk_class": {"type": ["string", "null"], "enum": ["low", "medium", "high", null]},
+    "scope": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["stage", "paths"],
+      "properties": {
+        "stage": {"type": ["string", "null"]},
+        "paths": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "observation": {"type": ["string", "null"], "maxLength": 512},
+    "action": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["type", "text"],
+      "properties": {
+        "type": {"enum": ["recommended", "avoid"]},
+        "text": {"type": "string", "maxLength": 256}
+      }
+    },
+    "superseded_by": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind"],
+        "properties": {
+          "kind": {"type": "string"},
+          "task_id": {"type": ["string", "null"]},
+          "attempt_id": {"type": ["string", "null"]},
+          "sha256": {"type": ["string", "null"]},
+          "policy": {"type": ["string", "null"]},
+          "controller": {"type": ["string", "null"]},
+          "version": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "fingerprints": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["policy", "controller", "version"],
+      "properties": {
+        "policy": {"type": "string"},
+        "controller": {"type": "string"},
+        "version": {"type": "string"},
+        "schema": {"type": "string"},
+        "toolchain": {"type": "string"}
+      }
+    },
+    "source_task_id": {"type": ["string", "null"]},
+    "source_attempt_id": {"type": ["string", "null"]},
+    "reason": {"type": ["string", "null"], "maxLength": 256},
+    "previous_event_id": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "content_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "task_kind": {"type": "string", "maxLength": 256},
+    "error_signature": {"type": "string", "maxLength": 64, "pattern": "^$|^[0-9a-f]{64}$"},
+    "evidence_kind": {"enum": ["", "accepted-result", "confirmed-error", "successful-recovery"]},
+    "provenance": {"enum": ["", "controller-template", "controller-error"]}
+  }
+}

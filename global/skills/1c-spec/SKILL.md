@@ -32,6 +32,8 @@ Create an OpenSpec change using schema `bsl-flow` and create `spec.md`. Do not c
 
 Create `spec.md` and `design.md`.
 
+Optionally, an M/L change may carry a machine-readable artifact triple beside `spec.md` (`contract.yaml`, `execution.yaml`, `verification.yaml`: requirements with spec anchors, a task DAG, and checks). Validate it with `Invoke-1CSpecContractLint.ps1` (in the 1c-spec-review skill scripts) before implementation. The artifacts stay optional and are never required for S changes.
+
 For every created change, preserve the user's original request and explicit constraints in `original-task.md` beside `spec.md`. Keep source wording distinct from later interpretation. Do not put reviewer instructions or proposed solutions into this file.
 
 ## OpenSpec usage

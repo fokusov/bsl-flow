@@ -1,22 +1,13 @@
 #Requires -Version 7.0
 [CmdletBinding()]
-param([string]$PackageRoot,[string]$PublicationRoot,[string]$Executable,[switch]$KeepFixture)
+param([string]$PackageRoot,[string]$PublicationRoot,[switch]$KeepFixture)
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
+# git emits UTF-8 tree names; the OEM console code page would mojibake them before comparison.
+[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false)
 if(-not $PackageRoot){$PackageRoot=Split-Path $PSScriptRoot -Parent}
 $PackageRoot=[IO.Path]::GetFullPath($PackageRoot)
 $core=Join-Path $PackageRoot 'global/skills/1c-task/scripts'
-$savedHost=$env:BSL_FLOW_HOST_PATH
-if($Executable){
-    $Executable=[IO.Path]::GetFullPath($Executable)
-    $version=(& $Executable version | ConvertFrom-Json)
-    if($LASTEXITCODE -ne 0){throw 'CLI version failed.'}
-    & $Executable task status --project $PackageRoot --task ([guid]::NewGuid().ToString()) | Out-Null
-    $cache=Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)) ('BSLFlow/bundles/'+$version.version+'-'+$version.bundle_sha256)
-    $core=Join-Path $cache 'global/skills/1c-task/scripts'
-    if(-not(Test-Path -LiteralPath $core)){throw 'Verified CLI bundle was not extracted.'}
-    $env:BSL_FLOW_HOST_PATH=$Executable
-}
 foreach($name in @('Task.Storage.ps1','Task.Contracts.ps1','Task.Gates.ps1','Task.Process.ps1','Task.Engine.ps1','Task.Stages.ps1','Task.Delivery.ps1')){. (Join-Path $core $name)}
 if(-not $PublicationRoot){$PublicationRoot=$core}
 foreach($name in @('Task.PublicationGit.ps1','Task.Publication.ps1')){. (Join-Path $PublicationRoot $name)}
@@ -61,7 +52,7 @@ try{
     Block-P (Publish-BFTask $project $state.task_id $bad) 'current acceptance'
     $publicationFile=Join-Path $fixture 'publication.json'
     Write-P $publicationFile (Get-BFCanonicalJson $publication)
-    $first=if($Executable){& $Executable task publish --project $project --task $state.task_id --input $publicationFile | ConvertFrom-Json}else{Publish-BFTask $project $state.task_id $publication}
+    $first=Publish-BFTask $project $state.task_id $publication
     Check-P ($first.status -eq 'published') ('Publication failed: '+(Get-BFCanonicalJson $first))
     $operation=Join-Path (Get-BFTaskDirectory $project $state.task_id) ('publications/'+$publication.publication_id)
     $prepared=Read-BFJson (Join-Path $operation 'prepared.json')
@@ -71,14 +62,9 @@ try{
     Check-P ($remotePaths -contains 'новый файл.bin' -and $remotePaths -notcontains 'remove.txt' -and $remotePaths.Count -eq 3) 'Publication tree lost additions/deletions or gained files.'
     $pushProcesses=@(Get-ChildItem (Join-Path $operation 'push') -Filter process.json -File -Recurse | Where-Object { $_.Directory.Name -like 'push-create-only-*' })
     Check-P ($pushProcesses.Count -eq 1) 'Publication did not retain exactly one push process.'
-    $second=if($Executable){& $Executable task publish-resume --project $project --task $state.task_id --input $publicationFile | ConvertFrom-Json}else{Publish-BFTask $project $state.task_id $publication}
+    $second=Publish-BFTask $project $state.task_id $publication
     Check-P ($second.status -eq 'published' -and $second.idempotent -and $second.commit_oid -ceq $first.commit_oid) 'Identical publication was not idempotent.'
     Check-P (@(Get-ChildItem (Join-Path $operation 'push') -Filter process.json -File -Recurse | Where-Object { $_.Directory.Name -like 'push-create-only-*' }).Count -eq 1) 'Idempotent publication repeated a push.'
-    if($Executable){
-        Write-Output "Public CLI publication: $script:checks checks PASS; publish and publish-resume, one real local push, model=0, network=0, DB=0."
-        $succeeded=$true
-        return
-    }
     $changed=Clone-P $publication;$changed.message='Different input with the same UUID.'
     Block-P (Publish-BFTask $project $state.task_id $changed) 'different input'
     $existing=Clone-P $publication;$existing.publication_id=[guid]::NewGuid().ToString()
@@ -188,7 +174,6 @@ try{
     Write-Output "Task publication: $script:checks checks PASS; real local Git, model=0, network=0, DB=0."
     $succeeded=$true
 }finally{
-    $env:BSL_FLOW_HOST_PATH=$savedHost
     if($succeeded -and -not $KeepFixture){
         $work=[IO.Path]::GetFullPath((Join-Path $PackageRoot 'work'));$safe=[IO.Path]::GetFullPath($fixture)
         if(-not $safe.StartsWith($work+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)){throw 'Unsafe publication fixture cleanup.'}

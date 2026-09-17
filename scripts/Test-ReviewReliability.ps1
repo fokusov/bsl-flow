@@ -37,6 +37,7 @@ $fence = '```json' + "`n" + $object + "`n" + '```'
 Assert-ParserAccepted 'raw object' @((EventLine $object))
 Assert-ParserAccepted 'standalone fence' @((EventLine $fence))
 Assert-ParserAccepted 'prose then fence' @((EventLine 'Checked.'), (EventLine ("Done.`n`n$fence")))
+Assert-ParserAccepted 'prose without newline then fence' @((EventLine 'Here is my assessment.'), (EventLine $fence))
 Assert-ParserAccepted 'unlabelled fence' @((EventLine ($fence.Replace('```json', '```'))))
 Assert-ParserRejected 'two fenced candidates' @((EventLine ($fence + "`n" + $fence)))
 Assert-ParserRejected 'raw beside fence' @((EventLine ($object + "`n" + $fence)))

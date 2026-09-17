@@ -1,6 +1,6 @@
 ---
 name: 1c-spec-review
-description: Run lint and an independent read-only OpenCode critique for an OpenSpec 1C specification, reconcile findings, and validate the final spec.
+description: Run lint and an independent review for an OpenSpec 1C specification — the API council (chair plus independent critics) where project config enables it, otherwise the isolated single-reviewer OpenCode route — reconcile findings, and validate the final spec.
 ---
 
 # 1c-spec-review
@@ -16,7 +16,10 @@ Read project `bsl-flow.yaml` and classify the change as S/M/L plus low/medium/hi
 - Always run spec lint when a spec exists.
 - Run external review for M, L, or high-risk changes.
 - For S low/medium-risk changes, do not run external review unless the user or project routing explicitly requests it.
-- Never silently waive a required review because OpenCode or the configured model is unavailable. Report the blocker.
+- The review route comes from the same `bsl-flow.yaml`: `review.council.enabled: true` dispatches the API council (chair plus independent critics, budget ledger, council final gate) through `Invoke-CouncilReview.ps1`; without it `Invoke-1CSpecReview.ps1` uses the isolated single-reviewer OpenCode route. Never silently switch routes to satisfy a review requirement, and do not treat the per-role council `fallback: current_agent` policy as a route-level fallback — role fallback applies only inside a started council cycle after admission, never to a route that refused to start.
+- Never silently waive a required review because the council providers or the configured model are unavailable. Report the blocker.
+
+Council model bindings may come from the optional user profile config `%USERPROFILE%\.bsl-flow\config.yaml` (path override: `BSL_FLOW_USER_CONFIG`). The profile is the base layer: project `bsl-flow.yaml` overrides it per named provider, model profile and role binding, and `.bsl-flow/providers.local.yaml` keeps the highest priority for `token`/`base_url`. The profile may define only `llm.providers.<name>`, `llm.models.<name>` and `review.council.roles.<role>.model`; any other key or a literal token fails the run with the file and key named, and an absent profile file changes nothing.
 
 ## Inputs and artifacts
 
@@ -29,11 +32,11 @@ review-reconciliation.json
 final-validation.json
 ```
 
-They are evidence, not OpenSpec schema artifacts. Do not add `tasks.md`.
+They are evidence, not OpenSpec schema artifacts. Do not add `tasks.md`. Council reviews write `review.json` schema v2 with reconciliation inline; the single-reviewer route writes schema v1 and requires the `review-reconciliation.json` sidecar. `Test-1CSpecFinal.ps1` accepts both.
 
 ## Workflow
 
-1. Run `scripts/Invoke-1CSpecReview.ps1`. It always lints and applies routing; when required it invokes the isolated OpenCode agent with `--pure`, with snapshots disabled in the packaged reviewer profile, validates the JSONL response, recalculates derived metrics and the gate verdict, and writes `review.json` only after all checks pass.
+1. Run `scripts/Invoke-1CSpecReview.ps1`. It always lints and applies routing. With the council route enabled it dispatches the configured council roles (chair plus independent critics) through the budget ledger and publishes through the council final gate; otherwise it invokes the isolated single-reviewer OpenCode agent with `--pure`, with snapshots disabled in the packaged reviewer profile. Both routes validate the response, recalculate derived metrics and the gate verdict, and write `review.json` only after all checks pass. The council route never silently falls back to the single-reviewer route.
 2. Read every finding. Verify it against the original task and real project evidence.
 3. Create `review-reconciliation.json` according to [references/reconciliation-contract.md](references/reconciliation-contract.md). Accept or reject every finding exactly once. Never apply a finding merely because the reviewer proposed it.
 4. Make one minimal targeted revision for accepted findings. Preserve every justified `do_not_change` item.

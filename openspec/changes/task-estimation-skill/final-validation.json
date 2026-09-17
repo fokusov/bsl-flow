@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "checked_at_utc": "2026-09-14T15:25:05.9725475Z",
+  "passed": true,
+  "review_schema": 2,
+  "verdict": "REVISE",
+  "diversity": "multi_role_single_model",
+  "inputs": {
+    "review_sha256": "efca234de9b3398c92b40b812240505ce645ed8f889b66aadb4c26ee817b55e8",
+    "reconciliation_sha256": "3b7274237d823505b89b98c33bb600fc628e6eeac077c1e776de7e6a25c508ae",
+    "final_spec_sha256": "d49893ecfe51d240cf066a3960ac620328cbb2bfb9e94d72505181e05f31b91c",
+    "final_design_sha256": null,
+    "original_task_sha256": "428a592bf7e650d51197420fcaabc1c6bfe40448a70db6f441e1d653892d4b96"
+  },
+  "errors": []
+}

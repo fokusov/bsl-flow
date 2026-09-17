@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BSL Flow task context v1",
+  "description": "Read-only resume projection over the controller journal and Get-BFNext. It carries no transition, authorization, acceptance or publication authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "task_id", "revision", "status", "stage", "intent_hash", "policy_hash", "baseline", "next", "evidence", "generated_from", "missing_context", "stale_context"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "task_id": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "revision": {"type": "integer", "minimum": 1},
+    "status": {"enum": ["ready", "running", "needs_input", "blocked", "failed", "completed", "cancelled"]},
+    "stage": {"enum": ["inspect", "spec", "spec_review", "implement", "code_review", "verify", "diagnose", "acceptance"]},
+    "intent_hash": {"type": "string"},
+    "policy_hash": {"type": "string"},
+    "baseline": {"type": "string"},
+    "classification": {"type": ["object", "null"]},
+    "active_attempt": {"type": ["string", "object", "null"]},
+    "unresolved_effect": {"type": ["object", "null"]},
+    "question": {"type": ["object", "null"]},
+    "next": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "stage", "blockers", "reason"],
+      "properties": {
+        "action": {"enum": ["dispatch", "recover", "accept", "needs_input", "blocked", "failed", "cancelled", "inspect_blocker"]},
+        "stage": {"type": ["string", "null"]},
+        "blockers": {"type": "array", "items": {"type": "string"}},
+        "reason": {"type": "string"}
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["attempt_id", "stage", "outcome", "fresh"],
+        "properties": {
+          "attempt_id": {"type": "string"},
+          "stage": {"type": "string"},
+          "outcome": {"type": "string"},
+          "fresh": {"type": "boolean"},
+          "reason": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "last_attempt": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["attempt_id", "stage", "outcome", "receipts"],
+      "properties": {
+        "attempt_id": {"type": "string"},
+        "stage": {"type": ["string", "null"]},
+        "outcome": {"type": "string"},
+        "receipts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "path", "sha256"],
+            "properties": {
+              "name": {"type": "string"},
+              "path": {"type": "string"},
+              "sha256": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "generated_from": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state_sha256", "policy_sha256", "source_sha256", "adr_index_sha256", "adr_index_path", "adr_root", "adr_scope", "package_version", "package_sha256", "package_source"],
+      "properties": {
+        "state_sha256": {"type": "string"},
+        "policy_sha256": {"type": "string"},
+        "source_sha256": {"type": "string"},
+        "adr_index_sha256": {"type": "string"},
+        "adr_index_path": {"type": "string"},
+        "adr_root": {"type": "string"},
+        "adr_scope": {"enum": ["project", "package", "missing", "error"]},
+        "package_version": {"type": "string"},
+        "package_sha256": {"type": "string"},
+        "package_source": {"enum": ["manifest", "host", "entrypoint", ""]}
+      }
+    },
+    "missing_context": {"type": "array", "items": {"type": "string"}},
+    "stale_context": {"type": "array", "items": {"type": "string"}},
+    "memory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "available", "blocker", "index", "working_set", "records", "bundle"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "available": {"type": "boolean"},
+        "blocker": {"type": ["string", "null"]},
+        "index": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["events_count", "event_files_count", "last_event_seq", "last_event_id", "replayed"],
+          "properties": {
+            "events_count": {"type": "integer", "minimum": 0},
+            "event_files_count": {"type": "integer", "minimum": 0},
+            "last_event_seq": {"type": "integer", "minimum": 0},
+            "last_event_id": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+            "replayed": {"type": "boolean"}
+          }
+        },
+        "working_set": {"type": "array", "items": {"type": "string"}},
+        "records": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["record_id", "state", "knowledge_class", "risk_class", "scope", "action", "selected_reason", "confirmations", "contradictions", "task_kind", "error_signatures", "evidence_ref"],
+            "properties": {
+              "record_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "state": {"enum": ["candidate", "shadow", "accepted"]},
+              "knowledge_class": {"type": "string", "enum": ["procedural", "diagnostic", "business_rule", "authorization", "test_or_waiver", "architecture", "controller_policy", "model_routing", "runtime_or_external_effect"]},
+              "risk_class": {"type": "string", "enum": ["low", "medium", "high"]},
+              "task_kind": {"type": "string", "maxLength": 256},
+              "error_signatures": {"type": "array", "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}},
+              "evidence_ref": {
+                "type": ["object", "null"],
+                "additionalProperties": false,
+                "required": ["kind"],
+                "properties": {
+                  "kind": {"type": "string", "maxLength": 64},
+                  "task_id": {"type": ["string", "null"], "maxLength": 256},
+                  "attempt_id": {"type": ["string", "null"], "maxLength": 256},
+                  "sha256": {"type": ["string", "null"], "maxLength": 256},
+                  "policy": {"type": ["string", "null"], "maxLength": 256},
+                  "controller": {"type": ["string", "null"], "maxLength": 256},
+                  "version": {"type": ["string", "null"], "maxLength": 256}
+                }
+              },
+              "scope": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["stage", "paths"],
+                "properties": {
+                  "stage": {"type": ["string", "null"]},
+                  "paths": {"type": "array", "items": {"type": "string"}}
+                }
+              },
+              "action": {
+                "type": ["object", "null"],
+                "additionalProperties": false,
+                "required": ["type", "text"],
+                "properties": {
+                  "type": {"enum": ["recommended", "avoid"]},
+                  "text": {"type": "string", "maxLength": 256}
+                }
+              },
+              "selected_reason": {"enum": ["accepted-knowledge", "shadow-recommendation", "candidate-recommendation"]},
+              "confirmations": {"type": "integer", "minimum": 0},
+              "contradictions": {"type": "integer", "minimum": 0}
+            }
+          }
+        },
+        "bundle": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["bundle_id", "bundle_sha256", "record_ids", "excluded"],
+          "properties": {
+            "bundle_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "bundle_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "record_ids": {"type": "array", "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}},
+            "excluded": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["record_id", "reason"],
+                "properties": {
+                  "record_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                "reason": {"enum": ["fingerprint-mismatch", "stage-scope-mismatch", "path-scope-mismatch", "task-kind-mismatch", "error-signature-mismatch", "limit-records", "limit-size"]}
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -70,8 +70,7 @@ $requiredFiles = @(
     'LICENSE',
     'scripts\Install-BSLFlow.ps1', 'scripts\Install-BSLFlowForOpenCode.ps1',
     'scripts\Test-BSLFlowPackage.ps1', 'scripts\Test-BSLFlowOpenCode.ps1', 'scripts\Build-BSLFlowPackage.ps1',
-    'AGENT_REPORTS_RU.md',
-    'OPENCODE_SETUP_RU.md', 'global\OPENCODE.delegation.md',
+    'global\OPENCODE.delegation.md',
     'scripts\Install-BSLFlowForOpenCode.ps1', 'scripts\Test-BSLFlowOpenCode.ps1', 'scripts\Test-OpenCodeAdapter.ps1',
     'global\skills\1c-init-project\scripts\Update-BSLFlowProject.ps1',
     'global\skills\1c-init-project\scripts\Enable-BSLFlowWorkstationProfile.ps1',
@@ -89,13 +88,13 @@ $requiredFiles = @(
     'global\skills\1c-verify\scripts\Test-ExtensionIdentities.ps1',
     'global\skills\1c-verify\references\test-evidence.md',
     'global\skills\1c-verify\references\test-starters.md',
-    'SETUP_BP1_RU.md', 'scripts\Test-1CTestTooling.ps1', 'scripts\Test-InteractiveTestPilot.ps1',
+    'scripts\Test-1CTestTooling.ps1', 'scripts\Test-InteractiveTestPilot.ps1',
     'global\skills\1c-init-project\scripts\Get-1CTestTooling.ps1',
     'global\skills\1c-init-project\references\test-setup.md',
     'global\skills\1c-init-project\assets\project\AGENTS.md',
     'global\skills\1c-init-project\assets\project\bsl-flow.yaml',
     'global\skills\1c-init-project\assets\project\.bsl-flow\project.yaml',
-    'README.md', 'README.ru.md', 'INSTALL.md', 'TEST_ENVIRONMENT_GUIDE_RU.md', 'VERIFICATION.md', 'VERSION', 'CHANGELOG.md', 'global\AGENTS.bootstrap.md',
+    'README.md', 'README.en.md', 'INSTALL.md', 'docs\TEST_ENVIRONMENT_GUIDE_RU.md', 'VERSION', 'CHANGELOG.md', 'global\AGENTS.bootstrap.md',
     'global\openspec\schemas\bsl-flow\schema.yaml', 'global\openspec\schemas\bsl-flow\templates\spec.md',
     'global\skills\1c-spec-review\SKILL.md', 'global\skills\1c-spec-review\agents\openai.yaml',
     'global\skills\1c-spec-review\reviewer\opencode-reviewer.json',
@@ -106,12 +105,32 @@ $requiredFiles = @(
     'global\skills\1c-spec-review\scripts\Review.Common.ps1',
     'global\skills\1c-spec-review\scripts\Test-1CSpec.ps1',
     'global\skills\1c-spec-review\scripts\Invoke-1CSpecReview.ps1',
+    'global\skills\1c-spec-review\scripts\Council.Profile.ps1',
+    'global\skills\1c-spec-review\scripts\Invoke-1CSpecContractLint.ps1',
     'global\skills\1c-spec-review\scripts\Test-1CSpecFinal.ps1',
     'global\skills\1c-spec-review\scripts\Add-1CSpecRunMetric.ps1',
     'global\skills\1c-task\SKILL.md',
     'global\skills\1c-task\scripts\Invoke-BSLFlowTask.ps1',
     'global\skills\1c-task\scripts\Task.Storage.ps1',
+    'global\skills\1c-task\scripts\Task.Registry.ps1',
+    'global\skills\1c-implement\scripts\ExecutionGraph.ps1',
+    'global\skills\1c-task\scripts\Task.Memory.ps1',
     'global\skills\1c-task\scripts\Task.Contracts.ps1',
+    'global\skills\1c-task\scripts\Task.Architecture.ps1',
+    'scripts\Test-ADRIndex.ps1',
+    'scripts\Test-TaskContext.ps1',
+    'scripts\Test-TaskArchitectureBundle.ps1',
+    'scripts\Test-TaskResumePilot.ps1',
+    'scripts\Test-ProjectArchitectureIndex.ps1',
+    'scripts\Test-TaskMemory.ps1',
+    'global\skills\1c-task\schemas\context.schema.json',
+    'global\skills\1c-task\schemas\memory-event.schema.json',
+    'global\skills\1c-task\schemas\memory-index.schema.json',
+    'global\skills\1c-task\schemas\memory-bundle.schema.json',
+    'global\skills\1c-init-project\references\architecture-context.md',
+    'docs\ARCHITECTURE_RU.md',
+    'docs\architecture\adr-index.json',
+    'docs\architecture\adr-index.schema.json',
     'global\skills\1c-task\scripts\Task.Gates.ps1',
     'global\skills\1c-task\scripts\Task.Process.ps1',
     'global\skills\1c-task\scripts\Task.Engine.ps1',
@@ -120,6 +139,7 @@ $requiredFiles = @(
     'global\skills\1c-task\schemas\worker-result.schema.json',
     'global\skills\1c-task\references\task-contract.md',
     'scripts\Test-TaskStorage.ps1',
+    'scripts\bsl-flow.ps1',
     'scripts\Test-TaskLifecycle.ps1',
     'scripts\Test-TaskHardening.ps1',
     'scripts\Test-TaskResume.ps1',
@@ -129,32 +149,44 @@ $requiredFiles = @(
     'global\skills\1c-task\scripts\Task.Coverage.ps1', 'scripts\Test-RequirementCoverage.ps1', 'scripts\Test-CoverageController.ps1',
     'global\skills\1c-task\scripts\Task.Publication.ps1', 'global\skills\1c-task\scripts\Task.PublicationGit.ps1',
     'global\skills\1c-task\schemas\publication.schema.json', 'scripts\Test-TaskPublication.ps1', 'scripts\Test-PublicationGit.ps1',
-    'docs\NATIVE_RUNTIME_RU.md', 'docs\REQUIREMENT_COVERAGE_RU.md', 'docs\PUBLICATION_RU.md', 'docs\SDLC_COMPLETION_RU.md',
-    'docs\NATIVE_RUNTIME_RU.md', 'docs\REQUIREMENT_COVERAGE_RU.md', 'docs\SDLC_COMPLETION_RU.md',
+    'docs\NATIVE_RUNTIME_RU.md', 'docs\REQUIREMENT_COVERAGE_RU.md', 'docs\PUBLICATION_RU.md',
     'global\skills\1c-task\scripts\Task.Delivery.ps1', 'global\skills\1c-task\scripts\Task.Runner.ps1',
-    'cli\main.go', 'cli\bundle.go', 'cli\host_windows.go', 'cli\go.mod',
-    'scripts\Build-BSLFlowCli.ps1', 'scripts\Test-BSLFlowCli.ps1', 'docs\PLAN_0.8_RU.md',
     'scripts\Test-SandboxedVerification.ps1',
     'scripts\Test-ManagedHost.ps1',
-    'global\skills\1c-verify\references\testing-policy.md'
+    'global\skills\1c-verify\references\testing-policy.md',
+    'scripts\Test-BFProfiledCodexHostCapability.ps1',
+    'scripts\Test-LegacyNativeFence.ps1',
+    'scripts\Test-NativeProviderSandboxFence.ps1',
+    'global\skills\1c-task\scripts\Task.Provider.ps1'
 )
 foreach ($relative in $requiredFiles) { Assert-True (Test-Path -LiteralPath (Join-Path $packageRoot $relative) -PathType Leaf) "Missing package file: $relative" }
+$packageManifestPath = Join-Path $packageRoot 'package-manifest.json'
+if (Test-Path -LiteralPath $packageManifestPath -PathType Leaf) {
+    $packageManifest = Get-Content -Raw -LiteralPath $packageManifestPath | ConvertFrom-Json -ErrorAction Stop
+    Assert-True ($packageManifest.architecture.adr_index_path -eq 'docs/architecture/adr-index.json') 'Package manifest architecture binding is missing.'
+    Assert-True ($packageManifest.architecture.adr_index_sha256 -eq (Get-FileHash -LiteralPath (Join-Path $packageRoot 'docs/architecture/adr-index.json') -Algorithm SHA256).Hash.ToLowerInvariant()) 'Package manifest ADR index byte hash mismatch.'
+    Assert-True ($packageManifest.architecture.adr_index_canonical_sha256 -match '^[0-9a-f]{64}$') 'Package manifest ADR canonical hash is missing.'
+    Assert-True ($packageManifest.architecture.adr_schema_sha256 -eq (Get-FileHash -LiteralPath (Join-Path $packageRoot 'docs/architecture/adr-index.schema.json') -Algorithm SHA256).Hash.ToLowerInvariant()) 'Package manifest ADR schema hash mismatch.'
+}
 $packageVersion = (Get-Content -Raw (Join-Path $packageRoot 'VERSION')).Trim()
-Assert-True ($packageVersion -eq '0.8.0-dev.2') 'VERSION is not 0.8.0-dev.2.'
+Assert-True ($packageVersion -match '^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$') 'VERSION is not a valid package version.'
 $publicReadme = Get-Content -Raw (Join-Path $packageRoot 'README.md')
 Assert-True ($publicReadme -match '^# BSL Flow') 'Public README does not use the BSL Flow name.'
-Assert-True ($publicReadme.Contains('[MIT License](LICENSE)')) 'Public README does not link the MIT license.'
-$russianReadme = Get-Content -Raw (Join-Path $packageRoot 'README.ru.md')
+Assert-True ($publicReadme.Contains('](LICENSE)')) 'Public README does not link the MIT license.'
+$englishReadme = Get-Content -Raw (Join-Path $packageRoot 'README.en.md')
+Assert-True ($englishReadme -match '^# BSL Flow') 'English README does not use the BSL Flow name.'
+Assert-True ($publicReadme.Contains('[English](README.en.md)')) 'Primary Russian README does not link the English README.'
+Assert-True ($englishReadme.Contains('[Русская версия](README.md)')) 'English README does not link the primary Russian README.'
 $installScriptText = Get-Content -Raw (Join-Path $packageRoot 'scripts\Install-BSLFlow.ps1')
 $openCodeInstallerText = Get-Content -Raw (Join-Path $packageRoot 'scripts\Install-BSLFlowForOpenCode.ps1')
-foreach ($text in @($publicReadme, $russianReadme, (Get-Content -Raw (Join-Path $packageRoot 'INSTALL.md')))) {
+foreach ($text in @($publicReadme, $englishReadme, (Get-Content -Raw (Join-Path $packageRoot 'INSTALL.md')))) {
     Assert-True ($text.Contains('.agents\skills')) 'Public installation documentation does not name the shared skills catalog.'
 }
 Assert-True ($installScriptText.Contains("Join-Path `$userProfile '.agents\skills'")) 'Codex installer does not target the shared skills catalog.'
 Assert-True ($openCodeInstallerText.Contains("`$defaultSharedSkillsRoot=Join-Path `$userProfile '.agents\skills'")) 'OpenCode installer does not target the shared skills catalog.'
 Assert-True ($installScriptText.Contains('Remove-RetiredManagedBlock -Text $agentsText -Marker "$retiredFrameworkName bootstrap"')) 'Codex installer does not retire the old managed AGENTS block.'
 Assert-True ($installScriptText.Contains('$retiredSchema = Join-Path $targetSchemaParent $retiredFrameworkName')) 'Codex installer does not retire the old OpenSpec schema beside the selected target.'
-Assert-True ($russianReadme.Contains('provider') -and $russianReadme.Contains('`BLOCKED`') -and $russianReadme.Contains('not_configured')) 'Russian README lacks the missing-test-provider contract.'
+Assert-True ($publicReadme.Contains('provider') -and $publicReadme.Contains('`BLOCKED`') -and $publicReadme.Contains('not_configured')) 'Primary README lacks the missing-test-provider contract.'
 $retiredPrefix = '1' + 'c'
 $retiredWord = 'li' + 'te'
 $forbiddenNamePattern = '(?i)' + $retiredPrefix + '[-_. ]?' + $retiredWord + '|one' + $retiredPrefix + '[-_. ]?' + $retiredWord
@@ -162,8 +194,7 @@ $forbiddenHits = Get-ChildItem -LiteralPath $packageRoot -File -Recurse -Force |
     Where-Object {
         $relative = $_.FullName.Substring($packageRoot.TrimEnd('\', '/').Length + 1).Replace('\', '/')
         $_.FullName -notmatch '[\\/](?:\.git|\.bsl-flow|work|outputs)(?:[\\/]|$)' -and
-            $relative -notmatch '^\.build/' -and
-            $relative -notmatch '^cli/(?:\.cache/|bin/|internal/resources/(?:bundle\.zip|version\.txt)$)'
+            $relative -notmatch '^\.build/'
     } |
     Select-String -Pattern $forbiddenNamePattern
 Assert-True (($forbiddenHits | Measure-Object).Count -eq 0) 'Package still contains the retired framework name.'
@@ -174,10 +205,13 @@ foreach ($relative in $requiredFiles) {
     Assert-True ($ignoreProbe.ExitCode -ne 0) "Required package file is hidden by .gitignore: $relative"
 }
 & (Join-Path $packageRoot 'scripts\Test-1CTestTooling.ps1') -PackageRoot $packageRoot
-foreach ($suite in @('Test-ProjectUpgrade.ps1', 'Test-WorkstationSetup.ps1', 'Test-InteractiveTestPilot.ps1', 'Test-ExternalArtifactEvidence.ps1', 'Test-TestStarter.ps1', 'Test-TestEvidence.ps1', 'Test-ExtensionIdentitySafety.ps1', 'Test-AgentAudit.ps1', 'Test-OpenCodeAdapter.ps1', 'Test-ReviewReliability.ps1')) {
+foreach ($suite in @('Test-ADRIndex.ps1', 'Test-TaskContext.ps1', 'Test-TaskArchitectureBundle.ps1', 'Test-TaskResumePilot.ps1', 'Test-ProjectArchitectureIndex.ps1', 'Test-TaskMemory.ps1', 'Test-ProjectUpgrade.ps1', 'Test-WorkstationSetup.ps1', 'Test-InteractiveTestPilot.ps1', 'Test-ExternalArtifactEvidence.ps1', 'Test-TestStarter.ps1', 'Test-TestEvidence.ps1', 'Test-ExtensionIdentitySafety.ps1', 'Test-AgentAudit.ps1', 'Test-OpenCodeAdapter.ps1', 'Test-ReviewReliability.ps1', 'Test-TaskManagedReview.ps1', 'Test-BFProfiledCodexHostCapability.ps1', 'Test-SpecContractLint.ps1', 'Test-ExecutionGraphDiscipline.ps1')) {
     & (Join-Path $packageRoot "scripts\$suite") -PackageRoot $packageRoot
 }
-foreach ($suite in @('Test-TaskStorage.ps1', 'Test-TaskLifecycle.ps1', 'Test-TaskHardening.ps1', 'Test-TaskResume.ps1', 'Test-TaskCrashRecovery.ps1', 'Test-TaskRepair.ps1', 'Test-TaskDelivery.ps1', 'Test-TaskRunner.ps1', 'Test-RunnerRecovery.ps1', 'Test-TaskRuntime.ps1', 'Test-NativeController.ps1', 'Test-NativeRecovery.ps1', 'Test-NativeReuse.ps1', 'Test-RequirementCoverage.ps1', 'Test-CoverageController.ps1', 'Test-PublicationGit.ps1', 'Test-TaskPublication.ps1')) {
+foreach ($suite in @('Test-CouncilValidation.ps1', 'Test-CouncilEngine.ps1', 'Test-CouncilTransport.ps1', 'Test-CouncilFallback.ps1', 'Test-CouncilRouting.ps1', 'Test-CouncilCycle.ps1', 'Test-CouncilLifecycle.ps1', 'Test-CouncilProfile.ps1')) {
+    & (Join-Path $packageRoot "global\skills\1c-spec-review\scripts\$suite") -PackageRoot $packageRoot
+}
+foreach ($suite in @('Test-TaskStorage.ps1', 'Test-TaskRegistry.ps1', 'Test-TaskRegistryConcurrency.ps1', 'Test-LegacyNativeFence.ps1', 'Test-TaskLifecycle.ps1', 'Test-TaskHardening.ps1', 'Test-TaskResume.ps1', 'Test-TaskCrashRecovery.ps1', 'Test-TaskRepair.ps1', 'Test-TaskDelivery.ps1', 'Test-TaskRunner.ps1', 'Test-RunnerRecovery.ps1', 'Test-TaskRuntime.ps1', 'Test-NativeController.ps1', 'Test-NativeRecovery.ps1', 'Test-NativeReuse.ps1', 'Test-RequirementCoverage.ps1', 'Test-CoverageController.ps1', 'Test-PublicationGit.ps1', 'Test-TaskPublication.ps1')) {
     & (Join-Path $packageRoot "scripts\$suite") -PackageRoot $packageRoot
 }
 
@@ -305,7 +339,7 @@ try {
         $taskCommand = Get-Command $installedTaskCli
         foreach ($parameter in @('Action','ProjectPath','TaskId','InputFile','AttemptId','CodexPath','RuntimeAuth')) { Assert-True $taskCommand.Parameters.ContainsKey($parameter) "Installed 1c-task CLI omitted parameter: $parameter" }
         $actionSet = @($taskCommand.Parameters.Action.Attributes | Where-Object { $_ -is [Management.Automation.ValidateSetAttribute] } | ForEach-Object ValidValues)
-        $expectedActions = @('Start','Status','Next','Run','Record','Update','Accept','Resume','Cancel','Deliver','Serve','Publish','PublishResume')
+        $expectedActions = @('Start','Status','Next','Context','Run','Record','Update','Accept','Resume','Cancel','Deliver','Serve','Publish','PublishResume','Create','EditRegistry','List','Show','History','Overview','ArchiveTask','UnarchiveTask','Activate')
         Assert-True ($actionSet.Count -eq $expectedActions.Count) 'Installed 1c-task CLI exposes an unexpected action set.'
         foreach ($action in $expectedActions) { Assert-True ($action -in $actionSet) "Installed 1c-task CLI omitted action: $action" }
     }
@@ -357,9 +391,21 @@ secret-folder/
     finally { Pop-Location }
     $projectConfig = Get-Content -Raw (Join-Path $project 'bsl-flow.yaml')
     Assert-True ($projectConfig -match '(?m)^\s{4}m_default:\s*required\s*$') 'M review routing missing.'
-    Assert-True ($projectConfig -match '(?m)^\s{4}model:\s*deepseek/deepseek-v4-pro\s*$') 'Default reviewer model missing.'
+    Assert-True ($projectConfig -match '(?m)^\s{2}council:\s*$') 'Default council block missing.'
+    Assert-True ($projectConfig -match '(?m)^\s{6}chair:\s*$') 'Default council chair missing.'
     Assert-True ($projectConfig -match '(?m)^\s{4}timeout_seconds:\s*600\s*$') 'Default reviewer timeout is not 600 seconds.'
     . $commonScript
+    . (Join-Path $reviewSkill 'scripts\Council.Common.ps1')
+    $defaultCouncil = Get-BSLFlowCouncilPolicy $projectConfig
+    Assert-True ([bool]$defaultCouncil.enabled -and [string]$defaultCouncil.legacy_mode -eq 'block') 'Portable project default council policy is not migration-blocking.'
+    # The remaining package fixture exercises the explicitly selected legacy
+    # compatibility route. Keep the portable council default above asserted and
+    # opt in only inside this isolated test project, so no live council dispatch
+    # can be triggered by an environment credential during the OpenCode checks.
+    $projectConfig = [regex]::Replace($projectConfig, '(?m)^(\s*legacy_mode:\s*)block\s*$', '${1}opencode_compat')
+    Set-Content -LiteralPath (Join-Path $project 'bsl-flow.yaml') -Value $projectConfig -Encoding utf8
+    $compatCouncil = Get-BSLFlowCouncilPolicy (Get-Content -Raw (Join-Path $project 'bsl-flow.yaml'))
+    Assert-True ([bool]$compatCouncil.enabled -and [string]$compatCouncil.legacy_mode -eq 'opencode_compat') 'Legacy OpenCode compatibility fixture was not explicitly selected.'
     $fourSpaceYaml = "review:`n    permissions:`n        project_read_mode: attached_only"
     Assert-True ((Get-BSLFlowYamlValue $fourSpaceYaml @('review', 'permissions', 'project_read_mode') 'read_search') -eq 'attached_only') 'Valid four-space YAML indentation was not parsed.'
     $reviewerConfigText = Get-Content -Raw $reviewerConfig

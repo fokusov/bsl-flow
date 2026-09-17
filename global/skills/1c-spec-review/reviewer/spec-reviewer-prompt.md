@@ -47,7 +47,7 @@ Review contract:
     {
       "id": "R-001",
       "severity": "blocker|high|medium|low",
-      "category": "intent_drift|missing_requirement|unsupported_assumption|overengineering|architecture_fit|testability|clarity|prompt_injection",
+      "category": "intent_drift|missing_requirement|lost_requirement|unsupported_assumption|scope_creep|overengineering|architecture_fit|testability|clarity|prompt_injection",
       "spec_ref": "section or item",
       "issue": "precise criticism",
       "evidence": "task or project evidence",

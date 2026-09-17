@@ -1,13 +1,18 @@
 #Requires -Version 7.0
 Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot 'Task.Runtime.ps1')
+. (Join-Path $PSScriptRoot 'Task.Execution.ps1')
 . (Join-Path $PSScriptRoot 'Task.NativeReuse.ps1')
 . (Join-Path $PSScriptRoot 'Task.Coverage.ps1')
 
 function Assert-BFFields {
     param($Value, [string[]]$Required, [string[]]$Optional = @(), [string]$Name = 'object')
     if ($null -eq $Value -or ($Value -isnot [System.Collections.IDictionary] -and $Value -isnot [pscustomobject])) { throw "BF_INVALID: $Name must be an object." }
-    $keys = if ($Value -is [System.Collections.IDictionary]) { @($Value.Keys) } else { @($Value.PSObject.Properties.Name) }
+    # Enumerate properties through the pipeline.  Under StrictMode an empty
+    # PSCustomObject has no scalar `.Name` member on its property collection,
+    # so `$Value.PSObject.Properties.Name` raises a raw implementation error
+    # instead of the closed BF_INVALID contract diagnostic.
+    $keys = if ($Value -is [System.Collections.IDictionary]) { @($Value.Keys) } else { @($Value.PSObject.Properties | ForEach-Object { $_.Name }) }
     foreach ($key in $Required) { if ($key -cnotin $keys) { throw "BF_INVALID: $Name.$key is required." } }
     foreach ($key in $keys) { if ($key -cnotin ($Required + $Optional)) { throw "BF_INVALID: unknown field $Name.$key." } }
 }
@@ -42,13 +47,26 @@ function Assert-BFProvenance {
     Assert-BFText $Value.text 'provenance.text'
 }
 
+function Assert-BFBudget {
+    param($Budget)
+    Assert-BFFields $Budget @('currency','limit','reservation') @() 'budget'
+    if($Budget.currency -cne 'USD'){throw 'BF_INVALID: only a USD budget currency is supported.'}
+    foreach($name in @('limit','reservation')){
+        $value=$Budget.$name
+        if($null -eq $value){continue}
+        if($value -isnot [int] -and $value -isnot [long] -and $value -isnot [double] -and $value -isnot [decimal] -and $value -isnot [single]){throw "BF_INVALID: budget.$name must be a number or null."}
+        if([double]::IsNaN([double]$value) -or [double]::IsInfinity([double]$value) -or [double]$value -lt 0){throw "BF_INVALID: budget.$name must be a non-negative finite number."}
+    }
+    if($null -eq $Budget.limit -and [double]$Budget.reservation -ne 0){throw 'BF_INVALID: budget.reservation must be zero when no monetary limit is enforced.'}
+}
+
 function Assert-BFCriteria {
     param($Criteria)
     if ($Criteria -isnot [array]) { throw 'BF_INVALID: criteria must be an array.' }
     $ids = @()
     foreach ($criterion in $Criteria) {
         Assert-BFFields $criterion @('id', 'observation', 'kind') @('path', 'contains', 'executable', 'arguments', 'report', 'expected_tests', 'target', 'profile', 'retry_safe', 'protected_paths', 'native_1c') 'criterion'
-        $keys=if($criterion -is [System.Collections.IDictionary]){@($criterion.Keys)}else{@($criterion.PSObject.Properties.Name)}
+        $keys=if($criterion -is [System.Collections.IDictionary]){@($criterion.Keys)}else{@($criterion.PSObject.Properties | ForEach-Object { $_.Name })}
         if ($criterion.id -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$' -or $criterion.id -in $ids) { throw 'BF_INVALID: criterion ids must be safe and unique.' }
         $ids += $criterion.id
         Assert-BFText $criterion.observation 'criterion.observation'
@@ -81,7 +99,7 @@ function Assert-BFCriteria {
 
 function Assert-BFRequest {
     param($Request)
-    Assert-BFFields $Request @('schema_version','request_id','prompt','mode','analysis_goal','complexity','risk','impact_flags','criteria','provenance','models') @('source_paths','require_spec_review','require_code_review','max_attempts','timeout_seconds','max_source_repairs','requirements') 'request'
+    Assert-BFFields $Request @('schema_version','request_id','prompt','mode','analysis_goal','complexity','risk','impact_flags','criteria','provenance','models') @('source_paths','require_spec_review','require_code_review','max_attempts','timeout_seconds','max_source_repairs','requirements','execution_profile','budget') 'request'
     if ($Request.schema_version -ne 1) { throw 'BF_INVALID: unsupported request schema_version.' }
     Assert-BFUuid $Request.request_id
     Assert-BFText $Request.prompt 'prompt'
@@ -93,8 +111,20 @@ function Assert-BFRequest {
     Assert-BFRequirements $Request
     if ($Request.mode -eq 'implement' -and @($Request.criteria).Count -eq 0) { throw 'BF_INVALID: implementation requires observable acceptance criteria before dispatch.' }
     Assert-BFFields $Request.models @('worker','worker_effort','reviewer','reviewer_effort') @() 'models'
-    foreach ($field in @('worker','reviewer')) { if ($Request.models.$field -notmatch '^[A-Za-z0-9._:-]+$') { throw "BF_INVALID: invalid model $field." } }
-    foreach ($field in @('worker_effort','reviewer_effort')) { if ($Request.models.$field -notin @('low','medium','high','xhigh')) { throw "BF_INVALID: invalid effort $field." } }
+    $profile=Get-BFValue $Request 'execution_profile'
+    if(Test-BFCoverageProperty $Request 'execution_profile'){Assert-BFExecutionProfile $profile}
+    $budget=Get-BFValue $Request 'budget'
+    if($null -ne $profile){
+        if($null -eq $budget){throw 'BF_INVALID: a managed execution profile requires an explicit budget.'}
+        Assert-BFBudget $budget
+    } elseif(Test-BFCoverageProperty $Request 'budget'){throw 'BF_INVALID: budget is only valid with a managed execution profile.'}
+    if($null -ne $profile -and $profile.provider -eq 'opencode'){
+        foreach($field in @('worker','reviewer')){if($Request.models.$field -cne 'deepseek/deepseek-v4-flash'){throw "BF_INVALID: invalid OpenCode model $field."}}
+        foreach($field in @('worker_effort','reviewer_effort')){if($null -ne $Request.models.$field){throw "BF_INVALID: OpenCode effort $field must be null."}}
+    } else {
+        foreach ($field in @('worker','reviewer')) { if ($Request.models.$field -notmatch '^[A-Za-z0-9._:-]+$') { throw "BF_INVALID: invalid model $field." } }
+        foreach ($field in @('worker_effort','reviewer_effort')) { if ($Request.models.$field -notin @('low','medium','high','xhigh')) { throw "BF_INVALID: invalid effort $field." } }
+    }
     foreach ($flag in @('require_spec_review','require_code_review')) { if ($null -ne (Get-BFValue $Request $flag) -and (Get-BFValue $Request $flag) -isnot [bool]) { throw "BF_INVALID: $flag must be boolean." } }
     foreach ($path in @(Get-BFValue $Request 'source_paths' @('.'))) { Assert-BFRelativePath $path }
     $max = Get-BFValue $Request 'max_attempts' 16

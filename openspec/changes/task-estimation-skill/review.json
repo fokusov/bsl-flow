@@ -1,0 +1,904 @@
+{
+  "schema_version": 2,
+  "reviewed_at_utc": "2026-09-14T15:11:57.4681161Z",
+  "council_schema_version": 1,
+  "verdict": "REVISE",
+  "diversity": "multi_role_single_model",
+  "fallback_visible": false,
+  "inputs": {
+    "original_task_sha256": "428a592bf7e650d51197420fcaabc1c6bfe40448a70db6f441e1d653892d4b96",
+    "spec_sha256": "2c3040bd244b3315b5fe8160bf7f201c975d8a11c535d7fc7f0ad7be31784eaa",
+    "design_sha256": null,
+    "policy_hash": "1a06606303e4cd9c49928ffd3fcda137820a6627718cdc4cd8fa54d2fa8b1899"
+  },
+  "manifest": {
+    "version": 1,
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "source_hash": "d19ac968772ebf54d5c448230ef9a96e19411bc383e86176d4d090cea46c8346",
+        "draft_ref": "Требуемое поведение / 1"
+      },
+      {
+        "id": "REQ-002",
+        "source_hash": "2579773a5e57fffc5c308f9487603a2076836157510d46f14158e5e254fcbca4",
+        "draft_ref": "Требуемое поведение / 2"
+      },
+      {
+        "id": "REQ-003",
+        "source_hash": "3225c24fc8461c5c292530719641bf991cb90b1e8f00e8764733e0d8bf3fb286",
+        "draft_ref": "Требуемое поведение / 3"
+      },
+      {
+        "id": "REQ-004",
+        "source_hash": "02cf083117be9d4f563c3aae59486995d9e2aec6025e36b62e4b749dc921761f",
+        "draft_ref": "Требуемое поведение / 4"
+      },
+      {
+        "id": "REQ-005",
+        "source_hash": "04b36f4e6c37d87f0202a78e02deafc20438d9045b2d0de66638fa0000356c13",
+        "draft_ref": "Требуемое поведение / 5"
+      },
+      {
+        "id": "REQ-006",
+        "source_hash": "fe38f793970d2326075e5d5628b7074ddffa9d1b8979a42c500fa564f44220ab",
+        "draft_ref": "Требуемое поведение / 6"
+      },
+      {
+        "id": "REQ-007",
+        "source_hash": "a29a7771b43d454ee0ddf1b00fcda8ce59f44c92cb5fa479d7e8364a9c375049",
+        "draft_ref": "Требуемое поведение / 7"
+      },
+      {
+        "id": "REQ-008",
+        "source_hash": "5bef3eb021b228d28de8bb3b1eb88a3b9da948b5bec084bebd9119401490edee",
+        "draft_ref": "Требуемое поведение / 8"
+      },
+      {
+        "id": "REQ-009",
+        "source_hash": "cfb4f9bf3745c09f4d95f70cea3f97aa0dfbfcd92ea089afec537aadded430f4",
+        "draft_ref": "Требуемое поведение / 9"
+      },
+      {
+        "id": "REQ-010",
+        "source_hash": "777bdad71b8d384d149ea74158c2e06ec147078fd87fc82b29666808f1683b98",
+        "draft_ref": "Требуемое поведение / 10"
+      },
+      {
+        "id": "REQ-011",
+        "source_hash": "e7a7896c0bf856cd68edebbb10a35ae9bcc359f53e02e0b2de087bf10763dc61",
+        "draft_ref": "Требуемое поведение / 11"
+      },
+      {
+        "id": "REQ-012",
+        "source_hash": "e37d9ff8543dd40fe08e59f9cec04c34cb13bbb8c3bfb7c9f5ab18c0e6740b0c",
+        "draft_ref": "Требуемое поведение / 12"
+      }
+    ]
+  },
+  "members": [
+    {
+      "schema_version": 1,
+      "role": "intent_critic",
+      "attempt_id": "1ac435e0359d43f8878db276632953bf",
+      "status": "completed",
+      "summary": "Role intent_critic completed its structured result.",
+      "requested": {
+        "provider": "deepseek",
+        "model": "deepseek-v4-pro",
+        "effort": "medium"
+      },
+      "observed": {
+        "provider": "deepseek",
+        "model": "deepseek-v4-pro",
+        "effort": null
+      },
+      "execution_mode": "direct_api",
+      "fallback_reason": "",
+      "input_hashes": {
+        "original_task_sha256": "428a592bf7e650d51197420fcaabc1c6bfe40448a70db6f441e1d653892d4b96",
+        "spec_sha256": "2c3040bd244b3315b5fe8160bf7f201c975d8a11c535d7fc7f0ad7be31784eaa",
+        "design_sha256": null,
+        "evidence_sha256": null,
+        "policy_hash": "1a06606303e4cd9c49928ffd3fcda137820a6627718cdc4cd8fa54d2fa8b1899",
+        "rubric_sha256": "d73b8870846afb76beccba9ca3bdab55644c893156718db825b4c99ff9db11be"
+      },
+      "payload_sha256": "fc380305ca21ebe835f2f264abf71dc7793e1e5d661832accc6259839101c805",
+      "usage": {
+        "input_tokens": 4146,
+        "output_tokens": 8286,
+        "reasoning_tokens": 6910
+      },
+      "cost_state": "provider_usage_reported",
+      "dispatched_at_utc": "2026-09-14T15:07:34.5314489Z",
+      "completed_at_utc": "2026-09-14T15:09:19.8997678Z"
+    },
+    {
+      "schema_version": 1,
+      "role": "architecture_critic",
+      "attempt_id": "8b3dcf38c26144348790e0ed8410c8cb",
+      "status": "completed",
+      "summary": "Role architecture_critic completed its structured result.",
+      "requested": {
+        "provider": "deepseek",
+        "model": "deepseek-v4-pro",
+        "effort": "medium"
+      },
+      "observed": {
+        "provider": "deepseek",
+        "model": "deepseek-v4-pro",
+        "effort": null
+      },
+      "execution_mode": "direct_api",
+      "fallback_reason": "",
+      "input_hashes": {
+        "original_task_sha256": "428a592bf7e650d51197420fcaabc1c6bfe40448a70db6f441e1d653892d4b96",
+        "spec_sha256": "2c3040bd244b3315b5fe8160bf7f201c975d8a11c535d7fc7f0ad7be31784eaa",
+        "design_sha256": null,
+        "evidence_sha256": null,
+        "policy_hash": "1a06606303e4cd9c49928ffd3fcda137820a6627718cdc4cd8fa54d2fa8b1899",
+        "rubric_sha256": "6011c5b31248f82676d01bef8aefa3a7b05fcf3ff947a3ebda0343c00c6e8af8"
+      },
+      "payload_sha256": "4ecf2d56a8118b7f66f48dbb3158ad75a23c6d42a82f33ff8a1b5cc3380aca72",
+      "usage": {
+        "input_tokens": 4152,
+        "output_tokens": 9020,
+        "reasoning_tokens": 7262
+      },
+      "cost_state": "provider_usage_reported",
+      "dispatched_at_utc": "2026-09-14T15:07:34.5314489Z",
+      "completed_at_utc": "2026-09-14T15:09:18.4966288Z"
+    },
+    {
+      "schema_version": 1,
+      "role": "executability_critic",
+      "attempt_id": "8a4a91e2f498480bb1d51b0c4f02c59a",
+      "status": "completed",
+      "summary": "Role executability_critic completed its structured result.",
+      "requested": {
+        "provider": "deepseek",
+        "model": "deepseek-v4-pro",
+        "effort": "medium"
+      },
+      "observed": {
+        "provider": "deepseek",
+        "model": "deepseek-v4-pro",
+        "effort": null
+      },
+      "execution_mode": "direct_api",
+      "fallback_reason": "",
+      "input_hashes": {
+        "original_task_sha256": "428a592bf7e650d51197420fcaabc1c6bfe40448a70db6f441e1d653892d4b96",
+        "spec_sha256": "2c3040bd244b3315b5fe8160bf7f201c975d8a11c535d7fc7f0ad7be31784eaa",
+        "design_sha256": null,
+        "evidence_sha256": null,
+        "policy_hash": "1a06606303e4cd9c49928ffd3fcda137820a6627718cdc4cd8fa54d2fa8b1899",
+        "rubric_sha256": "f526689b950af6cb862cbb6dce8ab259e52f37ede4a081cee269d7f5698751ed"
+      },
+      "payload_sha256": "d1d3d8b15d5299af6a4b5783ef24739e1a7528b0c4db68cf82826ab8bfa42dcd",
+      "usage": {
+        "input_tokens": 4144,
+        "output_tokens": 8039,
+        "reasoning_tokens": 6300
+      },
+      "cost_state": "provider_usage_reported",
+      "dispatched_at_utc": "2026-09-14T14:42:28.9888432Z",
+      "completed_at_utc": "2026-09-14T14:44:06.6973296Z"
+    },
+    {
+      "schema_version": 1,
+      "role": "chair",
+      "attempt_id": "acaadfdf2b304fb0a1d8dd93685e5cb4",
+      "status": "completed",
+      "summary": "Chair reconciliation completed.",
+      "requested": {
+        "provider": "deepseek",
+        "model": "deepseek-v4-pro",
+        "effort": "medium"
+      },
+      "observed": {
+        "provider": "deepseek",
+        "model": "deepseek-v4-pro",
+        "effort": null
+      },
+      "execution_mode": "direct_api",
+      "fallback_reason": "",
+      "input_hashes": {
+        "original_task_sha256": "428a592bf7e650d51197420fcaabc1c6bfe40448a70db6f441e1d653892d4b96",
+        "spec_sha256": "2c3040bd244b3315b5fe8160bf7f201c975d8a11c535d7fc7f0ad7be31784eaa",
+        "design_sha256": null,
+        "evidence_sha256": null,
+        "policy_hash": "1a06606303e4cd9c49928ffd3fcda137820a6627718cdc4cd8fa54d2fa8b1899",
+        "rubric_sha256": "04f1f52ee03ac8ef5df6d88fe419bca2c382b0a72421930e37c576d29e3ffe7a",
+        "member_aggregate_sha256": "e850d5c88b69773e780c0354c1e0a8a4a497cd398cfbc3da99a77940fae47158"
+      },
+      "payload_sha256": "07d79bb7884ac356fc7d58660d4855e7f475c9923744bb16f787287d66496eba",
+      "usage": {
+        "input_tokens": 11704,
+        "output_tokens": 17225,
+        "reasoning_tokens": 10301
+      },
+      "cost_state": "provider_usage_reported",
+      "dispatched_at_utc": "2026-09-14T15:09:20.2684213Z",
+      "completed_at_utc": "2026-09-14T15:11:57.3953022Z"
+    }
+  ],
+  "findings": [
+    {
+      "composite_id": "intent_critic:F-001",
+      "role": "intent_critic",
+      "id": "F-001",
+      "severity": "high",
+      "category": "clarity",
+      "spec_ref": "Требуемое поведение п.4 и п.9; Критерии приёмки (блоки и спайк)",
+      "issue": "Противоречие между обязательной декомпозицией для всех оценок и одиночным timebox для спайков: не определено, должен ли timebox также иметь блоки и сумму или он исключается из требования декомпозиции.",
+      "evidence": "Исходный запрос: оценка вилкой минимум/максимум после финализации; доп. согласование: спайки не оцениваются вилкой, только timebox. Спека: п.4 требует декомпозицию и запрещает оценку одним числом; п.9 разрешает timebox без декомпозиции.",
+      "suggested_direction": "Явно указать, что kind=timebox освобождается от требований п.4 (декомпозиция, блоки, консервативная сумма, вилка), либо задать отдельный формат записи времени для timebox, не требующий blocks[] и totals."
+    },
+    {
+      "composite_id": "intent_critic:F-002",
+      "role": "intent_critic",
+      "id": "F-002",
+      "severity": "medium",
+      "category": "scope_creep",
+      "spec_ref": "Требуемое поведение п.2; Критерии приёмки (preliminary)",
+      "issue": "Спека добавляет возможность выдавать предварительную оценку (status=preliminary) при отсутствии финальной валидации спеки, хотя исходный запрос явно требует оценку только после финализации спеки.",
+      "evidence": "Исходный запрос: 'Вместе со спекой, после ее финализации, мы должны выдать пользователю... оценку'; доп. согласование не упоминает предварительные оценки. Спека: 'Без неё выдаётся только оценка со статусом preliminary'.",
+      "suggested_direction": "Либо удалить preliminary-режим и требовать финальную валидацию, либо явно задокументировать как согласованное расширение; в последнем случае уточнить, что финальная оценка невозможна без финализации, а preliminary — опциональный отладочный артефакт."
+    },
+    {
+      "composite_id": "intent_critic:F-003",
+      "role": "intent_critic",
+      "id": "F-003",
+      "severity": "medium",
+      "category": "scope_creep",
+      "spec_ref": "Требуемое поведение п.7; Критерии приёмки (bsl-flow.yaml estimate section)",
+      "issue": "Вводится опциональная секция estimate: в bsl-flow.yaml для переопределения якорей и множителей, что не было запрошено и не согласовано.",
+      "evidence": "Доп. согласование: 'оценка ... опирается на якорные диапазоны S/M/L × риск' — не упоминает пользовательскую конфигурацию. Исходный запрос также не просил конфигурируемость.",
+      "suggested_direction": "Отложить конфигурируемость на будущее или обосновать её как необходимую часть v1; иначе убрать из v1 и оставить только встроенные якоря."
+    },
+    {
+      "composite_id": "intent_critic:F-004",
+      "role": "intent_critic",
+      "id": "F-004",
+      "severity": "low",
+      "category": "clarity",
+      "spec_ref": "Требуемое поведение п.2, п.8; Критерии приёмки (material unknowns)",
+      "issue": "Термин 'material unknowns' используется как условие блокировки финальной оценки, но не определён явно (какие именно неизвестные считаются влияющими на объём).",
+      "evidence": "Исходный запрос включает 'Подумай, что я еще мог забыть', но не даёт определения; спека: 'material unknowns, влияющие на объём работ' без перечня или примеров.",
+      "suggested_direction": "Добавить определение и примеры material unknowns (например, неизвестный объём миграции, непонятные интеграции) и критерии влияния на объём."
+    },
+    {
+      "composite_id": "intent_critic:F-005",
+      "role": "intent_critic",
+      "id": "F-005",
+      "severity": "low",
+      "category": "overengineering",
+      "spec_ref": "Требуемое поведение п.11; Требуемые проверки (Static, Unit)",
+      "issue": "Закрытая versioned JSON Schema с детерминированной проверкой, unit-тесты на staleness, слияние конфигов и округление могут быть избыточны для первой версии assisted-скилла без обязательного stage.",
+      "evidence": "Исходный запрос просил только письменную и машинную оценку с хешами; доп. согласование не требовало формальной схемы и тестов в v1. Спека добавляет schema_version: 1 и обязательную валидацию.",
+      "suggested_direction": "Упростить v1: использовать обычный JSON с ручной проверкой полей, либо явно пометить эти требования как необходимый минимум для машиночитаемости; перенести формальную схему и тесты в отдельное изменение."
+    },
+    {
+      "composite_id": "architecture_critic:F-001",
+      "role": "architecture_critic",
+      "id": "F-001",
+      "severity": "high",
+      "category": "architecture_fit",
+      "spec_ref": "§7: «Опциональная секция `estimate:` в `bsl-flow.yaml` переопределяет якоря, фазовые множители и baseline; отсутствие секции не ошибка, используются встроенные значения.»",
+      "issue": "The proposal introduces a new top-level `estimate:` section in `bsl-flow.yaml` but does not address whether the existing configuration loader/validator accepts unknown keys. If the loader rejects unknown keys or requires a schema update, the optional section will fail in practice; if it silently ignores unknown keys, overrides will not apply.",
+      "evidence": "No mention of updating config schema/validation or documentation for new section; only says absence is not an error.",
+      "suggested_direction": "Specify how `bsl-flow.yaml` is parsed/validated and whether an update to the config schema or loader is required; add acceptance test that a file with `estimate:` passes validation and overrides are applied."
+    },
+    {
+      "composite_id": "architecture_critic:F-002",
+      "role": "architecture_critic",
+      "id": "F-002",
+      "severity": "high",
+      "category": "missing_requirement",
+      "spec_ref": "§2: «Незакрытые BLOCK-находки или material unknowns, влияющие на объём работ, делают финальную оценку невозможной: выдаётся предварительная оценка или отказ с точной причиной.»",
+      "issue": "The spec does not define where the skill reads BLOCK findings or material unknowns. It only mentions `final-validation.json` with a passed verdict, but final-validation alone may not contain unresolved BLOCK details; review findings may be in a separate sidecar.",
+      "evidence": "No path/format for review findings artifact is provided; BLOCK status cannot be determined from a single boolean verdict.",
+      "suggested_direction": "Add explicit source: e.g., `openspec/changes/<change>/review-*.md` or `findings.json` from `1c-spec-review`; define schema/path and how BLOCK/material unknowns are queried."
+    },
+    {
+      "composite_id": "architecture_critic:F-003",
+      "role": "architecture_critic",
+      "id": "F-003",
+      "severity": "high",
+      "category": "missing_requirement",
+      "spec_ref": "§2: «Финальная оценка требует пройденной финальной валидации спеки (`final-validation.json` с пройденным вердиктом; для S-change без обязательного ревью — завершённый lint).»",
+      "issue": "The condition 'завершённый lint' for S-changes without mandatory review is ambiguous: the lint artifact path, pass criteria, and how to determine whether a review is mandatory are not specified.",
+      "evidence": "No artifact definition or detection rule for 'завершённый lint'; it is not mentioned elsewhere.",
+      "suggested_direction": "Define the lint result path/format and the rule for determining mandatory review; or require `final-validation.json` for all final estimates and change the S-change clause accordingly."
+    },
+    {
+      "composite_id": "architecture_critic:F-004",
+      "role": "architecture_critic",
+      "id": "F-004",
+      "severity": "medium",
+      "category": "missing_requirement",
+      "spec_ref": "§11: «...опциональный `actuals`.» and acceptance: «GIVEN оценка записана и задача завершена WHEN заполняется блок `actuals` THEN агентный факт (часы, число попыток) берётся из controller journals...»",
+      "issue": "The `actuals` object structure is not specified in the spec, yet acceptance criteria require filling it later. Without field definitions (human_hours, ai_hours, attempts, source, timestamp, etc.), future tools cannot deterministically write or validate plan/fact data.",
+      "evidence": "Only 'optional `actuals`' appears; JSON Schema is said to be in references, but the spec does not enumerate actuals fields or their compatibility constraints.",
+      "suggested_direction": "Add a minimal `actuals` schema to the spec (or explicitly state it is out-of-scope for v1 but reserve fields) so that plan/fact integration is deterministic."
+    },
+    {
+      "composite_id": "architecture_critic:F-005",
+      "role": "architecture_critic",
+      "id": "F-005",
+      "severity": "medium",
+      "category": "clarity",
+      "spec_ref": "§7: «Итоговая вилка обязана сверяться с якорем: существенное расхождение объясняется в `estimate.md` явно.»",
+      "issue": "Term 'существенное расхождение' is undefined; no threshold or criteria is given, leading to inconsistent enforcement across estimates.",
+      "evidence": "No quantitative or qualitative definition of substantial divergence.",
+      "suggested_direction": "Define 'substantial' (e.g., >30% outside anchor range or by risk class) and include in references or SKILL.md."
+    },
+    {
+      "composite_id": "architecture_critic:F-006",
+      "role": "architecture_critic",
+      "id": "F-006",
+      "severity": "medium",
+      "category": "clarity",
+      "spec_ref": "§9: «Спайки и исследовательские задачи без проверяемых критериев приёмки вилкой не оцениваются: выдаётся рекомендуемый timebox...»",
+      "issue": "The rule to identify a spike/'research task with no verifiable acceptance criteria' is not specified; there is no flag in the spec or input that marks a change as spike.",
+      "evidence": "No detection mechanism or input field; only a condition based on absence of acceptance criteria, which may be ambiguous.",
+      "suggested_direction": "Add a required classification field in spec (e.g., `task_type=spike`) or define heuristic and require explicit user confirmation when acceptance criteria missing."
+    },
+    {
+      "composite_id": "architecture_critic:F-007",
+      "role": "architecture_critic",
+      "id": "F-007",
+      "severity": "low",
+      "category": "clarity",
+      "spec_ref": "§10: «`estimate.json` хранит sha256 `spec.md` и, при наличии, `design.md` и `original-task.md`... Изменение любого хеша делает оценку stale...»",
+      "issue": "Staleness is defined only for `estimate.json`, but the human-readable `estimate.md` does not carry the same hash/date; a user reading `estimate.md` cannot know if it is stale unless they also inspect the JSON.",
+      "evidence": "The final answer path points to `estimate.md`; no hash or staleness marker is required in `estimate.md`.",
+      "suggested_direction": "Require `estimate.md` to include the same sha256 hashes and generation date, or a pointer to `estimate.json` with staleness notice."
+    },
+    {
+      "composite_id": "architecture_critic:F-008",
+      "role": "architecture_critic",
+      "id": "F-008",
+      "severity": "low",
+      "category": "unsupported_assumption",
+      "spec_ref": "§6: «...по умолчанию worker-модель из `bsl-flow.yaml`...»",
+      "issue": "Assumes `bsl-flow.yaml` already contains a key for 'worker-модель' and that it is accessible to the skill. If the key does not exist or uses a different name, defaulting fails.",
+      "evidence": "No fallback or validation of worker-model key is specified when section is absent.",
+      "suggested_direction": "Define the expected config keys (`worker_model`, `effort`) or provide an explicit fallback constant if absent; include in architecture fit."
+    },
+    {
+      "composite_id": "executability_critic:F-001",
+      "role": "executability_critic",
+      "id": "F-001",
+      "severity": "blocker",
+      "category": "clarity",
+      "spec_ref": "Требуемое поведение п.2; Критерий приёмки п.2 (S-change без обязательного ревью)",
+      "issue": "Противоречие между условием финальной оценки для S-change без обязательного ревью и формулировкой критерия приёмки. Требуемое поведение гласит, что для S-change без обязательного ревью достаточно завершённого lint для финальной оценки; критерий приёмки говорит, что S-change без обязательного ревью не имеет пройденной финальной валидации и поэтому получает preliminary.",
+      "evidence": "Required behaviour: 'Финальная оценка требует пройденной финальной валидации спеки (`final-validation.json` с пройденным вердиктом; для S-change без обязательного ревью — завершённый lint).' AC: 'GIVEN change не имеет пройденной финальной валидации (например, S без обязательного ревью) WHEN запрашивается оценка THEN `estimate.json` получает `status=preliminary`.'",
+      "suggested_direction": "Уточнить, считается ли завершённый lint для S-change эквивалентом пройденной финальной валидации. Переформулировать критерий приёмки, различая S-change с завершённым lint (final) и без него (preliminary)."
+    },
+    {
+      "composite_id": "executability_critic:F-002",
+      "role": "executability_critic",
+      "id": "F-002",
+      "severity": "high",
+      "category": "missing_requirement",
+      "spec_ref": "Требуемое поведение п.7; Критерий приёмки п.7 (применение секции estimate)",
+      "issue": "Не задана схема секции `estimate:` в `bsl-flow.yaml`. Без точного описания ключей, типов и допустимых значений невозможно реализовать переопределение якорей, фазовых множителей и baseline, а критерий приёмки не может быть проверен.",
+      "evidence": "Требуемое поведение: 'Опциональная секция `estimate:` в `bsl-flow.yaml` переопределяет якоря, фазовые множители и baseline; отсутствие секции не ошибка, используются встроенные значения.' Никакой структуры этой секции не приведено.",
+      "suggested_direction": "Добавить в спецификацию или в обязательную reference скилла описание YAML-схемы `estimate:`: имена ключей (например, anchors.human.S.low), типы, диапазоны значений, правила слияния с встроенными значениями."
+    },
+    {
+      "composite_id": "executability_critic:F-003",
+      "role": "executability_critic",
+      "id": "F-003",
+      "severity": "high",
+      "category": "missing_requirement",
+      "spec_ref": "Требуемое поведение п.9; Критерий приёмки п.6 (спайк)",
+      "issue": "Отсутствует формальный критерий определения, что задача является спайком или исследовательской без проверяемых критериев приёмки. Скилл не сможет выбрать `kind=timebox` вместо `kind=estimate`.",
+      "evidence": "Требуемое поведение: 'Спайки и исследовательские задачи без проверяемых критериев приёмки вилкой не оцениваются: выдаётся рекомендуемый timebox...' Но не указано, по какому признаку скилл распознаёт такую задачу.",
+      "suggested_direction": "Определить явный маркер спайка: например, тег/поле в change, паттерн заголовка, отсутствие разделов критериев приёмки в spec.md или значение классификации. Указать этот маркер в требованиях."
+    },
+    {
+      "composite_id": "executability_critic:F-004",
+      "role": "executability_critic",
+      "id": "F-004",
+      "severity": "medium",
+      "category": "testability",
+      "spec_ref": "Требуемое поведение п.7 (сверка с якорем)",
+      "issue": "Порог «существенного расхождения» с якорем не определён количественно. Невозможно автоматически проверить, когда в `estimate.md` требуется явное объяснение расхождения.",
+      "evidence": "Требуемое поведение: 'Итоговая вилка обязана сверяться с якорем: существенное расхождение объясняется в `estimate.md` явно.' Термин «существенное» не формализован.",
+      "suggested_direction": "Задать числовой порог, например, расхождение итоговой вилки с якорным диапазоном более чем на 30% по любой границе (мин или макс) требует объяснения. Указать порог в требованиях или в references."
+    },
+    {
+      "composite_id": "executability_critic:F-005",
+      "role": "executability_critic",
+      "id": "F-005",
+      "severity": "medium",
+      "category": "clarity",
+      "spec_ref": "Требуемое поведение п.10; Критерий приёмки п.5 (staleness)",
+      "issue": "Не определено, как в `estimate.json` хранятся хеши для отсутствующих опциональных файлов `design.md` и `original-task.md`. Это влияет на корректность проверки staleness.",
+      "evidence": "Требуемое поведение: '`estimate.json` хранит sha256 `spec.md` и, при наличии, `design.md` и `original-task.md`'. Не указано, записывается ли null, отсутствует ключ или используется специальное значение для отсутствующего файла.",
+      "suggested_direction": "Уточнить формат хранения хешей: для отсутствующих входов использовать null (или опускать поле) и при сравнении считать null равным только null, чтобы отсутствие файла не интерпретировалось как изменение."
+    },
+    {
+      "composite_id": "executability_critic:F-006",
+      "role": "executability_critic",
+      "id": "F-006",
+      "severity": "medium",
+      "category": "clarity",
+      "spec_ref": "Требуемое поведение п.2 и п.8 (material unknowns)",
+      "issue": "Термин «material unknowns» не определён. Отсутствуют критерии, по которым неизвестное в спеке признаётся существенным (влияющим на объём/оценку), а не второстепенным. Это напрямую влияет на статус оценки (preliminary/final) и решение об отказе.",
+      "evidence": "Требуемое поведение: 'Незакрытые BLOCK-находки или material unknowns, влияющие на объём работ, делают финальную оценку невозможной...' и 'Material unknowns в спеке понижают уверенность до `low`...' Определение material unknowns отсутствует.",
+      "suggested_direction": "Ввести определение material unknown (например, неизвестное, которое изменяет выбор архитектуры, объём данных, состав объектов или требует дополнительного согласования) или сослаться на классификацию находок ревью."
+    }
+  ],
+  "protected": [
+    {
+      "composite_id": "intent_critic:do-not-change-001",
+      "role": "intent_critic",
+      "item": "Использование baseline middle_3y для человеко-часов"
+    },
+    {
+      "composite_id": "intent_critic:do-not-change-002",
+      "role": "intent_critic",
+      "item": "Определение ИИ-часов как агентного wall-clock без ожидания пользователя"
+    },
+    {
+      "composite_id": "intent_critic:do-not-change-003",
+      "role": "intent_critic",
+      "item": "Создание estimate.md и estimate.json как sidecar-артефактов"
+    },
+    {
+      "composite_id": "intent_critic:do-not-change-004",
+      "role": "intent_critic",
+      "item": "Привязка оценки к хешам spec.md/design.md/original-task.md"
+    },
+    {
+      "composite_id": "intent_critic:do-not-change-005",
+      "role": "intent_critic",
+      "item": "Timebox для спайков вместо вилки"
+    },
+    {
+      "composite_id": "intent_critic:do-not-change-006",
+      "role": "intent_critic",
+      "item": "Не делать оценку обязательным stage/gate контроллером"
+    },
+    {
+      "composite_id": "architecture_critic:do-not-change-001",
+      "role": "architecture_critic",
+      "item": "Scope boundaries: assisted skill, not mandatory stage/gate, no auto drift report in v1"
+    },
+    {
+      "composite_id": "architecture_critic:do-not-change-002",
+      "role": "architecture_critic",
+      "item": "Dual estimate (human/AI) with conservative sum and required decomposition by blocks"
+    },
+    {
+      "composite_id": "architecture_critic:do-not-change-003",
+      "role": "architecture_critic",
+      "item": "Hash-based staleness and machine-readable JSON sidecar"
+    },
+    {
+      "composite_id": "architecture_critic:do-not-change-004",
+      "role": "architecture_critic",
+      "item": "Timebox instead of range for spikes without verifiable acceptance criteria"
+    },
+    {
+      "composite_id": "architecture_critic:do-not-change-005",
+      "role": "architecture_critic",
+      "item": "No 1C runtime invocation and no external service calls beyond authorized session model"
+    },
+    {
+      "composite_id": "executability_critic:do-not-change-001",
+      "role": "executability_critic",
+      "item": "Отсутствие денежной оценки (только часы)"
+    },
+    {
+      "composite_id": "executability_critic:do-not-change-002",
+      "role": "executability_critic",
+      "item": "Привязка оценки к хешам входных артефактов"
+    },
+    {
+      "composite_id": "executability_critic:do-not-change-003",
+      "role": "executability_critic",
+      "item": "Запрет оценки одним числом без декомпозиции"
+    },
+    {
+      "composite_id": "executability_critic:do-not-change-004",
+      "role": "executability_critic",
+      "item": "Шаг округления: 0.5 ч для human, 0.25 ч для ai"
+    },
+    {
+      "composite_id": "executability_critic:do-not-change-005",
+      "role": "executability_critic",
+      "item": "Вилы human/ai отдельно"
+    }
+  ],
+  "questions": [],
+  "chair": {
+    "verdict": "REVISE",
+    "decisions": [
+      {
+        "composite_id": "intent_critic:F-001",
+        "decision": "accepted",
+        "reason": "Timebox should be exempt from decomposition; add explicit exemption for kind=timebox.",
+        "evidence": "Finding: contradiction between mandatory decomposition and single timebox.",
+        "resolution": "Clarified in spec: for kind=timebox no blocks, totals, exclusions; only timebox_hours.",
+        "resolution_refs": [
+          "Требуемое поведение / 4",
+          "Требуемое поведение / 9",
+          "Требуемое поведение / 11"
+        ]
+      },
+      {
+        "composite_id": "intent_critic:F-002",
+        "decision": "accepted",
+        "reason": "Preliminary estimates not part of original agreed scope; remove preliminary and require final validation.",
+        "evidence": "Original task says after finalization; finding notes preliminary extension.",
+        "resolution": "Removed preliminary status and mode; final estimate only after final validation; otherwise refusal.",
+        "resolution_refs": [
+          "Требуемое поведение / 2",
+          "Критерии приёмки"
+        ]
+      },
+      {
+        "composite_id": "intent_critic:F-003",
+        "decision": "accepted",
+        "reason": "Configurable anchors not requested; remove to reduce scope.",
+        "evidence": "Original/dop not mention configuration.",
+        "resolution": "Removed optional estimate section from bsl-flow.yaml; only built-in anchors.",
+        "resolution_refs": [
+          "Требуемое поведение / 7"
+        ]
+      },
+      {
+        "composite_id": "intent_critic:F-004",
+        "decision": "accepted",
+        "reason": "Material unknown undefined; add definition and examples.",
+        "evidence": "Finding: term used without definition.",
+        "resolution": "Defined material unknown and examples in rule 2.",
+        "resolution_refs": [
+          "Требуемое поведение / 2"
+        ]
+      },
+      {
+        "composite_id": "intent_critic:F-005",
+        "decision": "accepted",
+        "reason": "Keep formal schema but note that it is required for machine-readable deterministic validation.",
+        "evidence": "Finding: overengineering; but machine-readable JSON with hashes requires schema.",
+        "resolution": "Retained closed schema and validation, but simplified unit tests; formal schema remains.",
+        "resolution_refs": [
+          "Требуемое поведение / 11"
+        ]
+      },
+      {
+        "composite_id": "architecture_critic:F-001",
+        "decision": "accepted",
+        "reason": "Removed config section avoids loader/validator issues.",
+        "evidence": "Finding: config loader unknown.",
+        "resolution": "No new config section; built-in anchors only.",
+        "resolution_refs": [
+          "Требуемое поведение / 7"
+        ]
+      },
+      {
+        "composite_id": "architecture_critic:F-002",
+        "decision": "accepted",
+        "reason": "Need explicit source for BLOCK findings.",
+        "evidence": "Finding: BLOCK source undefined.",
+        "resolution": "Added review-findings.json as source for BLOCK status.",
+        "resolution_refs": [
+          "Требуемое поведение / 2"
+        ]
+      },
+      {
+        "composite_id": "architecture_critic:F-003",
+        "decision": "accepted",
+        "reason": "Lint path/pass criteria undefined.",
+        "evidence": "Finding: ambiguous completed lint.",
+        "resolution": "Defined lint-results.json with passed:true as final validation for S-change without mandatory review.",
+        "resolution_refs": [
+          "Требуемое поведение / 2"
+        ]
+      },
+      {
+        "composite_id": "architecture_critic:F-004",
+        "decision": "accepted",
+        "reason": "Actuals structure missing.",
+        "evidence": "Finding: actuals only optional without fields.",
+        "resolution": "Added minimal actuals fields in JSON schema description.",
+        "resolution_refs": [
+          "Требуемое поведение / 11"
+        ]
+      },
+      {
+        "composite_id": "architecture_critic:F-005",
+        "decision": "accepted",
+        "reason": "Need threshold for substantial divergence.",
+        "evidence": "Finding: substantial divergence undefined.",
+        "resolution": "Defined 30% threshold per boundary.",
+        "resolution_refs": [
+          "Требуемое поведение / 7"
+        ]
+      },
+      {
+        "composite_id": "architecture_critic:F-006",
+        "decision": "accepted",
+        "reason": "Spike detection rule missing.",
+        "evidence": "Finding: no marker for spike.",
+        "resolution": "Added detection criteria: no acceptance criteria section, task_type=spike, or explicit user request.",
+        "resolution_refs": [
+          "Требуемое поведение / 9"
+        ]
+      },
+      {
+        "composite_id": "architecture_critic:F-007",
+        "decision": "accepted",
+        "reason": "estimate.md lacks staleness info.",
+        "evidence": "Finding: only JSON has hashes.",
+        "resolution": "Require estimate.md to include hashes, date, stale notice.",
+        "resolution_refs": [
+          "Требуемое поведение / 10"
+        ]
+      },
+      {
+        "composite_id": "architecture_critic:F-008",
+        "decision": "accepted",
+        "reason": "Worker model key fallback undefined.",
+        "evidence": "Finding: assumes key exists.",
+        "resolution": "Defined fixed default model and effort constants in references, not config.",
+        "resolution_refs": [
+          "Требуемое поведение / 6"
+        ]
+      },
+      {
+        "composite_id": "executability_critic:F-001",
+        "decision": "accepted",
+        "reason": "Contradiction between required behavior and AC for S-change.",
+        "evidence": "Finding: AC says S-change without final validation gets preliminary.",
+        "resolution": "Rewrote AC: completed lint counts as final validation; no preliminary.",
+        "resolution_refs": [
+          "Требуемое поведение / 2",
+          "Критерии приёмки"
+        ]
+      },
+      {
+        "composite_id": "executability_critic:F-002",
+        "decision": "accepted",
+        "reason": "YAML schema missing but now section removed.",
+        "evidence": "Finding: no schema for estimate section.",
+        "resolution": "Removed section; no YAML schema needed.",
+        "resolution_refs": [
+          "Требуемое поведение / 7"
+        ]
+      },
+      {
+        "composite_id": "executability_critic:F-003",
+        "decision": "accepted",
+        "reason": "Spike detection marker missing.",
+        "evidence": "Finding: cannot select kind=timebox.",
+        "resolution": "Added explicit detection criteria.",
+        "resolution_refs": [
+          "Требуемое поведение / 9"
+        ]
+      },
+      {
+        "composite_id": "executability_critic:F-004",
+        "decision": "accepted",
+        "reason": "Substantial divergence threshold missing.",
+        "evidence": "Finding: cannot test requirement.",
+        "resolution": "Defined 30% threshold.",
+        "resolution_refs": [
+          "Требуемое поведение / 7"
+        ]
+      },
+      {
+        "composite_id": "executability_critic:F-005",
+        "decision": "accepted",
+        "reason": "Hash storage for absent optional files undefined.",
+        "evidence": "Finding: no null convention.",
+        "resolution": "Defined null for absent files and null-only equality.",
+        "resolution_refs": [
+          "Требуемое поведение / 10"
+        ]
+      },
+      {
+        "composite_id": "executability_critic:F-006",
+        "decision": "accepted",
+        "reason": "Material unknown definition missing.",
+        "evidence": "Finding: term undefined.",
+        "resolution": "Defined material unknown and examples.",
+        "resolution_refs": [
+          "Требуемое поведение / 2"
+        ]
+      }
+    ],
+    "protected_decisions": [
+      {
+        "composite_id": "intent_critic:do-not-change-001",
+        "decision": "preserved",
+        "reason": "Baseline is agreed core requirement.",
+        "evidence": "Protected item: baseline middle_3y."
+      },
+      {
+        "composite_id": "intent_critic:do-not-change-002",
+        "decision": "preserved",
+        "reason": "Definition of AI hours as agent wall-clock is core.",
+        "evidence": "Protected item: AI hours definition."
+      },
+      {
+        "composite_id": "intent_critic:do-not-change-003",
+        "decision": "preserved",
+        "reason": "Sidecar artifacts are required.",
+        "evidence": "Protected item: estimate.md/estimate.json."
+      },
+      {
+        "composite_id": "intent_critic:do-not-change-004",
+        "decision": "preserved",
+        "reason": "Hash-based staleness is essential.",
+        "evidence": "Protected item: hash binding."
+      },
+      {
+        "composite_id": "intent_critic:do-not-change-005",
+        "decision": "preserved",
+        "reason": "Timebox for spikes agreed.",
+        "evidence": "Protected item: timebox."
+      },
+      {
+        "composite_id": "intent_critic:do-not-change-006",
+        "decision": "preserved",
+        "reason": "Not mandatory stage/gate is agreed.",
+        "evidence": "Protected item: no mandatory stage."
+      },
+      {
+        "composite_id": "architecture_critic:do-not-change-001",
+        "decision": "preserved",
+        "reason": "Scope boundaries are core.",
+        "evidence": "Protected item: assisted skill, no drift report."
+      },
+      {
+        "composite_id": "architecture_critic:do-not-change-002",
+        "decision": "preserved",
+        "reason": "Dual estimate and decomposition required.",
+        "evidence": "Protected item: dual estimate, conservative sum."
+      },
+      {
+        "composite_id": "architecture_critic:do-not-change-003",
+        "decision": "preserved",
+        "reason": "Hash staleness and JSON sidecar are required.",
+        "evidence": "Protected item: hash-based staleness."
+      },
+      {
+        "composite_id": "architecture_critic:do-not-change-004",
+        "decision": "preserved",
+        "reason": "Timebox for spikes required.",
+        "evidence": "Protected item: timebox."
+      },
+      {
+        "composite_id": "architecture_critic:do-not-change-005",
+        "decision": "preserved",
+        "reason": "No 1C runtime/external calls is required.",
+        "evidence": "Protected item: no 1C runtime/external services."
+      },
+      {
+        "composite_id": "executability_critic:do-not-change-001",
+        "decision": "preserved",
+        "reason": "Money excluded is core.",
+        "evidence": "Protected item: only hours."
+      },
+      {
+        "composite_id": "executability_critic:do-not-change-002",
+        "decision": "preserved",
+        "reason": "Hash binding is required.",
+        "evidence": "Protected item: hash binding."
+      },
+      {
+        "composite_id": "executability_critic:do-not-change-003",
+        "decision": "preserved",
+        "reason": "No single number without decomposition.",
+        "evidence": "Protected item: decomposition required."
+      },
+      {
+        "composite_id": "executability_critic:do-not-change-004",
+        "decision": "preserved",
+        "reason": "Rounding steps are required.",
+        "evidence": "Protected item: 0.5/0.25 steps."
+      },
+      {
+        "composite_id": "executability_critic:do-not-change-005",
+        "decision": "preserved",
+        "reason": "Separate human/ai ranges required.",
+        "evidence": "Protected item: separate ranges."
+      }
+    ],
+    "requirement_refs": [
+      {
+        "id": "REQ-001",
+        "final_refs": [
+          "Требуемое поведение / 1"
+        ]
+      },
+      {
+        "id": "REQ-002",
+        "final_refs": [
+          "Требуемое поведение / 2"
+        ]
+      },
+      {
+        "id": "REQ-003",
+        "final_refs": [
+          "Требуемое поведение / 3"
+        ]
+      },
+      {
+        "id": "REQ-004",
+        "final_refs": [
+          "Требуемое поведение / 4"
+        ]
+      },
+      {
+        "id": "REQ-005",
+        "final_refs": [
+          "Требуемое поведение / 5"
+        ]
+      },
+      {
+        "id": "REQ-006",
+        "final_refs": [
+          "Требуемое поведение / 6"
+        ]
+      },
+      {
+        "id": "REQ-007",
+        "final_refs": [
+          "Требуемое поведение / 7"
+        ]
+      },
+      {
+        "id": "REQ-008",
+        "final_refs": [
+          "Требуемое поведение / 8"
+        ]
+      },
+      {
+        "id": "REQ-009",
+        "final_refs": [
+          "Требуемое поведение / 9"
+        ]
+      },
+      {
+        "id": "REQ-010",
+        "final_refs": [
+          "Требуемое поведение / 10"
+        ]
+      },
+      {
+        "id": "REQ-011",
+        "final_refs": [
+          "Требуемое поведение / 11"
+        ]
+      },
+      {
+        "id": "REQ-012",
+        "final_refs": [
+          "Требуемое поведение / 12"
+        ]
+      }
+    ],
+    "final_spec_text": "# task-estimation-skill\n\n## Классификация\n\n- Сложность: M\n- Риск: medium\n\n## Цель\n\nДать пользователю после финализации спеки изменения 1C консультативную оценку трудоёмкости в двух выражениях — человеко-часы полного цикла для мидл-разработчика с 3 годами опыта и агентные часы ИИ-исполнителя — вилкой минимум/максимум, с письменным артефактом рядом со спекой и машиночитаемым sidecar для последующей сверки план/факт. Оценка не является stage, gate или authorization контроллера.\n\n## Текущее поведение\n\n- `1c-spec` и `1c-spec-review` закрывают спеку (`final-validation.json`), после чего процесс переходит к реализации; трудоёмкость нигде не фиксируется.\n- Классификация S/M/L и риск присутствуют в спеке, но не переводятся в часы; флаги запроса (`data_migration`, `form_flow`, `ambiguous_business_rule` и другие) не влияют ни на какую оценку.\n- Controller journals фиксируют фактические попытки и wall time задач, но ни с каким планом не сопоставляются.\n- Оценки, озвученные в чате, не сохраняются и теряются.\n\n## Требуемое поведение\n\n1. Новый assisted-скилл `1c-estimate` добавляется в семейство `1c-*` (исходник `global/skills/1c-estimate/`, установка вместе с остальными скиллами BSL Flow). Вход — OpenSpec change со спецификацией schema `bsl-flow`; managed-контракт `1c-task` не меняется: скилл читает и пишет только артефакты change и не вызывает контроллер.\n2. Условие применимости: в change существует `spec.md`. Финальная оценка требует пройденной финальной валидации спеки: `final-validation.json` с пройденным вердиктом. Для S-change без обязательного ревью (ревью не требуется согласно классификации change) финальной валидацией считается завершённый lint: `lint-results.json` с `passed: true` в директории change. При отсутствии финальной валидации скилл отказывает с точной причиной; предварительные оценки не выдаются. Незакрытые BLOCK-находки (из `review-findings.json` в директории change) или material unknowns, влияющие на объём работ, делают финальную оценку невозможной: выдаётся отказ с точной причиной. Material unknown — неизвестное в спеке, которое влияет на объём, архитектуру, состав объектов метаданных или требует дополнительного согласования; примеры: неизвестный объём миграции данных, неопределённая интеграция, отсутствие требований к правам.\n3. Артефакты оценки — `estimate.md` (human-readable отчёт) и `estimate.json` (sidecar) в директории change; это evidence-артефакты, а не schema-артефакты OpenSpec, и коммитятся вместе с change, как review sidecars. Финальный ответ скилла в чате обязан содержать обе итоговые вилки, уровень уверенности, главные драйверы вилки и путь к `estimate.md`.\n4. Метод — декомпозиция: для `kind=estimate` спека разбивается на блоки работ по требованиям и критериям приёмки (объекты метаданных, модули/код, формы, права, интеграции/БСП, миграции данных, тесты, инструкция). Каждый блок получает собственные вилки human/ai-часов и краткое обоснование. Итог считается консервативной суммой: сумма минимумов и сумма максимумов по блокам. Оценка одним числом без декомпозиции запрещена; блок, чей объём нельзя оценить из спеки, переносится в `exclusions` с причиной. Для `kind=timebox` декомпозиция не требуется: блоки, суммы, exclusions и вилки не заполняются; записывается единственное значение `timebox_hours`.\n5. Человеко-часы считаются по полному циклу для единственного baseline v1 `middle_3y`: анализ по спеке, реализация, самотестирование, исправления по код-ревью, краткая пользовательская инструкция. Состав фаз и их множители фиксируются в `estimate.md`.\n6. ИИ-часы считаются как агентное wall-clock время: генерация, верификация, ремонты, ревью; ожидание ответов пользователя исключается. `estimate.json` фиксирует предполагаемые модель и effort: по умолчанию модель `bsl-flow-worker-default` и effort `medium`, заданные в references скилла, и вилку ожидаемого числа попыток.\n7. Якоря: отправной точкой вилок являются встроенные якорные диапазоны S/M/L × low/medium/high риск, отдельно для human и ai. Итоговая вилка обязана сверяться с якорем: существенное расхождение объясняется в `estimate.md` явно. Существенное расхождение — отклонение любой границы итоговой вилки от соответствующей границы якорного диапазона более чем на 30%.\n8. Допущения и уверенность: `estimate.md` обязан содержать перечень допущений, на которые опирается вилка, явные драйверы расширения вилки (включая применимые флаги запроса: `permissions`, `data_migration`, `data_deletion`, `posting`, `data_exchange`, `form_flow`, `external_artifact`, `ambiguous_business_rule`) и уровень уверенности `high|medium|low`. Material unknowns в спеке понижают уверенность до `low` и расширяют вилку либо приводят к отказу по правилу 2.\n9. Спайки и исследовательские задачи без проверяемых критериев приёмки вилкой не оцениваются: выдаётся рекомендуемый timebox с `kind=timebox` и привязкой к хешам. Задача считается спайком, если в `spec.md` отсутствует раздел критериев приёмки, либо в change-метаданных указан `task_type=spike`, либо пользователь явно запросил timebox.\n10. Свежесть: `estimate.json` хранит sha256 `spec.md` и, при наличии, `design.md` и `original-task.md`; для отсутствующих опциональных файлов соответствующее поле равно `null`, и при проверке staleness `null` равен только `null` (отсутствие файла не считается изменением). Также хранятся дата и время генерации. Изменение любого хеша (включая появление файла вместо `null`) делает оценку stale; скилл обязан перегенерировать её, а обнаруженная stale-оценка не может подаваться пользователю как актуальная. `estimate.md` обязан включать те же хеши, дату генерации и пометку об устаревании при несовпадении с текущими файлами.\n11. Формат `estimate.json` — versioned closed schema (`schema_version: 1`): `change`, `created`, `kind=estimate|timebox`, `status=final`, хеши входов, `baseline`, `ai_basis` (модель, effort, вилка попыток), `blocks[]` (для `kind=estimate`), `totals` human/ai (для `kind=estimate`), `confidence`, `assumptions`, `fork_drivers`, `exclusions`, `timebox_hours` (для `kind=timebox`), опциональный `actuals`. `actuals` имеет минимальные зарезервированные поля: `human_hours`, `ai_hours`, `attempts`, `source`, `recorded_at`; в v1 они не заполняются автоматически. Точная JSON Schema публикуется в `references` скилла и валидируется детерминированной проверкой при генерации. В человеко-часах шаг округления 0.5 ч, в ИИ-часах 0.25 ч; псевдоточная дробность запрещена.\n12. Сверка план/факт: `actuals` заполняется позже — агентные факт-часы и число попыток из controller journals (`.bsl-flow/tasks/<uuid>`), человеко-факт вручную пользователем. В v1 автосбор факт-часов и сводный отчёт дрейфа по проекту не входят: формат записи обязан их допускать, но не строит.\n\n## Контекст 1С\n\n- Конфигурация/подсистема: BSL Flow skills layer; метаданные 1С не изменяются. Предмет оценки — задачи разработки 1C, описанные спеками schema `bsl-flow`.\n- Затрагиваемые механизмы: `global/skills/1c-estimate` (SKILL.md и references, включая JSON Schema и таблицу якорей), артефакты `estimate.md`/`estimate.json` в `openspec/changes/<change>/`.\n- Evidence path: `spec.md` (+ `design.md`, `original-task.md`) → классификация S/M/L × риск → якорный диапазон → декомпозиция по требованиям и критериям (для estimate) → таблица блоков с вилками и драйверами → totals + confidence → `estimate.md`/`estimate.json` + итог в чате. 1С runtime не запускается; controller journals читаются только позже, при заполнении `actuals`.\n- Якорные диапазоны и фазовые множители калибруются под специфику 1C (формы, БСП, права, миграции) и не претендуют на универсальность за пределами 1C-разработки.\n\n## Не делать\n\n- Не делать оценку обязательным stage/gate контроллера — отдельное будущее изменение.\n- Не собирать факт-часы автоматически и не строить отчёт дрейфа/дашборд в v1.\n- Не оценивать задачи без спеки «по описанию из чата».\n- Не выдавать вилку для спайков — только timebox.\n- Не вводить в v1 другие baseline-роли (junior/senior) и денежную оценку — только часы.\n- Не выдавать итог без декомпозиции (для `kind=estimate`) и без сверки с якорем.\n- Не отправлять спеку или оценку во внешние сервисы, кроме уже авторизованной модели сессии; не публиковать оценку отдельно от change.\n- Не менять lifecycle, статусы и stage задач; не создавать `tasks.md`.\n- Не считать ИИ-часы полным wall-clock, включающим ожидание пользователя.\n\n## Критерии приёмки\n\n- GIVEN change содержит `spec.md` и пройденный `final-validation.json` (или для S-change без обязательного ревью — `lint-results.json` с `passed: true`)\n  WHEN выполняется `1c-estimate` для этого change\n  THEN в директории change создаются `estimate.md` и `estimate.json` со `status=final`, а ответ в чате содержит обе итоговые вилки, уверенность, драйверы вилки и путь к `estimate.md`.\n- GIVEN change не имеет пройденной финальной валидации\n  WHEN запрашивается оценка\n  THEN скилл отказывает с точной причиной; предварительная оценка не выдаётся.\n- GIVEN спека содержит material unknowns либо незакрытые BLOCK-находки\n  WHEN запрашивается финальная оценка\n  THEN финальная вилка не выдаётся: скилл отказывает с точной причиной, перечисляя material unknowns и незакрытые BLOCK-находки.\n- GIVEN оценка вида `kind=estimate` построена\n  WHEN читается `estimate.md`\n  THEN каждый блок работ имеет собственную вилку human/ai-часов с обоснованием, итог равен консервативной сумме блоков, а оценка одним числом без декомпозиции отсутствует.\n- GIVEN `estimate.json` записан\n  WHEN любой из хешированных входов (`spec.md`, `design.md`, `original-task.md`) изменяется или появляется/исчезает\n  THEN оценка определяется как stale и не показывается пользователю как актуальная до перегенерации; `estimate.md` также содержит признак устаревания.\n- GIVEN задача является спайком без проверяемых критериев приёмки\n  WHEN запрашивается оценка\n  THEN вилка не выдаётся; выдаётся рекомендуемый timebox с `kind=timebox` и `timebox_hours`, с той же привязкой к хешам.\n- GIVEN оценка записана и задача завершена\n  WHEN заполняется блок `actuals`\n  THEN агентный факт (часы, число попыток) берётся из controller journals, человеко-факт вводится вручную, а исходные вилки плана не пересчитываются.\n- GIVEN сгенерирован `estimate.json`\n  WHEN выполняется детерминированная валидация по JSON Schema\n  THEN документ проходит closed schema `schema_version: 1`, в человеко-часах выдержан шаг 0.5 ч, в ИИ-часах 0.25 ч; для `kind=timebox` отсутствуют `blocks[]` и `totals`, для `kind=estimate` присутствуют `blocks[]` и `totals`.\n\n## Требуемые проверки\n\n- [x] Static — JSON Schema `estimate-schema.json` прогоняется на эталонных валидных и негативных документах; SKILL.md и references скилла не содержат плейсхолдеров и описывают полный набор полей.\n- [x] Unit — вычисление staleness по хешам входов (включая null-семантику), контроль шага округления вилок, проверка отсутствия декомпозиции для timebox.\n- [x] Integration — полный прогон скилла на реальных изменениях `openspec/changes` (с `final-validation.json` и с `lint-results.json` для S-change без обязательного ревью), проверка артефактов и перехода в stale при изменении хеша спеки.\n- [ ] UI — не требуется: собственного интерфейса нет.\n- [ ] 1С runtime — не требуется: платформа 1С не запускается.\n\n## Неопределённости / допущения\n\n- Встроенные якорные диапазоны S/M/L × риск — стартовые величины из 1С-практики; точные числа фиксируются в references скилла и калибруются только накопленными `actuals`, авто-калибровка в v1 не входит.\n- ИИ-часы сравнимы только вместе с зафиксированными моделью и усилием из `ai_basis`; автоматическое сопоставление разных моделей в v1 не выполняется.\n- Человеко-факт зависит от дисциплины ручного ввода пользователем; без него сверка план/факт остаётся неполной по человеческой части.\n- Managed-stage интеграция (обязательная оценка как этап контроллера) отложена в отдельную спецификацию; формат `estimate.json` допускает её без breaking change.\n- Первые версии якорных диапазонов намеренно консервативны: уточнение возможно только после накопления завершённых задач с заполненными `actuals`.\n",
+    "final_design_text": null
+  },
+  "reconciliation": {
+    "review_sha256": "82bdcc5c59add264bbe6f7f230b7b0045e85b3a13a2794be3c900596be4565db",
+    "draft_spec_sha256": "2c3040bd244b3315b5fe8160bf7f201c975d8a11c535d7fc7f0ad7be31784eaa",
+    "final_spec_sha256": "d49893ecfe51d240cf066a3960ac620328cbb2bfb9e94d72505181e05f31b91c",
+    "draft_design_sha256": null,
+    "final_design_sha256": null
+  },
+  "gate": {
+    "structural_only": true,
+    "passed": true
+  }
+}

@@ -51,11 +51,17 @@ function Test-BFCodexCapability {
 function Invoke-BFCodexWorker {
     param($State, [string]$Stage, [string]$Prompt, [string]$Directory, [string]$CodexPath, [scriptblock]$Cancelled)
     Assert-BFWorkerConfiguration $State.worker_path
-    $model=if ($Stage -eq 'code_review') {$State.request.models.reviewer} else {$State.request.models.worker}
-    $effort=if ($Stage -eq 'code_review') {$State.request.models.reviewer_effort} else {$State.request.models.worker_effort}
+    $model=if ($Stage -in @('code_review','spec_review')) {$State.request.models.reviewer} else {$State.request.models.worker}
+    $effort=if ($Stage -in @('code_review','spec_review')) {$State.request.models.reviewer_effort} else {$State.request.models.worker_effort}
     $schema=Join-Path (Split-Path $PSScriptRoot -Parent) 'schemas/worker-result.schema.json'
     $resultPath=Join-Path $Directory 'model-result.json'
-    $args=@('exec','--ignore-user-config','--ignore-rules','--ephemeral','--skip-git-repo-check','--model',$model,'-c',('model_reasoning_effort="'+$effort+'"'),'-c','approval_policy="never"','-c','default_permissions="bsl_flow"','-c',(Get-BFPermissionProfile $State.worker_path ($Stage -eq 'implement')),'-c','windows.sandbox="unelevated"')
+    # Ordinary managed workers use an ephemeral rollout and keep identity fields
+    # nullable. The current-agent council fallback sets the strict request flag;
+    # that route must retain a host rollout so its observed identity is durable.
+    $requireObserved=$false
+    try { $requireObserved=[bool](Get-BFValue $State.request 'require_observed_identity' $false) } catch { $requireObserved=$false }
+    $ephemeral=if($requireObserved){@()}else{@('--ephemeral')}
+    $args=@('exec','--ignore-user-config','--ignore-rules')+$ephemeral+@('--skip-git-repo-check','--model',$model,'-c',('model_reasoning_effort="'+$effort+'"'),'-c','approval_policy="never"','-c','default_permissions="bsl_flow"','-c',(Get-BFPermissionProfile $State.worker_path ($Stage -eq 'implement')),'-c','windows.sandbox="unelevated"')
     foreach ($feature in @('plugins','multi_agent','memories','shell_snapshot','hooks','browser_use','computer_use','in_app_browser','skill_mcp_dependency_install')) { $args += @('--disable',$feature) }
     $args += @('--json','--output-schema',$schema,'--output-last-message',$resultPath,'--cd',$State.worker_path,'-')
     $exitPath=Join-Path $Directory 'exit.json'
@@ -82,7 +88,23 @@ function Invoke-BFCodexWorker {
     Assert-BFFields $result @('schema_version','status','summary','payload_json') @() 'worker_result'
     if ($result.schema_version -ne 1 -or $result.status -notin @('completed','needs_input','blocked','failed')) { throw 'BF_INVALID: unsupported worker result.' }
     Assert-BFText $result.summary 'worker summary'
-    $metadata=[ordered]@{session_id=$session;requested_model=$model;requested_effort=$effort;observed_model=$null;observed_effort=$null;usage=$usage;usage_source=$process.stdout}
+    # Controller-observed identity comes from the rollout session file the host
+    # itself persisted for this exact session id; the JSONL stream carries no
+    # model fields in supported CLI versions.
+    $requireObserved = $false
+    try { $requireObserved = [bool](Get-BFValue $State.request 'require_observed_identity' $false) } catch { $requireObserved = $false }
+    # Ordinary ephemeral workers legitimately have no rollout file. Council
+    # fallback callers set require_observed_identity on the cloned request and
+    # therefore fail closed when the host cannot prove its resolved identity.
+    $observed=if($requireObserved){Get-BFObservedModelEffort -SessionId $session}else{[ordered]@{observed_model=$null;observed_effort=$null;rollout_path=$null;session_id=$session;missing=$true}}
+    if ($requireObserved -and [bool]$observed.missing) { throw 'BF_BLOCKED: required host identity is missing from the Codex rollout.' }
+    $metadata=[ordered]@{session_id=$session;requested_model=$model;requested_effort=$effort;observed_model=$observed.observed_model;observed_effort=$observed.observed_effort;usage=$usage;usage_source=$process.stdout}
+    if ($requireObserved) {
+        # Exact session/turn provenance is retained only for the strict council
+        # fallback receipt; ordinary cached worker receipts keep their v1 shape.
+        $metadata.rollout_path=$observed.rollout_path
+        $metadata.turn_id=$observed.turn_id
+    }
     if(Test-Path -LiteralPath $hostPath -PathType Leaf){if((Get-BFHash (Read-BFJson $hostPath)) -ne (Get-BFHash $metadata)){throw 'BF_BLOCKED: cached host evidence no longer matches raw events.'}}
     else{Write-BFJson -Path $hostPath -Value $metadata}
     return $result

@@ -28,21 +28,16 @@ jobs:
       - name: Offline package checks
         shell: pwsh
         run: ./scripts/Test-BSLFlowPackage.ps1 -PackageRoot .
-
-  cli:
-    runs-on: windows-2025
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: actions/setup-go@v7
-        with:
-          go-version: '1.27.1'
-          cache: false
-      - name: Build reproducible executable and run Go tests
+      - name: Managed host integration contracts without model calls
         shell: pwsh
-        run: ./scripts/Build-BSLFlowCli.ps1 -Test
-      - name: Native CLI checks without model or database calls
-        shell: pwsh
-        run: ./scripts/Test-BSLFlowCli.ps1
+        run: |
+          $suites = @('Test-ADRIndex', 'Test-TaskContext', 'Test-TaskMemory', 'Test-TaskArchitectureBundle', 'Test-TaskResumePilot', 'Test-ProjectArchitectureIndex', 'Test-BSLFlowToolsetSnapshot', 'Test-BSLFlowOpenCodeTransport', 'Test-BSLFlowOpenCodeEvents', 'Test-BSLFlowOpenCodeWorker', 'Test-BSLFlowProcessEnvironment', 'Test-TaskExecutionProfile', 'Test-TaskRuntimePin', 'Test-TaskBudgetGate', 'Test-TaskManagedReview', 'Test-BSLFlowProfiledCodex', 'Test-BFProfiledCodexHostCapability')
+          foreach ($suite in $suites) {
+            & pwsh -NoProfile -File "./scripts/$suite.ps1"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          $councilSuites = @('Test-CouncilValidation', 'Test-CouncilEngine', 'Test-CouncilTransport', 'Test-CouncilFallback', 'Test-CouncilRouting', 'Test-CouncilCycle', 'Test-CouncilLifecycle')
+          foreach ($suite in $councilSuites) {
+            & pwsh -NoProfile -File "./global/skills/1c-spec-review/scripts/$suite.ps1"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }

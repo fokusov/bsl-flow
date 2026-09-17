@@ -28,8 +28,8 @@
 Замени placeholders фактическими значениями. Другой поддержанный профиль — абсолютный путь к существующему локальному bare repository с `auth: "none"`. Первый сетевой профиль ограничен точным `https://github.com/OWNER/REPOSITORY.git`, без URL credentials, query, redirects и произвольных transport/helper-команд. Авторизация операции и наличие GitHub credentials — разные условия: профиль использует существующую машинную установку GitHub CLI; controller не устанавливает её и не выполняет интерактивный login.
 
 ```powershell
-bsl-flow task publish --project C:\DEV\Example --task <task-uuid> --input C:\Tasks\publication.json
-bsl-flow task publish-resume --project C:\DEV\Example --task <task-uuid> --input C:\Tasks\publication.json
+& "$env:USERPROFILE\.agents\skills\1c-task\scripts\Invoke-BSLFlowTask.ps1" -Action Publish -ProjectPath C:\DEV\Example -TaskId <task-uuid> -InputFile C:\Tasks\publication.json
+& "$env:USERPROFILE\.agents\skills\1c-task\scripts\Invoke-BSLFlowTask.ps1" -Action PublishResume -ProjectPath C:\DEV\Example -TaskId <task-uuid> -InputFile C:\Tasks\publication.json
 ```
 
 Второе действие выполняет только контрольное чтение сохранённой публикации. Изменение JSON при том же UUID отклоняется. Другая приёмка, remote, ветка или сообщение требуют нового допуска и UUID; это не снимает уже существующую блокировку неизвестной операции.
@@ -58,4 +58,4 @@ bsl-flow task publish-resume --project C:\DEV\Example --task <task-uuid> --input
 
 `published` подтверждает появление точного commit в указанной ветке. Это не результат CI, одобрение PR или установка в 1С. Production rollout, резервное копирование, обновление базы и rollback требуют отдельного контракта конкретной среды. Отправка в Git не снимает временное ограничение Unica runtime jobs.
 
-Состояние реализации и фактически выполненные проверки этого development increment указаны в [плане завершения](SDLC_COMPLETION_RU.md) и [отчёте проверки](../VERIFICATION.md).
+Состояние реализации и принятые решения этого increment отражены в [CHANGELOG.md](../CHANGELOG.md).

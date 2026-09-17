@@ -4,18 +4,17 @@
 
 ## Единый CLI в версии 0.8
 
-Готовый `bsl-flow.exe` содержит embedded инструкции и controller. Go требуется только для сборки; для работы нужны PowerShell 7 из стандартной машинной установки `C:\Program Files\PowerShell\7\pwsh.exe`, Git и выбранный provider. Windows PowerShell 5.1 fallback не поддерживается. Пользовательские команды:
+Пользовательский вход — PowerShell-контроллер `Invoke-BSLFlowTask.ps1`. Для работы нужны PowerShell 7 из стандартной машинной установки `C:\Program Files\PowerShell\7\pwsh.exe`, Git и выбранный provider. Windows PowerShell 5.1 fallback не поддерживается. Пользовательские команды:
 
 ```powershell
-bsl-flow version
-bsl-flow task start --project C:\DEV\Example --input C:\Tasks\request.json
-bsl-flow task run --project C:\DEV\Example --task <uuid>
-bsl-flow task status --project C:\DEV\Example --task <uuid>
-bsl-flow task deliver --project C:\DEV\Example --task <uuid>
-bsl-flow runner run --project C:\DEV\Example --input C:\Tasks\queue.json
+& "$env:USERPROFILE\.agents\skills\1c-task\scripts\Invoke-BSLFlowTask.ps1" -Action Start -ProjectPath C:\DEV\Example -InputFile C:\Tasks\request.json
+& "$env:USERPROFILE\.agents\skills\1c-task\scripts\Invoke-BSLFlowTask.ps1" -Action Run -ProjectPath C:\DEV\Example -TaskId <uuid>
+& "$env:USERPROFILE\.agents\skills\1c-task\scripts\Invoke-BSLFlowTask.ps1" -Action Status -ProjectPath C:\DEV\Example -TaskId <uuid>
+& "$env:USERPROFILE\.agents\skills\1c-task\scripts\Invoke-BSLFlowTask.ps1" -Action Deliver -ProjectPath C:\DEV\Example -TaskId <uuid>
+& "$env:USERPROFILE\.agents\skills\1c-task\scripts\Invoke-BSLFlowTask.ps1" -Action Serve -ProjectPath C:\DEV\Example -InputFile C:\Tasks\queue.json
 ```
 
-`deliver` создаёт локальную копию принятых исходников, manifest удалений, receipt и краткий отчёт. Для CFE/EPF по-прежнему нужны отдельно подтверждённые native gates. `runner run` обрабатывает только явно перечисленные зарегистрированные задачи; установка пакета не включает автозагрузку службы. По окончании заданного окна polling команду можно запустить снова. Вопрос и неопределённый результат остаются причинами остановки до соответствующего ответа/восстановления.
+`deliver` создаёт локальную копию принятых исходников, manifest удалений, receipt и краткий отчёт. Для CFE/EPF по-прежнему нужны отдельно подтверждённые native gates. `serve` обрабатывает только явно перечисленные зарегистрированные задачи; установка пакета не включает автозагрузку службы. По окончании заданного окна polling команду можно запустить снова. Вопрос и неопределённый результат остаются причинами остановки до соответствующего ответа/восстановления.
 
 Для разрешения автоматического исправления source-only ошибок добавь в request `max_source_repairs: 1` (максимум 3). Проверки команд должны иметь `retry_safe: true` и `protected_paths`, перечисляющие все их тестовые исходники/fixtures. После доказанного падения выполняются диагностика, исправление, независимое code review и новый verify. Старая ошибка сохраняется; пропавший отчёт или изменение тестов не превращаются в основание для повторного запуска. Без этого opt-in сохраняется прежняя остановка при ошибке.
 
@@ -31,11 +30,11 @@ Queue JSON имеет вид:
 }
 ```
 
-Подставь идентификаторы своих зарегистрированных задач и новый UUID очереди. `max_cycles` ограничивает число проходов за один вызов; исполняемая задача использует собственный timeout и общий сохраняемый attempt budget. Повторный запуск очереди не обнуляет бюджет задач. Изменённый список требует нового queue ID. После перехода с script CLI на binary или обновления binary/engine существующая задача требует явного согласования новой policy: это сохраняет проверяемую связь результата с исполняемой версией.
+Подставь идентификаторы своих зарегистрированных задач и новый UUID очереди. `max_cycles` ограничивает число проходов за один вызов; исполняемая задача использует собственный timeout и общий сохраняемый attempt budget. Повторный запуск очереди не обнуляет бюджет задач. Изменённый список требует нового queue ID. После обновления controller/engine существующая задача требует явного согласования новой policy: это сохраняет проверяемую связь результата с исполняемой версией.
 
 Текущее состояние очереди хранится в `.bsl-flow/runner/queue-<uuid>-snapshot.json`, содержательные события — в общем `events.jsonl`. При перезапуске controller читает весь журнал: последние 256 ключей в snapshot служат только кешем. Сохранённая ошибка dispatch не повторяется на той же revision, даже если snapshot не успел обновиться. Ожидание ответа тоже создаёт событие; следующая проверка без изменения состояния его не дублирует. Оборванная или повреждённая строка журнала блокирует автоматическое продолжение и требует исследования сохранённых task attempts. Журнал не является отправкой уведомления во внешний сервис; интеграция читает его и использует `event_key` для своей дедупликации.
 
-Managed-контур поддерживает исходники и ограниченный [native-маршрут расширения](NATIVE_RUNTIME_RU.md) в явно разрешённой FILE-базе. В 0.7 реальные source-only пилоты прошли S- и M-маршруты; в 0.8.0-dev.2 публичный CLI завершил native unit-пилот с пятью тестами и контрольным восстановлением. Новым native-задачам нужен [mapping требований и независимый coverage review](REQUIREMENT_COVERAGE_RU.md). Временное ограничение durable Unica jobs сохраняется. Статус остальных сценариев и точные границы доказательств собраны в [отчёте проверки](../VERIFICATION.md).
+Managed-контур поддерживает исходники и ограниченный [native-маршрут расширения](NATIVE_RUNTIME_RU.md) в явно разрешённой FILE-базе. В 0.7 реальные source-only пилоты прошли S- и M-маршруты; в 0.8.0-dev.2 публичный CLI завершил native unit-пилот с пятью тестами и контрольным восстановлением. Новым native-задачам нужен [mapping требований и независимый coverage review](REQUIREMENT_COVERAGE_RU.md). Временное ограничение durable Unica jobs сохраняется. Актуальные решения и ограничения — в [CHANGELOG.md](../CHANGELOG.md).
 
 Точный машинный контракт запросов, обновлений, результатов и exit codes находится в [`1c-task/references/task-contract.md`](../global/skills/1c-task/references/task-contract.md). При расхождении ориентируйся на него и текущий код.
 
@@ -69,7 +68,7 @@ Deterministic gates дополняют skills и OpenSpec:
 | M, low/medium | `inspect → spec → spec_review → implement → verify → acceptance` |
 | L или high | `inspect → spec → spec_review → implement → code_review → verify → acceptance` |
 
-Для S проектная политика `review.routing.s_default: required` или `require_spec_review: true` добавляет `spec` и `spec_review`. `require_code_review: true` добавляет code review. Флаги `permissions`, `data_migration` и `data_deletion`, найденные при инспекции, повышают риск до high. Влияния на права, данные, проведение и обмен требуют integration evidence, `form_flow` требует UI evidence, а `external_artifact` — соответствующий профиль. В `0.8.0-dev.2` native FILE-профиль выполняет объявленные YAxUnit-тесты; integration/UI/external artifact критерии без соответствующих доказательств остаются `BLOCKED`.
+Для S проектная политика `review.routing.s_default: required` или `require_spec_review: true` добавляет `spec` и `spec_review`. `require_code_review: true` добавляет code review. Флаги `permissions`, `data_migration` и `data_deletion`, найденные при инспекции, повышают риск до high. Влияния на права, данные, проведение и обмен требуют integration evidence, `form_flow` требует UI evidence, а `external_artifact` — соответствующий профиль. В 0.8 native FILE-профиль выполняет объявленные YAxUnit-тесты; integration/UI/external artifact критерии без соответствующих доказательств остаются `BLOCKED`.
 
 Для `analysis_only` с `analysis_goal: analysis` маршрут состоит из `inspect` и `acceptance`. Значение `specification` добавляет `spec`, а необходимость review определяется классификацией и policy.
 
@@ -185,6 +184,14 @@ $updateFile = Join-Path $env:TEMP ("bsl-flow-update-$taskId.json")
 
 Cancel запрещает новый dispatch. Прерываемый worker может быть остановлен; непрерываемый native-процесс 1С не завершается принудительно, его неизвестный результат требует control read. Cancel не откатывает уже применившееся внешнее действие. Для продолжения после Cancel нужен явный пользовательский `Update` с `kind: authorization` и `resume: true`, затем `Resume`.
 
+## Локальный реестр задач и настройки окружения
+
+Помимо управляемых задач контроллер ведёт clone-local реестр `planned`-задач: store `<git common dir>/bsl-flow/tasks/<uuid>/revisions` (schema v1) общий для всех worktree клона и не коммитится в Git. Задача создаётся с непустым `-Title` и опциональными `-Description -Priority -Labels -DependsOn`; редактирование — через оптимистичный `-ExpectedRevision`; циклы, self-reference и дубликаты зависимостей отклоняются. Чтение: `-Action List|Show|History|Overview` с фильтрами (`-Status -Priority -Label -Archived false|true|all -Sort -Order -Limit -Cursor`) и форматом `-Format Human|Json` (exit: 0 успех, 2 `BF_INVALID`, 11 `BF_BLOCKED`/`BF_CONFLICT`). Тонкая обёртка `scripts/bsl-flow.ps1` отображает `bsl-flow task <create|edit|list|show|history|overview|archive|unarchive|activate>` на те же действия. `-Action Activate` выполняет полную валидацию trusted request и возвращает staged `BLOCKED` без записи revision: включение активации — отдельный controller write slice.
+
+Настройки совета ревью можно вынести в профиль пользователя `%USERPROFILE%\.bsl-flow\config.yaml` (override `BSL_FLOW_USER_CONFIG`): профиль — база, проект вытесняет его по полям внутри именованных провайдеров, профилей моделей и ролей; незакоммиченный `.bsl-flow/providers.local.yaml` сохраняет высший приоритет для `token`/`base_url`. Профиль допускает только `llm.providers`, `llm.models` и привязки `review.council.roles.<роль>.model`; иной ключ отклоняется fail-closed с именем файла и ключа. Файл не создаётся автоматически.
+
+Для M/L-изменений допустима опциональная тройка машиночитаемых артефактов рядом со `spec.md`: `contract.yaml`, `execution.yaml`, `verification.yaml`. Их проверяет детерминированный линт `Invoke-1CSpecContractLint.ps1` (тот же `-ChangePath`, что у линта `spec.md`); отсутствие артефактов — валидное штатное состояние.
+
 ## Где лежат результаты
 
 | Данные | Путь в project root |
@@ -234,6 +241,6 @@ Cancel запрещает новый dispatch. Прерываемый worker м�
 
 ## Выбор модели и стоимость
 
-Поля `models.worker*` и `models.reviewer*` заполняет основной оператор из явного выбора пользователя, проектного `AGENTS.md`/`.ai/model-routing.md` и реально доступных моделей. Они не переписывают глобальную routing policy. Spec review продолжает использовать свой настроенный OpenCode route; поля reviewer managed-задачи относятся к code review.
+Поля `models.worker*` и `models.reviewer*` заполняет основной оператор из явного выбора пользователя, проектного `AGENTS.md`/`.ai/model-routing.md` и реально доступных моделей. Они не переписывают глобальную routing policy. Spec review выполняет API-совет (`review.council`); поля reviewer managed-задачи относятся к code review.
 
 Host receipt сохраняет requested model/effort, session ID и usage из завершённого JSONL turn, если провайдер его сообщил. Наблюдавшиеся model/effort могут остаться `null`. Стоимость неизвестна без attributable usage: её нельзя считать нулевой или выводить из названия модели.

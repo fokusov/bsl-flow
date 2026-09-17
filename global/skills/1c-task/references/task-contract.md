@@ -4,7 +4,7 @@
 
 Actions: `Start`, `Status`, `Next`, `Run`, `Record`, `Update`, `Accept`, `Resume`, `Cancel`, `Deliver`, `Serve`. `Record` consumes only the terminal result in the exact registered attempt directory. It does not import a user-supplied `passed=true` file. There is no force-pass command. `Serve` takes queue input without a task ID and returns a queue envelope; exit 0 requires every registered task to remain completed, 10 means user input is needed, and 11 means waiting or blocked.
 
-The Go executable exposes `bsl-flow task <action> --project <path> ...` with the same state and JSON/exit contract. `task deliver` creates an immutable local source handoff from an existing current implementation acceptance; it performs no commit/push/deployment. `runner run --project <path> --input <queue.json>` supervises explicitly listed registered tasks. The executable embeds the installed engine/instructions and verifies their bytes before execution; PowerShell 7 at the standard machine path, Git and the configured model provider remain dependencies. There is no Windows PowerShell 5.1 fallback. Its own executable identity is included in the policy snapshot through the host-owned `BSL_FLOW_HOST_PATH` environment field. Moving/upgrading the executable or switching between direct script and binary requires an explicit policy scope reconciliation for existing tasks.
+`-Action Deliver` creates an immutable local source handoff from an existing current implementation acceptance; it performs no commit/push/deployment. Queue supervision goes through `-Action Serve` with the exit contract above.
 
 ## Request
 

@@ -1,0 +1,6 @@
+schema: bsl-flow
+created: 2026-09-15
+goal: Добавить агентные артефакты contract/execution/verification с
+  детерминированным линтом и скилл-исполнением графа задач без изменения
+  контроллера
+skip_specs: true

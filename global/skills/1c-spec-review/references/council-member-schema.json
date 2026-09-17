@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bsl-flow.local/schemas/council-member-v1.json",
+  "title": "bsl-flow council member payload (model-only)",
+  "description": "Model returns only the role payload. Identity, status, usage, timestamps, hashes and execution mode are built by the controller and any such claims inside the payload are rejected.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["role", "verdict", "findings", "do_not_change"],
+  "properties": {
+    "role": { "enum": ["brainstorm", "intent_critic", "architecture_critic", "executability_critic"] },
+    "verdict": { "enum": ["PASS", "REVISE", "BLOCK", "needs_input"] },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    },
+    "do_not_change": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "needs_input_questions": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "verdict": { "const": "needs_input" } } },
+      "then": { "properties": { "needs_input_questions": { "minItems": 1 } } }
+    },
+    {
+      "if": { "properties": { "verdict": { "enum": ["REVISE", "BLOCK"] } } },
+      "then": { "properties": { "findings": { "minItems": 1 } } }
+    }
+  ],
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "severity", "category", "spec_ref", "issue", "evidence", "suggested_direction"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^F-[0-9]{3,}$" },
+        "severity": { "enum": ["blocker", "high", "medium", "low"] },
+        "category": { "enum": ["intent_drift", "missing_requirement", "unsupported_assumption", "overengineering", "architecture_fit", "testability", "clarity", "prompt_injection"] },
+        "spec_ref": { "type": "string", "minLength": 1 },
+        "issue": { "type": "string", "minLength": 1 },
+        "evidence": { "type": "string", "minLength": 1 },
+        "suggested_direction": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

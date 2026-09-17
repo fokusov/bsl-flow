@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "review_source": "council multi_role_single_model (deepseek-v4-pro), 2026-09-16",
+  "review_verdict": "REVISE",
+  "final_validation": "passed=True (final-validation.json, schema v2, 2026-09-16)",
+  "summary": "Совет опубликовал пересмотренный финал спеки (11 находок от 4 ролей; ключевые решения: пополевое переопределение внутри именованных сущностей вместо вытеснения сущности целиком; канонический JSON-hash эффективной политики при вкладе профиля/оверлея с сохранением старого алгоритма без них; fail-closed для BSL_FLOW_USER_CONFIG на отсутствующий/нечитаемый файл; пустой/комментарный профиль эквивалентен отсутствующему; оверлей применяется до role bindings/admission с высшим приоритетом token/base_url). Реализация приведена к опубликованному финалу: Merge-BSLFlowCouncilPolicyText переписан на пополевое слияние, добавлены ConvertTo-BSLFlowCouncilCanonicalPolicyJson/Get-BSLFlowCouncilCanonicalPolicyHash, Test-CouncilProfile.ps1 расширен до 55 проверок (включая частичные переопределения провайдера и профиля модели, воспроизводимость и обратную совместимость hash). Все 5 смежных council-наборов зелёные.",
+  "decisions": [
+    {
+      "finding_id": "intent_critic:F-001 + architecture_critic:F-001",
+      "decision": "accepted",
+      "resolution": "Гранулярность мержа зафиксирована как пополевая внутри именованной сущности (требование 4 опубликованного финала); реализация и тесты приведены к ней (профильные token_env/protocol выживают при частичном проектном определении)."
+    },
+    {
+      "finding_id": "architecture_critic:F-002",
+      "decision": "accepted",
+      "resolution": "Hash без профиля и оверлея байт-идентичен прежнему (сырой текст проекта); при вкладе профиля/оверлея — канонический JSON-hash по требованию 5. Покрыто тестами блоков 15-16."
+    },
+    {
+      "finding_id": "architecture_critic:F-003 + executability_critic:F-001",
+      "decision": "accepted",
+      "resolution": "BSL_FLOW_USER_CONFIG на отсутствующий/нечитаемый файл — явная ошибка с путём (реализовано изначально, требование 7 опубликованного финала; тесты блока 11)."
+    },
+    {
+      "finding_id": "architecture_critic:F-004 + executability_critic:F-003",
+      "decision": "accepted",
+      "resolution": "Каноническая форма hash описана в требовании 5 опубликованного финала и зафиксирована модулем Council.Profile.ps1 + тестом с точным ожидаемым JSON и hash."
+    },
+    {
+      "finding_id": "executability_critic:F-002",
+      "decision": "accepted",
+      "resolution": "Критерии приёмки пополнены частичными переопределениями провайдера и профиля модели; тесты блоков 13-14."
+    },
+    {
+      "finding_id": "executability_critic:F-004",
+      "decision": "accepted",
+      "resolution": "Требование 5 опубликованного финала: поля аудита в v1 не добавляются, версия схемы council-review не меняется."
+    },
+    {
+      "finding_id": "executability_critic:F-005",
+      "decision": "accepted",
+      "resolution": "Пустой/комментарный профиль эквивалентен отсутствующему (Get-BSLFlowUserProfileText возвращает пустой текст; тест блока 12)."
+    },
+    {
+      "finding_id": "executability_critic:F-006",
+      "decision": "accepted",
+      "resolution": "Оверлей учитывается до role bindings/admission: bindings применяют overlay base_url и передают overlay token в Resolve-BSLFlowCouncilCredential (local > token_env); литеральные токены в policy-объект не попадают. Тесты блоков 6-7."
+    }
+  ]
+}

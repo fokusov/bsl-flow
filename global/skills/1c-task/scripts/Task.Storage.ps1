@@ -154,6 +154,196 @@ function Assert-BFSafePath {
     return $fullPath
 }
 
+# Legacy controller journals live below a verified worktree.  The native
+# repository is rooted at the Git common dir, so a source write must check the
+# common-dir task path before it creates either the task directory or a JSON
+# file.  Keep this boundary local to task-shaped paths; runtime, provider and
+# other generic storage directories must retain their existing semantics.
+function Test-BFStoragePathWithin {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$Candidate,
+        [Parameter(Mandatory = $true)][string]$Root
+    )
+    $candidateValue = $Candidate.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+    $rootValue = $Root.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+    if ([string]::Equals($candidateValue, $rootValue, [StringComparison]::OrdinalIgnoreCase)) { return $true }
+    $separator = [System.IO.Path]::DirectorySeparatorChar
+    if ($candidateValue.StartsWith($rootValue + $separator, [StringComparison]::OrdinalIgnoreCase)) { return $true }
+    if ([System.IO.Path]::AltDirectorySeparatorChar -ne $separator -and $candidateValue.StartsWith($rootValue + [System.IO.Path]::AltDirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { return $true }
+    return $false
+}
+
+function Get-BFLegacyTaskWriteContext {
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)][string]$Path)
+    $fullPath = Assert-BFSafePath $Path
+    $cursor = $fullPath.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+    # The bounded walk is syntactic and never enumerates a repository or scans
+    # a .git tree.  It recognizes only the exact .bsl-flow/tasks/<lowercase UUID>
+    # shape used by the legacy controller.
+    for ($depth = 0; $depth -lt 64 -and -not [string]::IsNullOrEmpty($cursor); $depth++) {
+        $taskId = [System.IO.Path]::GetFileName($cursor)
+        $tasksDirectory = [System.IO.Path]::GetDirectoryName($cursor)
+        if (-not [string]::IsNullOrEmpty($tasksDirectory) -and $taskId -cmatch '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' -and [System.IO.Path]::GetFileName($tasksDirectory) -ieq 'tasks') {
+            $bslFlowDirectory = [System.IO.Path]::GetDirectoryName($tasksDirectory)
+            if (-not [string]::IsNullOrEmpty($bslFlowDirectory) -and [System.IO.Path]::GetFileName($bslFlowDirectory) -ieq '.bsl-flow') {
+                $projectRoot = [System.IO.Path]::GetDirectoryName($bslFlowDirectory)
+                if (-not [string]::IsNullOrEmpty($projectRoot)) {
+                    $taskRoot = [System.IO.Path]::GetFullPath((Join-Path $tasksDirectory $taskId))
+                    if (Test-BFStoragePathWithin $fullPath $taskRoot) {
+                        return [pscustomobject]@{
+                            Path        = $fullPath
+                            ProjectRoot = [System.IO.Path]::GetFullPath($projectRoot)
+                            TaskRoot    = $taskRoot
+                            TaskId      = $taskId
+                        }
+                    }
+                }
+            }
+        }
+        $parent = [System.IO.Path]::GetDirectoryName($cursor)
+        if ([string]::IsNullOrEmpty($parent) -or $parent -eq $cursor) { break }
+        $cursor = $parent.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+    }
+    return $null
+}
+
+function Get-BFStorageGitExecutable {
+    [CmdletBinding()]
+    param()
+    try { $command = @(Get-Command git -CommandType Application -ErrorAction Stop | Select-Object -First 1) }
+    catch { throw (New-BFError 'BF_BLOCKED' 'Git executable is unavailable for legacy ownership verification.') }
+    if ($command.Count -ne 1) { throw (New-BFError 'BF_BLOCKED' 'Git executable is unavailable for legacy ownership verification.') }
+    $path = ''
+    if ($null -ne $command[0].PSObject.Properties['Source']) { $path = [string]$command[0].Source }
+    if ([string]::IsNullOrWhiteSpace($path) -and $null -ne $command[0].PSObject.Properties['Path']) { $path = [string]$command[0].Path }
+    if ([string]::IsNullOrWhiteSpace($path)) { throw (New-BFError 'BF_BLOCKED' 'Git executable has no verifiable path.') }
+    $path = Assert-BFSafePath $path
+    if (-not [System.IO.File]::Exists($path)) { throw (New-BFError 'BF_BLOCKED' 'Git executable path is not a regular file.') }
+    return $path
+}
+
+function Invoke-BFStorageGitRead {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$ProjectRoot,
+        [Parameter(Mandatory = $true)][string[]]$Arguments
+    )
+    $root = Assert-BFSafePath $ProjectRoot
+    if (-not [System.IO.Directory]::Exists($root)) { throw (New-BFError 'BF_BLOCKED' 'Legacy task project root is not a directory.') }
+    $nullConfig = if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) { 'NUL' } else { '/dev/null' }
+    $start = [System.Diagnostics.ProcessStartInfo]::new()
+    $start.FileName = Get-BFStorageGitExecutable
+    $start.WorkingDirectory = $root
+    $start.UseShellExecute = $false
+    $start.CreateNoWindow = $true
+    $start.RedirectStandardOutput = $true
+    $start.RedirectStandardError = $true
+    # Git routing/configuration variables are untrusted for this identity
+    # probe.  Keep ordinary process variables, but remove every GIT_* override
+    # and disable system/global config.  Explicit -c options also disable hooks
+    # and fsmonitor, so this read cannot execute repository helpers.
+    $environmentKeys = @($start.Environment.Keys)
+    foreach ($key in $environmentKeys) {
+        if ([string]$key -match '^(?i:GIT_)') { [void]$start.Environment.Remove([string]$key) }
+    }
+    $start.Environment['GIT_CONFIG_NOSYSTEM'] = '1'
+    $start.Environment['GIT_CONFIG_GLOBAL'] = $nullConfig
+    $start.Environment['GIT_CONFIG_SYSTEM'] = $nullConfig
+    $start.Environment['GIT_TERMINAL_PROMPT'] = '0'
+    foreach ($argument in @('--no-replace-objects', '-c', ('core.hooksPath=' + $nullConfig), '-c', 'core.fsmonitor=false', '--no-optional-locks', '-C', $root) + @($Arguments)) {
+        [void]$start.ArgumentList.Add([string]$argument)
+    }
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $start
+    try {
+        try {
+            if (-not $process.Start()) { throw (New-BFError 'BF_BLOCKED' 'Git identity probe did not start.') }
+        }
+        catch [System.Management.Automation.RuntimeException] { throw }
+        catch { throw (New-BFError 'BF_BLOCKED' 'Git identity probe could not start.') }
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+        $process.WaitForExit()
+        $stdout = $stdoutTask.GetAwaiter().GetResult()
+        [void]$stderrTask.GetAwaiter().GetResult()
+        if ($process.ExitCode -ne 0) { throw (New-BFError 'BF_BLOCKED' 'Git identity probe failed.') }
+        return $stdout.Trim()
+    }
+    finally { $process.Dispose() }
+}
+
+function Get-BFVerifiedLegacyGitContext {
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)]$Context)
+    $projectRoot = Assert-BFSafePath $Context.ProjectRoot
+    $topLevel = Assert-BFSafePath (Invoke-BFStorageGitRead $projectRoot @('rev-parse', '--show-toplevel'))
+    if (-not [string]::Equals($topLevel, $projectRoot, [StringComparison]::OrdinalIgnoreCase)) {
+        throw (New-BFError 'BF_BLOCKED' 'Legacy task path is not below the exact Git worktree root.')
+    }
+    $commonText = Invoke-BFStorageGitRead $projectRoot @('rev-parse', '--path-format=absolute', '--git-common-dir')
+    if ([string]::IsNullOrWhiteSpace($commonText)) { throw (New-BFError 'BF_BLOCKED' 'Git common dir is empty.') }
+    $commonDir = if ([System.IO.Path]::IsPathRooted($commonText)) { Assert-BFSafePath $commonText } else { Assert-BFSafePath (Join-Path $projectRoot $commonText) }
+    if (-not [System.IO.Directory]::Exists($commonDir)) { throw (New-BFError 'BF_BLOCKED' 'Git common dir is not a directory.') }
+    $store = Assert-BFSafePath (Join-Path $commonDir 'bsl-flow')
+    $tasks = Assert-BFSafePath (Join-Path $store 'tasks')
+    # Do not call Assert-BFSafePath on the target before checking it: a broken
+    # reparse point at the UUID leaf is still an occupied canonical identity.
+    $canonicalTask = [System.IO.Path]::GetFullPath((Join-Path $tasks $Context.TaskId))
+    return [pscustomobject]@{
+        ProjectRoot       = $projectRoot
+        CommonDir         = $commonDir
+        CanonicalStore    = $store
+        CanonicalTasks    = $tasks
+        CanonicalTask     = $canonicalTask
+        TaskId            = $Context.TaskId
+    }
+}
+
+function Get-BFStorageExistingItem {
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)][string]$Path)
+    try { return Get-Item -LiteralPath $Path -Force -ErrorAction Stop }
+    catch {
+        $category = [string]$_.CategoryInfo.Category
+        $errorId = [string]$_.FullyQualifiedErrorId
+        if ($category -eq 'ObjectNotFound' -or $errorId -match 'PathNotFound|ItemNotFound') { return $null }
+        throw (New-BFError 'BF_BLOCKED' 'Cannot inspect canonical task ownership path.')
+    }
+}
+
+function Test-BFStorageTaskLockHeld {
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)][string]$TaskRoot)
+    $key = $TaskRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+    if (-not $script:BFStorageLocks.ContainsKey($key)) { return $false }
+    $stream = $script:BFStorageLocks[$key]
+    return $null -ne $stream -and $stream.CanWrite
+}
+
+function Assert-BFLegacyTaskWriteAllowed {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [switch]$UnderSourceLock
+    )
+    $context = Get-BFLegacyTaskWriteContext $Path
+    if ($null -eq $context) { return $null }
+    $verified = Get-BFVerifiedLegacyGitContext $context
+    if ($UnderSourceLock -and -not (Test-BFStorageTaskLockHeld $context.TaskRoot)) {
+        throw (New-BFError 'BF_CONFLICT' 'Legacy task ownership recheck requires the source writer lock.')
+    }
+    $canonicalItem = Get-BFStorageExistingItem $verified.CanonicalTask
+    if ($null -ne $canonicalItem) {
+        throw (New-BFError 'BF_CONFLICT' ("Legacy task {0} is owned by the canonical native repository." -f $context.TaskId))
+    }
+    # A missing target is safe only when all existing ancestors are still safe;
+    # this catches a reparse swap in the canonical store without following it.
+    [void](Assert-BFSafePath $verified.CanonicalTask)
+    return $verified
+}
+
 function Get-BFFileHash {
     [CmdletBinding()]
     param([Parameter(Mandatory = $true)][string]$Path)
@@ -163,6 +353,175 @@ function Get-BFFileHash {
     $sha = [System.Security.Cryptography.SHA256]::Create()
     try { return ([System.BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-', '').ToLowerInvariant()) }
     finally { $sha.Dispose(); $stream.Dispose() }
+}
+
+function Get-BFStoragePropertyValue {
+    [CmdletBinding()]
+    param(
+        [AllowNull()][object]$Value,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+    if ($null -eq $Value) { return $null }
+    if ($Value -is [System.Collections.IDictionary]) {
+        if ($Value.Contains($Name)) { return $Value[$Name] }
+        return $null
+    }
+    $property = $Value.PSObject.Properties[$Name]
+    if ($null -ne $property) { return $property.Value }
+    return $null
+}
+
+function Get-BFObservedModelEffort {
+    # Controller-observed resolved identity: the Codex rollout session file
+    # (CODEX_HOME/sessions/YYYY/MM/DD/rollout-<ts>-<session_id>.jsonl) records
+    # the turn_context payload with the model and reasoning effort the provider
+    # actually ran. The session id must match the JSONL thread id exactly.
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$SessionId,
+        [switch]$AllowMissing,
+        [switch]$SelectLatest,
+        [string]$TurnId
+    )
+    if ($SessionId -notmatch '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
+        throw (New-BFError 'BF_INVALID' 'Codex session id has an invalid format.')
+    }
+    if ($PSBoundParameters.ContainsKey('TurnId') -and [string]::IsNullOrWhiteSpace($TurnId)) {
+        throw (New-BFError 'BF_INVALID' 'Codex turn id cannot be empty when selecting historical evidence.')
+    }
+    if ($PSBoundParameters.ContainsKey('TurnId') -and $SelectLatest) {
+        throw (New-BFError 'BF_INVALID' 'Codex rollout selection cannot combine an exact turn with latest selection.')
+    }
+    $codeHome = $env:CODEX_HOME
+    if ([string]::IsNullOrWhiteSpace($codeHome)) { $codeHome = Join-Path $env:USERPROFILE '.codex' }
+    try { $sessionsRoot = Assert-BFSafePath (Join-Path (Assert-BFSafePath $codeHome) 'sessions') }
+    catch { throw (New-BFError 'BF_BLOCKED' 'Codex sessions path is not a trusted local directory.') }
+    if (-not (Test-Path -LiteralPath $sessionsRoot -PathType Container)) {
+        if ($AllowMissing) {
+            # `exec --ephemeral` is allowed to complete without creating a
+            # sessions tree. Keep the ordinary worker receipt nullable while
+            # preserving the strict current-agent provenance gate.
+            return [ordered]@{ observed_model = $null; observed_effort = $null; rollout_path = $null; session_id = $SessionId; missing = $true }
+        }
+        throw (New-BFError 'BF_BLOCKED' ('Codex sessions directory is missing: {0}' -f $sessionsRoot))
+    }
+    # Locate the exact session suffix across the complete local session tree.
+    # A long-running or resumed controller may legitimately inspect a rollout
+    # older than yesterday; the UUID validation above keeps the lookup narrow.
+    $candidates = @(Get-ChildItem -LiteralPath $sessionsRoot -File -Recurse -Filter ('*-' + $SessionId + '.jsonl') -ErrorAction SilentlyContinue)
+    if ($candidates.Count -eq 0) {
+        if ($AllowMissing) { return [ordered]@{ observed_model = $null; observed_effort = $null; rollout_path = $null; session_id = $SessionId; missing = $true } }
+        throw (New-BFError 'BF_BLOCKED' ('Codex rollout session file not found for {0}.' -f $SessionId))
+    }
+    if ($candidates.Count -gt 1) {
+        if (-not $SelectLatest) { throw (New-BFError 'BF_BLOCKED' ('Multiple Codex rollout files match session {0}.' -f $SessionId)) }
+        $candidates = @($candidates | Sort-Object LastWriteTimeUtc, Name | Select-Object -Last 1)
+    }
+    $rolloutPath = Assert-BFSafePath $candidates[0].FullName
+    $model = $null
+    $effort = $null
+    $lastTurnId = $null
+    $selectedModel = $null
+    $selectedEffort = $null
+    $selectedTurnId = $null
+    $selectedTurnCount = 0
+    $sessionMeta = $null
+    # The current controller turn can still be appending to its rollout. File.ReadLines
+    # uses FileShare.Read and fails on that legitimate live file; an explicit shared
+    # read lets us observe a stable prefix without weakening the identity checks.
+    $stream = $null
+    $reader = $null
+    try {
+        $stream = [System.IO.File]::Open($rolloutPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+        $reader = [System.IO.StreamReader]::new($stream, [System.Text.UTF8Encoding]::new($false, $true), $true)
+        while ($null -ne ($line = $reader.ReadLine())) {
+            if ([string]::IsNullOrWhiteSpace($line)) { continue }
+            try { $record = ConvertFrom-Json -InputObject $line -ErrorAction Stop } catch {
+                # A writer may have exposed a partial final line. It cannot be used
+                # as identity evidence; complete earlier records remain inspectable.
+                continue
+            }
+            $recordType = Get-BFStoragePropertyValue $record 'type'
+            if ($recordType -ceq 'session_meta') {
+                if ($null -ne $sessionMeta) { throw (New-BFError 'BF_BLOCKED' ('Codex rollout contains duplicate session metadata for {0}.' -f $SessionId)) }
+                $sessionMeta = $record
+                $recordPayload = Get-BFStoragePropertyValue $record 'payload'
+                $metaId = Get-BFStoragePropertyValue $recordPayload 'session_id'
+                if ([string]::IsNullOrWhiteSpace([string]$metaId)) { $metaId = Get-BFStoragePropertyValue $recordPayload 'id' }
+                if ([string]$metaId -cne $SessionId) { throw (New-BFError 'BF_BLOCKED' ('Codex rollout session metadata does not match {0}.' -f $SessionId)) }
+                continue
+            }
+            if ($recordType -ceq 'turn_context') {
+                # Keep the latest complete turn_context: old turns must not become
+                # provenance after a model/effort change in the current session.
+                $payload = Get-BFStoragePropertyValue $record 'payload'
+                if ($null -eq $payload) { $model = $null; $effort = $null; $lastTurnId = $null; continue }
+                $modelValue = Get-BFStoragePropertyValue $payload 'model'
+                $effortValue = Get-BFStoragePropertyValue $payload 'effort'
+                $turnIdValue = Get-BFStoragePropertyValue $payload 'turn_id'
+                $model = if ($null -ne $modelValue) { [string]$modelValue } else { $null }
+                $effort = if ($null -ne $effortValue) { [string]$effortValue } else { $null }
+                $lastTurnId = if ($null -ne $turnIdValue) { [string]$turnIdValue } else { $null }
+                if ($PSBoundParameters.ContainsKey('TurnId') -and [string]$turnIdValue -ceq $TurnId) {
+                    $selectedTurnCount++
+                    if ($selectedTurnCount -gt 1) {
+                        throw (New-BFError 'BF_BLOCKED' ('Codex rollout contains duplicate turn identity {0}.' -f $TurnId))
+                    }
+                    $selectedModel = $model
+                    $selectedEffort = $effort
+                    $selectedTurnId = $lastTurnId
+                }
+            }
+        }
+    }
+    catch [System.IO.IOException] {
+        throw (New-BFError 'BF_BLOCKED' ('Cannot read Codex rollout for {0}: {1}' -f $SessionId, $_.Exception.Message))
+    }
+    finally {
+        if ($null -ne $reader) { $reader.Dispose() }
+        elseif ($null -ne $stream) { $stream.Dispose() }
+    }
+    if ($null -eq $sessionMeta) { throw (New-BFError 'BF_BLOCKED' ('Codex rollout session metadata is missing for {0}.' -f $SessionId)) }
+    if ($PSBoundParameters.ContainsKey('TurnId')) {
+        if ($selectedTurnCount -eq 0) {
+            throw (New-BFError 'BF_BLOCKED' ('Codex rollout turn identity {0} was not found for {1}.' -f $TurnId, $SessionId))
+        }
+        $model = $selectedModel
+        $effort = $selectedEffort
+        $lastTurnId = $selectedTurnId
+    }
+    if ([string]::IsNullOrWhiteSpace($model) -or [string]::IsNullOrWhiteSpace($effort)) {
+        $selection = if ($PSBoundParameters.ContainsKey('TurnId')) { 'selected' } else { 'latest' }
+        throw (New-BFError 'BF_BLOCKED' ('Codex rollout {0} turn_context is missing resolved model/effort for {1}.' -f $selection, $SessionId))
+    }
+    return [ordered]@{ observed_model = $model; observed_effort = $effort; rollout_path = $rolloutPath; session_id = $SessionId; turn_id = $lastTurnId; missing = $false }
+}
+
+function Get-BFCurrentHostModelEffort {
+    # CODEX_SESSION_ID identifies the host rollout session. CODEX_THREAD_ID is a
+    # separate task/thread identity and has no trusted mapping to the current host
+    # invocation, so it must never be used as a fallback: doing so could publish
+    # a child rollout's model as the parent host model.
+    [CmdletBinding()]
+    param()
+    $sessionId = [string]$env:CODEX_SESSION_ID
+    if ([string]::IsNullOrWhiteSpace($sessionId)) {
+        throw (New-BFError 'BF_BLOCKED' 'Current Codex host identity is unavailable: CODEX_SESSION_ID is required; CODEX_THREAD_ID is not a trusted host mapping.')
+    }
+    if ($sessionId -notmatch '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
+        throw (New-BFError 'BF_INVALID' 'CODEX_SESSION_ID has an invalid format.')
+    }
+    try {
+        $observed = Get-BFObservedModelEffort -SessionId $sessionId -SelectLatest
+        return [ordered]@{
+            model = [string]$observed.observed_model; effort = [string]$observed.observed_effort
+            session_id = $sessionId; turn_id = $observed.turn_id; rollout_path = $observed.rollout_path
+            source = 'current_host_rollout'; capability_version = 'current-host-rollout-v1'
+        }
+    }
+    catch {
+        throw (New-BFError 'BF_BLOCKED' ('Current Codex host identity is unavailable; the exact CODEX_SESSION_ID rollout is required. ' + [string]$_.Exception.Message))
+    }
 }
 
 function Test-BFJsonSyntax {
@@ -296,22 +655,49 @@ function Write-BFJson {
     [CmdletBinding()]
     param([Parameter(Mandatory = $true)][string]$Path, [Parameter(Mandatory = $true)][AllowNull()][object]$Value, [switch]$Replace)
     $fullPath = Assert-BFSafePath $Path
-    $parent = [System.IO.Path]::GetDirectoryName($fullPath)
-    if ([string]::IsNullOrEmpty($parent)) { throw (New-BFError 'BF_INVALID' 'JSON path must have a parent directory.') }
-    try { [void][System.IO.Directory]::CreateDirectory($parent) }
-    catch { throw (New-BFError 'BF_INVALID' ("Cannot create JSON parent directory: {0}" -f $_.Exception.Message)) }
-    [void](Assert-BFSafePath $parent)
-    if (-not $Replace -and [System.IO.File]::Exists($fullPath)) { throw (New-BFError 'BF_CONFLICT' ("Refusing to overwrite JSON file: {0}" -f $fullPath)) }
-    $bytes = [System.Text.UTF8Encoding]::new($false, $true).GetBytes((Get-BFCanonicalJson $Value))
-    $temporary = [System.IO.Path]::Combine($parent, ('.' + [System.IO.Path]::GetFileName($fullPath) + '.' + [guid]::NewGuid().ToString('N') + '.tmp'))
-    try {
-        $stream = [System.IO.FileStream]::new($temporary, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
-        try { $stream.Write($bytes, 0, $bytes.Length); $stream.Flush($true) } finally { $stream.Dispose() }
-        if ($Replace -and [System.IO.File]::Exists($fullPath)) { Invoke-BFAtomicReplace $temporary $fullPath } else { [System.IO.File]::Move($temporary, $fullPath) }
+    $legacyContext = Get-BFLegacyTaskWriteContext $fullPath
+    if ($null -ne $legacyContext) {
+        # This check intentionally runs before parent creation.  A legacy
+        # writer must not create a task-local input/attempt directory after a
+        # canonical UUID has been reserved, even when the target is corrupt.
+        [void](Assert-BFLegacyTaskWriteAllowed $fullPath)
     }
-    catch [System.IO.IOException] { throw (New-BFError 'BF_CONFLICT' ("Could not publish JSON file: {0}" -f $_.Exception.Message)) }
+    $implicitSourceLock = $null
+    $temporary = $null
+    try {
+        if ($null -ne $legacyContext) {
+            # Direct task-local artifact writes are also serialized. Existing
+            # controller paths already own this lock; direct saved actions take
+            # it here so their final ownership check is genuinely under the
+            # exact source .writer.lock.
+            if (-not (Test-BFStorageTaskLockHeld $legacyContext.TaskRoot)) {
+                $implicitSourceLock = Enter-BFLock $legacyContext.TaskRoot
+            }
+        }
+        $parent = [System.IO.Path]::GetDirectoryName($fullPath)
+        if ([string]::IsNullOrEmpty($parent)) { throw (New-BFError 'BF_INVALID' 'JSON path must have a parent directory.') }
+        try { [void][System.IO.Directory]::CreateDirectory($parent) }
+        catch { throw (New-BFError 'BF_INVALID' ("Cannot create JSON parent directory: {0}" -f $_.Exception.Message)) }
+        [void](Assert-BFSafePath $parent)
+        if (-not $Replace -and [System.IO.File]::Exists($fullPath)) { throw (New-BFError 'BF_CONFLICT' ("Refusing to overwrite JSON file: {0}" -f $fullPath)) }
+        $bytes = [System.Text.UTF8Encoding]::new($false, $true).GetBytes((Get-BFCanonicalJson $Value))
+        $temporary = [System.IO.Path]::Combine($parent, ('.' + [System.IO.Path]::GetFileName($fullPath) + '.' + [guid]::NewGuid().ToString('N') + '.tmp'))
+        try {
+            $stream = [System.IO.FileStream]::new($temporary, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+            try { $stream.Write($bytes, 0, $bytes.Length); $stream.Flush($true) } finally { $stream.Dispose() }
+            if ($null -ne $legacyContext) {
+                # Close the check-to-publish race for every task-local JSON
+                # write, whether the source lock was inherited or acquired
+                # above.
+                [void](Assert-BFLegacyTaskWriteAllowed $fullPath -UnderSourceLock)
+            }
+            if ($Replace -and [System.IO.File]::Exists($fullPath)) { Invoke-BFAtomicReplace $temporary $fullPath } else { [System.IO.File]::Move($temporary, $fullPath) }
+        }
+        catch [System.IO.IOException] { throw (New-BFError 'BF_CONFLICT' ("Could not publish JSON file: {0}" -f $_.Exception.Message)) }
+    }
     finally {
-        if ([System.IO.File]::Exists($temporary)) { [System.IO.File]::Delete($temporary) }
+        if ($null -ne $temporary -and [System.IO.File]::Exists($temporary)) { [System.IO.File]::Delete($temporary) }
+        if ($null -ne $implicitSourceLock) { $implicitSourceLock.Dispose() }
     }
 }
 
@@ -319,6 +705,13 @@ function Enter-BFLock {
     [CmdletBinding()]
     param([Parameter(Mandatory = $true)][string]$Directory)
     $fullDirectory = Assert-BFSafePath $Directory
+    $legacyContext = Get-BFLegacyTaskWriteContext $fullDirectory
+    if ($null -ne $legacyContext) {
+        # Check before creating the directory or .writer.lock.  The canonical
+        # target may be an orphan, a file, or malformed JSON; any existing leaf
+        # owns the UUID for legacy routing purposes.
+        [void](Assert-BFLegacyTaskWriteAllowed $fullDirectory)
+    }
     if ([System.IO.File]::Exists($fullDirectory)) { throw (New-BFError 'BF_INVALID' 'Lock path is a file, not a directory.') }
     try { [void][System.IO.Directory]::CreateDirectory($fullDirectory) }
     catch { throw (New-BFError 'BF_INVALID' ("Cannot create lock directory: {0}" -f $_.Exception.Message)) }
@@ -332,6 +725,18 @@ function Enter-BFLock {
     try { $stream = [System.IO.FileStream]::new([System.IO.Path]::Combine($fullDirectory, '.writer.lock'), [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None) }
     catch [System.IO.IOException] { throw (New-BFError 'BF_CONFLICT' 'Writer lock is held by another controller.') }
     $script:BFStorageLocks[$fullDirectory] = $stream
+    if ($null -ne $legacyContext) {
+        try {
+            # Re-read canonical ownership while the source lock is held.  Do
+            # not publish any task-local state if native adoption won the race.
+            [void](Assert-BFLegacyTaskWriteAllowed $fullDirectory -UnderSourceLock)
+        }
+        catch {
+            [void]$script:BFStorageLocks.Remove($fullDirectory)
+            $stream.Dispose()
+            throw
+        }
+    }
     return $stream
 }
 
@@ -393,9 +798,19 @@ function Write-BFRevision {
     param([Parameter(Mandatory = $true)][string]$Directory, [Parameter(Mandatory = $true)][object]$State, [Parameter(Mandatory = $true)][int64]$ExpectedRevision)
     if ($ExpectedRevision -lt 0) { throw (New-BFError 'BF_INVALID' 'ExpectedRevision cannot be negative.') }
     $fullDirectory = Assert-BFSafePath $Directory
+    $legacyContext = Get-BFLegacyTaskWriteContext $fullDirectory
+    if ($null -ne $legacyContext) {
+        # Direct revision callers get the same pre-write ownership check as
+        # Write-BFJson.  The lock check below retains the generic helper's
+        # existing contract for non-task directories.
+        [void](Assert-BFLegacyTaskWriteAllowed $fullDirectory)
+    }
     if (-not $script:BFStorageLocks.ContainsKey($fullDirectory)) { throw (New-BFError 'BF_CONFLICT' 'Write-BFRevision requires the caller to hold the writer lock.') }
     $lock = $script:BFStorageLocks[$fullDirectory]
     if ($null -eq $lock -or -not $lock.CanWrite) { [void]$script:BFStorageLocks.Remove($fullDirectory); throw (New-BFError 'BF_CONFLICT' 'Writer lock is no longer held.') }
+    if ($null -ne $legacyContext) {
+        [void](Assert-BFLegacyTaskWriteAllowed $fullDirectory -UnderSourceLock)
+    }
     [void](Get-BFCanonicalJson $State)
     if ($State -isnot [System.Collections.IDictionary] -and $State -isnot [pscustomobject]) { throw (New-BFError 'BF_INVALID' 'Revision state must be an object.') }
     $latest = Read-BFJournal $fullDirectory

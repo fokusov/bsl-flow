@@ -5,6 +5,11 @@ if(-not $PackageRoot){$PackageRoot=Split-Path $PSScriptRoot -Parent}
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 . (Join-Path $PackageRoot 'global/skills/1c-task/scripts/Task.PublicationGit.ps1')
+# Task.PublicationGit treats Get-BFHash as optional because production always
+# loads Task.Storage first. Inside the long single-process package suite, a
+# partially scoped copy can leak from an earlier suite; load the real helper
+# deterministically so the lookup and its script scope are both well-formed.
+. (Join-Path $PackageRoot 'global/skills/1c-task/scripts/Task.Storage.ps1')
 
 $script:checks = [Collections.Generic.List[string]]::new()
 function Assert-PublicationTest {

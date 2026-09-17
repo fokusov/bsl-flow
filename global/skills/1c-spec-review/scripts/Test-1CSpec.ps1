@@ -23,7 +23,8 @@ function Get-SpecLineNumber([int]$Offset) {
     return ([regex]::Matches($text.Substring(0, [math]::Min($Offset, $text.Length)), "`n").Count + 1)
 }
 function Add-SpecError([string]$Message, [int]$Offset = 0) {
-    $errors.Add("spec.md line $(Get-SpecLineNumber $Offset): $Message")
+    $formatted = "spec.md line $(Get-SpecLineNumber $Offset): $Message"
+    if (-not $errors.Contains($formatted)) { $errors.Add($formatted) }
 }
 function Get-SectionMatch([string]$Pattern) {
     return [regex]::Match($text, "(?ims)^##\s+$Pattern\s*$\s*(?<body>.*?)(?=^##\s|\z)")
@@ -79,17 +80,23 @@ foreach ($pattern in $placeholderPatterns) {
 
 $acceptanceMatch = Get-SectionMatch '(Критерии при[её]мки|Acceptance criteria)'
 if ($acceptanceMatch.Success) {
-    $body = $acceptanceMatch.Groups['body'].Value.Trim()
+    $acceptanceBodyRaw = $acceptanceMatch.Groups['body'].Value
+    $acceptanceBodyOffset = $acceptanceMatch.Groups['body'].Index + ($acceptanceBodyRaw.Length - $acceptanceBodyRaw.TrimStart().Length)
+    $body = $acceptanceBodyRaw.Trim()
     if ($body.Length -lt 30) { Add-SpecError 'Acceptance criteria are empty or too short.' $acceptanceMatch.Index }
     if ($body -notmatch '(?i)\b(GIVEN|WHEN|THEN)\b' -and $body -notmatch '(?m)^\s*[-*]\s+\S.{15,}$') {
         Add-SpecError 'Acceptance criteria are not objectively structured.' $acceptanceMatch.Index
     }
     if ($body -match '(?i)\bGIVEN\b') {
         # Validate each scenario shell, not whether its business oracle is correct.
-        $scenarios = [regex]::Split($body, '(?i)\bGIVEN\b')
-        foreach ($scenario in $scenarios | Select-Object -Skip 1) {
+        # The finding points at the broken scenario's own GIVEN occurrence.
+        $givenMatches = [regex]::Matches($body, '(?i)\bGIVEN\b')
+        for ($scenarioIndex = 0; $scenarioIndex -lt $givenMatches.Count; $scenarioIndex++) {
+            $scenarioStart = $givenMatches[$scenarioIndex].Index + $givenMatches[$scenarioIndex].Length
+            $scenarioEnd = if ($scenarioIndex + 1 -lt $givenMatches.Count) { $givenMatches[$scenarioIndex + 1].Index } else { $body.Length }
+            $scenario = $body.Substring($scenarioStart, $scenarioEnd - $scenarioStart)
             if ($scenario -notmatch '(?is)\S.+?\bWHEN\b\s+\S.+?\bTHEN\b\s+\S') {
-                Add-SpecError 'Each GIVEN acceptance scenario requires nonempty WHEN and THEN clauses.' $acceptanceMatch.Index
+                Add-SpecError 'Each GIVEN acceptance scenario requires nonempty WHEN and THEN clauses.' ($acceptanceBodyOffset + $givenMatches[$scenarioIndex].Index)
             }
         }
     }
@@ -97,12 +104,16 @@ if ($acceptanceMatch.Success) {
 
 $verificationMatch = Get-SectionMatch '(Требуемые проверки|Required verification)'
 if ($verificationMatch.Success) {
-    $verificationBody = [regex]::Replace($verificationMatch.Groups['body'].Value, '(?s)<!--.*?-->', '').Trim()
+    # Comments are blanked with same-length spaces, so offsets survive into
+    # the trimmed body and findings land on the item's own line.
+    $verificationBodyRaw = [regex]::Replace($verificationMatch.Groups['body'].Value, '(?s)<!--.*?-->', { param($comment) ($comment.Value -replace '[^\r\n]', ' ') })
+    $verificationBodyOffset = $verificationMatch.Groups['body'].Index + ($verificationBodyRaw.Length - $verificationBodyRaw.TrimStart().Length)
+    $verificationBody = $verificationBodyRaw.Trim()
     $selectedChecks = [regex]::Matches($verificationBody, '(?im)^\s*[-*]\s+\[x\]\s*(?<detail>.*)$')
     foreach ($check in $selectedChecks) {
         $detail = $check.Groups['detail'].Value.Trim()
         if ($detail -match '^(?i:Static|Unit|Integration|UI|Smoke|Independent review)[\s:—-]*$' -or $detail.Length -lt 12) {
-            Add-SpecError 'Each selected verification level must describe what it proves.' ($verificationMatch.Index + $check.Index)
+            Add-SpecError 'Each selected verification level must describe what it proves.' ($verificationBodyOffset + $check.Index)
         }
     }
     $withoutUnchecked = [regex]::Replace($verificationBody, '(?m)^\s*[-*]\s+\[ \].*(?:\r?\n|$)', '').Trim()

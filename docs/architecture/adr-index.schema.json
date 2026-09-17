@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bsl-flow.local/schemas/adr-index.schema.json",
+  "title": "BSL Flow ADR index",
+  "description": "Machine-readable index over the normative ADR text in docs/ARCHITECTURE_RU.md. The index references decisions and architectural subjects; it never copies the normative text.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "subjects", "decisions"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "subjects": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/subject"}
+    },
+    "decisions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/decision"}
+    }
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"},
+    "nonEmpty": {"type": "string", "minLength": 1},
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "refs"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "kind": {"enum": ["module", "command", "function", "document"]},
+        "refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 240}
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "anchor"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1, "maxLength": 240},
+        "anchor": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "status", "applies_to", "source", "informed_by", "supersedes"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "title": {"type": "string", "minLength": 1, "maxLength": 200},
+        "status": {"enum": ["proposed", "accepted", "superseded", "deprecated"]},
+        "applies_to": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/id"}
+        },
+        "source": {"$ref": "#/$defs/source"},
+        "informed_by": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/id"}
+        },
+        "supersedes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/id"}
+        },
+        "revisit_triggers": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/nonEmpty"}
+        }
+      }
+    }
+  }
+}

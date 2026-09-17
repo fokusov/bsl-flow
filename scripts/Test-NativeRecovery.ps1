@@ -112,6 +112,10 @@ function New-NRecordedSuccessFixture([string]$Name){
     $attemptDirectory=Join-Path $taskDirectory ('attempts/'+$fixture.attempt)
     $rawRoot=Join-Path $attemptDirectory 'raw'
     [void][IO.Directory]::CreateDirectory($rawRoot)
+    # The storage fence verifies task-path writes against a Git worktree root;
+    # give the fixture project a repository like every real task project has.
+    $null=& git -C $project init 2>&1
+    if($LASTEXITCODE -ne 0){throw 'native recovery fixture repository was not created.'}
     Copy-Item -LiteralPath $fixture.directory -Destination $rawRoot -Recurse
     $copiedNative=Join-Path $rawRoot 'native'
     $rawHashes=@(Get-ChildItem -LiteralPath $rawRoot -File -Recurse | Sort-Object FullName | ForEach-Object {[ordered]@{path=$_.FullName;sha256=(Get-BFFileHash $_.FullName)}})

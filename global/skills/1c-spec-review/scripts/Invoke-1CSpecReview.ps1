@@ -1,4 +1,4 @@
-﻿#Requires -Version 7.0
+#Requires -Version 7.0
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$ProjectPath,
@@ -11,22 +11,16 @@ param(
     [switch]$ForceReplaceReview,
     [int]$TimeoutSeconds = 0,
     [int]$MaxOutputBytes = 0,
-    [string]$OpenCodePath
+    [string]$OpenCodePath,
+    [string]$ManagedCodexPath,
+    [string]$EvidenceText = '',
+    [Alias('HostStatePath')]
+    [string]$ManagedStatePath
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Review.Common.ps1')
-
-function Get-BoundedUtf8Snapshot {
-    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][int]$MaxBytes)
-    $bytes = [System.IO.File]::ReadAllBytes($Path)
-    if ($bytes.Length -gt $MaxBytes) { throw "Review input exceeds $MaxBytes bytes: $Path" }
-    $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
-    try { $text = $utf8.GetString($bytes) }
-    catch { throw "Review input is not valid UTF-8: $Path" }
-    return [pscustomobject]@{ Bytes = $bytes; Text = $text; Sha256 = Get-BSLFlowBytesSha256 $bytes }
-}
 
 function Get-SpecClassification {
     param([Parameter(Mandatory)][string]$SpecText)
@@ -37,6 +31,47 @@ function Get-SpecClassification {
     return [pscustomobject]@{
         Complexity = $complexityMatches[0].Groups[1].Value.ToUpperInvariant()
         Risk = $riskMatches[0].Groups[1].Value.ToLowerInvariant()
+    }
+}
+
+function Import-PublicManagedCouncilAdapter {
+    param(
+        [Parameter(Mandatory)][string]$StatePath,
+        [Parameter(Mandatory)][string]$ProjectRoot,
+        [Parameter(Mandatory)][string]$ChangeRoot,
+        [string]$CodexPath,
+        [int]$MaxBytes = 262144
+    )
+    $taskSkillRoot = Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) '1c-task'
+    foreach ($module in @(
+        'scripts/Task.Storage.ps1', 'scripts/Task.Contracts.ps1', 'scripts/Task.Memory.ps1',
+        'scripts/Task.Architecture.ps1', 'scripts/Task.Gates.ps1', 'scripts/Task.Process.ps1',
+        'scripts/Task.Engine.ps1', 'scripts/Task.Toolsets.ps1', 'scripts/Task.Execution.ps1',
+        'scripts/Task.Stages.ps1', 'scripts/Task.ManagedReview.ps1',
+        'adapters/Codex.ps1', 'adapters/Codex.Skills.ps1', 'adapters/ProfiledCodex.ps1'
+    )) {
+        . (Join-Path $taskSkillRoot $module)
+    }
+    $resolvedStatePath = Assert-BFSafePath $StatePath
+    if (-not (Test-Path -LiteralPath $resolvedStatePath -PathType Leaf)) { throw "Managed host state not found: $resolvedStatePath" }
+    $taskRoot = (Assert-BFSafePath (Join-Path $ProjectRoot '.bsl-flow/tasks')).TrimEnd('\', '/') + '\'
+    if (-not $resolvedStatePath.StartsWith($taskRoot, [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'BF_INVALID: managed host state must be an existing registered task state under .bsl-flow/tasks.'
+    }
+    $managedState = Read-BFJson $resolvedStatePath
+    Assert-BFState $managedState
+    if ((Assert-BFSafePath ([string]$managedState.project_path)) -ine $ProjectRoot) { throw 'BF_BLOCKED: managed host state belongs to another project.' }
+    if ((Assert-BFSafePath (Get-BFChangePath $managedState)) -ine $ChangeRoot) {
+        throw 'BF_BLOCKED: managed host state does not identify the requested OpenSpec change.'
+    }
+    $adapterDirectory = Join-Path (Get-BFTaskDirectory $ProjectRoot ([string]$managedState.task_id)) 'managed-council/public'
+    $adapter = New-BFManagedCouncilHostAdapter -State $managedState -Directory $adapterDirectory -CodexPath $CodexPath
+    return [pscustomobject][ordered]@{
+        state = $managedState
+        capabilities = $adapter.capabilities
+        fallback_runner = $adapter.fallback_runner
+        fallback_roles = @($adapter.fallback_roles)
+        evidence_text = Get-BFManagedCouncilEvidence $managedState $MaxBytes
     }
 }
 
@@ -51,7 +86,6 @@ $reviewPath = Join-Path $changeRoot 'review.json'
 $configPath = Join-Path $projectRoot 'bsl-flow.yaml'
 
 if (-not (Test-Path -LiteralPath $specPath -PathType Leaf)) { throw "spec.md not found: $specPath" }
-$lint = & (Join-Path $PSScriptRoot 'Test-1CSpec.ps1') -ChangePath $changeRoot
 $specText = [IO.File]::ReadAllText($specPath, (New-Object Text.UTF8Encoding($false)))
 $classification = Get-SpecClassification -SpecText $specText
 if ($Complexity -and $classification.Complexity -and $Complexity -ne $classification.Complexity) { throw 'Explicit complexity conflicts with spec.md classification.' }
@@ -61,6 +95,34 @@ if (-not $Risk) { $Risk = $classification.Risk }
 if ($Complexity -notin @('S', 'M', 'L') -or $Risk -notin @('low', 'medium', 'high')) { throw 'Complexity and risk are required in spec.md or command parameters.' }
 
 $configText = if (Test-Path -LiteralPath $configPath -PathType Leaf) { Get-Content -Raw -LiteralPath $configPath } else { '' }
+$councilRouting = $null
+try {
+    # The council route sees the effective policy: user profile merged under
+    # the project config. Routing switches themselves stay project-owned.
+    . (Join-Path $PSScriptRoot 'Council.Profile.ps1')
+    $councilRouting = (Get-BSLFlowCouncilEffectivePolicy -ProjectRoot $projectRoot).policy
+}
+catch { throw }
+
+# A prepared council publication is a durable recovery record. Resume it before
+# lint or any route can start another model call; Resume performs the final lint
+# and publication checks against the exact prepared bytes.
+$councilRunRoot = Join-Path $projectRoot ('.bsl-flow/reports/spec-review/' + $ChangeName + '.council')
+$councilPreparedPath = Join-Path $councilRunRoot 'publication/prepared.json'
+if (Test-Path -LiteralPath $councilPreparedPath -PathType Leaf) {
+    if ($null -eq $councilRouting -or -not [bool]$councilRouting.enabled -or $councilRouting.legacy_mode -ceq 'opencode_compat') {
+        throw 'BF_BLOCKED: prepared council publication requires the council route to remain enabled.'
+    }
+    . (Join-Path $PSScriptRoot 'Council.Engine.ps1')
+    $recovery = Resume-BSLFlowCouncilPreparedPublicationIfPresent -ProjectRoot $projectRoot -ChangeName $ChangeName
+    if ($null -eq $recovery) { throw 'BF_BLOCKED: prepared council publication disappeared before recovery.' }
+    return [pscustomobject]@{
+        Complexity = $Complexity; Risk = $Risk; Route = 'council'; ReviewRequired = $true
+        LintPassed = $true; ReviewPath = $reviewPath; Council = [ordered]@{ resumed = $true; publication = $recovery }
+    }
+}
+
+$lint = & (Join-Path $PSScriptRoot 'Test-1CSpec.ps1') -ChangePath $changeRoot
 $enabled = ConvertTo-BSLFlowBoolean (Get-BSLFlowYamlValue $configText @('review', 'enabled') 'true') 'review.enabled'
 $route = if ($Risk -eq 'high') {
     Get-BSLFlowYamlValue $configText @('review', 'routing', 'high_risk_override') 'required'
@@ -87,11 +149,37 @@ if (-not $reviewRequired) {
 if (-not (Test-Path -LiteralPath $originalTaskPath -PathType Leaf)) { throw "original-task.md is required for independent review: $originalTaskPath" }
 if ((Test-Path -LiteralPath $reviewPath -PathType Leaf) -and -not $ForceReplaceReview) { throw "review.json already exists; refusing to overwrite evidence: $reviewPath" }
 
-$readMode = Get-BSLFlowYamlValue $configText @('review', 'permissions', 'project_read_mode') 'read_search'
-if ($readMode -notin @('read_search', 'attached_only')) { throw "Invalid project_read_mode: $readMode" }
-foreach ($forbidden in @('edit', 'shell', 'subagents', 'web', 'external_directory')) {
-    $value = ConvertTo-BSLFlowBoolean (Get-BSLFlowYamlValue $configText @('review', 'permissions', $forbidden) 'false') "review.permissions.$forbidden"
-    if ($value) { throw "Unsafe reviewer permission cannot be enabled: $forbidden" }
+$managedAdapter = $null
+if ($ManagedStatePath) {
+    if ($null -eq $councilRouting -or -not [bool]$councilRouting.enabled -or $councilRouting.legacy_mode -ceq 'opencode_compat') {
+        throw 'BF_BLOCKED: managed host state is supported only by the enabled council route.'
+    }
+    $managedInputLimit = [int]::Parse((Get-BSLFlowYamlValue $configText @('review', 'input', 'max_file_bytes') '262144'), [Globalization.CultureInfo]::InvariantCulture)
+    $managedAdapter = Import-PublicManagedCouncilAdapter -StatePath $ManagedStatePath -ProjectRoot $projectRoot -ChangeRoot $changeRoot -CodexPath $ManagedCodexPath -MaxBytes $managedInputLimit
+}
+
+$reviewPolicy = Get-BSLFlowReviewPolicy $configText
+$readMode = $reviewPolicy.ReadMode
+
+# Council is the default spec_review route. Legacy OpenCode stays only on the
+# explicit opencode_compat route; Get-BSLFlowCouncilPolicy throws
+# BF_MIGRATION_BLOCKED for silently reinterpreted legacy configs.
+if ($null -ne $councilRouting -and [bool]$councilRouting.enabled -and $councilRouting.legacy_mode -cne 'opencode_compat') {
+    . (Join-Path $PSScriptRoot 'Invoke-CouncilReview.ps1')
+    $councilArguments = @{
+        ProjectPath = $projectRoot; ChangeName = $ChangeName
+        EvidenceText = if ($null -ne $managedAdapter) { [string]$managedAdapter.evidence_text } else { $EvidenceText }
+        AllowLiveDispatch = $true
+    }
+    if ($null -ne $managedAdapter) {
+        $councilArguments.Capabilities = $managedAdapter.capabilities
+        $councilArguments.FallbackRunner = $managedAdapter.fallback_runner
+    }
+    $councilResult = Invoke-BSLFlowCouncilReview @councilArguments
+    return [pscustomobject]@{
+        Complexity = $Complexity; Risk = $Risk; Route = 'council'; ReviewRequired = $true
+        LintPassed = [bool]$lint.passed; ReviewPath = $reviewPath; Council = $councilResult
+    }
 }
 
 $provider = Get-BSLFlowYamlValue $configText @('review', 'reviewer', 'provider') 'opencode'
@@ -105,15 +193,10 @@ $agent = if ($readMode -eq 'attached_only') { 'bsl-flow-spec-reviewer-sealed' } 
 if ($agent -notin @('bsl-flow-spec-reviewer', 'bsl-flow-spec-reviewer-sealed')) { throw "Only packaged hard-deny reviewer agents are allowed: $agent" }
 
 $culture = [System.Globalization.CultureInfo]::InvariantCulture
-$passScore = [double]::Parse((Get-BSLFlowYamlValue $configText @('review', 'thresholds', 'pass_weighted_score') '4.3'), $culture)
-$blockScore = [double]::Parse((Get-BSLFlowYamlValue $configText @('review', 'thresholds', 'block_below_weighted_score') '3.5'), $culture)
-$maxIndex = [int]::Parse((Get-BSLFlowYamlValue $configText @('review', 'thresholds', 'max_overengineering_index_for_pass') '1'), $culture)
-$maxRatio = [double]::Parse((Get-BSLFlowYamlValue $configText @('review', 'thresholds', 'max_unjustified_ratio_for_pass') '0'), $culture)
-if ($passScore -lt 1 -or $passScore -gt 5 -or $blockScore -lt 1 -or $blockScore -gt 5) { throw 'Review score thresholds must be between 1 and 5.' }
-if ($blockScore -gt $passScore) { throw 'block_below_weighted_score must not exceed pass_weighted_score.' }
-if ($maxIndex -lt 0) { throw 'max_overengineering_index_for_pass must not be negative.' }
-if ($maxRatio -lt 0 -or $maxRatio -gt 1) { throw 'max_unjustified_ratio_for_pass must be between 0 and 1.' }
-
+$passScore = $reviewPolicy.PassWeightedScore
+$blockScore = $reviewPolicy.BlockBelowWeightedScore
+$maxIndex = $reviewPolicy.MaxOverengineeringIndexForPass
+$maxRatio = $reviewPolicy.MaxUnjustifiedRatioForPass
 $skillRoot = Split-Path -Parent $PSScriptRoot
 $reviewerConfig = Join-Path $skillRoot 'reviewer\opencode-reviewer.json'
 $rubricPath = Join-Path $skillRoot 'references\reviewer-rubric.md'
@@ -141,9 +224,9 @@ else {
 }
 
 $capturedInputs = [ordered]@{
-    original_task = Get-BoundedUtf8Snapshot -Path $originalTaskPath -MaxBytes $maxInputBytes
-    spec = Get-BoundedUtf8Snapshot -Path $specPath -MaxBytes $maxInputBytes
-    design = if (Test-Path -LiteralPath $designPath -PathType Leaf) { Get-BoundedUtf8Snapshot -Path $designPath -MaxBytes $maxInputBytes } else { $null }
+    original_task = Get-BSLFlowBoundedUtf8Snapshot -Path $originalTaskPath -MaxBytes $maxInputBytes
+    spec = Get-BSLFlowBoundedUtf8Snapshot -Path $specPath -MaxBytes $maxInputBytes
+    design = if (Test-Path -LiteralPath $designPath -PathType Leaf) { Get-BSLFlowBoundedUtf8Snapshot -Path $designPath -MaxBytes $maxInputBytes } else { $null }
 }
 
 # Create the durable attempt before the provider is started. Exact sent input
@@ -172,7 +255,7 @@ foreach ($entry in @(
     @{ Label = 'ORIGINAL TASK'; Snapshot = $capturedInputs.original_task; Trusted = $false },
     @{ Label = 'DRAFT SPEC'; Snapshot = $capturedInputs.spec; Trusted = $false },
     @{ Label = 'TECHNICAL DESIGN'; Snapshot = $capturedInputs.design; Trusted = $false },
-    @{ Label = 'REVIEW RUBRIC'; Snapshot = (Get-BoundedUtf8Snapshot -Path $rubricPath -MaxBytes $maxInputBytes); Trusted = $true }
+    @{ Label = 'REVIEW RUBRIC'; Snapshot = (Get-BSLFlowBoundedUtf8Snapshot -Path $rubricPath -MaxBytes $maxInputBytes); Trusted = $true }
 )) {
     if ($null -eq $entry.Snapshot) { continue }
     $kind = if ($entry.Trusted) { 'TRUSTED REVIEW POLICY' } else { 'UNTRUSTED DATA' }
