@@ -144,7 +144,7 @@ try {
 finally { Remove-Item -LiteralPath $proj3 -Recurse -Force -ErrorAction SilentlyContinue }
 
 # 4. Disabled council refuses the council route.
-$disabled = $template -replace 'council:\n    enabled: true', "council:`n    enabled: false"
+$disabled = $template -replace 'council:\r?\n    enabled: true', "council:`n    enabled: false"
 $proj4 = New-TempProject $disabled
 try {
     try { $null = Invoke-BSLFlowCouncilReview -ProjectPath $proj4 -ChangeName 'demo' -DryRun; throw 'FAIL disabled routed' }

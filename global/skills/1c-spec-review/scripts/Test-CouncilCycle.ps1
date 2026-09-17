@@ -18,8 +18,14 @@ function New-TempProject {
     $root = Join-Path ([IO.Path]::GetTempPath()) ('council-cycle-' + [guid]::NewGuid().ToString('N'))
     $change = Join-Path $root 'openspec\changes\demo'
     New-Item -ItemType Directory -Path $change -Force | Out-Null
-    Copy-Item -LiteralPath (Join-Path $PackageRoot 'openspec\changes\api-specification-council\original-task.md') -Destination (Join-Path $change 'original-task.md')
-    Copy-Item -LiteralPath (Join-Path $PackageRoot 'openspec\changes\api-specification-council\spec.md') -Destination (Join-Path $change 'spec.md')
+    # Fixtures are normalized to LF: the publication round-trip preserves the
+    # draft bytes, and a CRLF checkout would otherwise flip the trailing
+    # newline, change the snapshot hash and force a second dispatch.
+    foreach ($name in @('original-task.md', 'spec.md')) {
+        $source = Join-Path $PackageRoot ('openspec\changes\api-specification-council\' + $name)
+        $text = [IO.File]::ReadAllText($source)
+        [System.IO.File]::WriteAllText((Join-Path $change $name), ($text -replace "`r`n", "`n"), [System.Text.UTF8Encoding]::new($false))
+    }
     [System.IO.File]::WriteAllText((Join-Path $root 'bsl-flow.yaml'), (Get-Content -Raw -LiteralPath (Join-Path $PackageRoot 'global\skills\1c-init-project\assets\project\bsl-flow.yaml')))
     return $root
 }
