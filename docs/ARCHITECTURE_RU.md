@@ -1,14 +1,22 @@
 # Архитектура managed-контура BSL Flow
 
-Статус документа: решения source-only ядра `0.7.0-dev.1` и managed increment `0.8.0-dev.2`. Native-адаптер расширения прошёл сквозной unit-пилот; временное ограничение Unica сохраняется. Историческое ADR-6 уточнено решениями ниже. Актуальные решения и история — в [CHANGELOG.md](../CHANGELOG.md).
+Статус документа: актуальная архитектура `0.8.0-dev.3`. Узкий native FILE-адаптер расширения прошёл публичный controller-owned unit-пилот с пятью тестами и контрольным восстановлением; это не подтверждает произвольные 1С, UI, EPF/ERF или production-сценарии. Временное ограничение Unica сохраняется. Историческое ADR-6 уточнено текущим статусом ниже. Актуальные решения и история — в [CHANGELOG.md](../CHANGELOG.md).
 
 Машинные схемы и request/recovery contracts описаны в [`1c-task/references/task-contract.md`](../global/skills/1c-task/references/task-contract.md). Проверенная граница Windows host вынесена в [`managed-host-contract.md`](managed-host-contract.md).
 
 ## Контекст и цель
 
-В 0.8 собственный Go CLI содержит версионируемые инструкции и PowerShell 7 engine. Он проверяет полный embedded bundle, безопасно публикует его в cache и передаёт закрытые команды фиксированному системному `C:\Program Files\PowerShell\7\pwsh.exe`. Машина состояний остаётся одной. Бинарник улучшает запуск и поставку; enforcement обеспечивают controller gates и права worker. Полный перенос engine на Go отложен до измеренного ограничения текущего исполнения.
+В 0.8 авторитетный engine и единственная машина состояний реализованы на PowerShell 7. Версионируемые skills, controller scripts и схемы поставляются одним проверяемым package bundle; пользовательский вход `Invoke-BSLFlowTask.ps1` запускается фиксированным системным `C:\Program Files\PowerShell\7\pwsh.exe`. Enforcement обеспечивают controller gates, hash-bound evidence и права worker. После rollback `native-cross-platform-cli` проект не выпускает собственный бинарник и не заявляет поддержку Linux/macOS.
 
 Для явно разрешённого source repair controller различает завершённую неверную проверку и неопределённый результат. Диагностика читает исходную ошибку, а исправление обязательно получает свежие code review и verify. Тестовые файлы, выбранные trusted operator, заморожены по manifest; модель не может заменить проверку генерацией зелёного отчёта. Локальные runner и source handoff переиспользуют этот же controller и receipt, не создают альтернативные transitions или publication authority.
+
+## Архитектурная граница Core/Managed
+
+Core — assisted-контур по умолчанию. Он состоит из независимых skills `1c-init-project`, `1c-spec`, `1c-spec-review`, `1c-implement`, `1c-verify` и `1c-debug`; их последовательность остаётся под управлением пользователя и текущего агента. `1c-estimate` является отдельной opt-in операцией.
+
+Managed начинается только для конкретной задачи после явного запроса пользователя и вызова `1c-task`. С этого момента controller владеет переходами, журналом, recovery и acceptance gates этой задачи. Установка managed-файлов, bootstrap проекта, `bsl-flow.yaml` и sentinel `.bsl-flow/project.yaml` лишь делают контракт доступным; они не активируют Managed и не подтверждают host/runtime readiness.
+
+Repository registry, execution contract, publication, оценка и self-learning Experience Ledger не образуют скрытый второй workflow. Реестр и публикация вызываются отдельными командами, execution contract учитывается только при наличии артефактов, оценка запускается отдельным skill, а Experience Ledger требует проектного opt-in `features.self_learning_memory.enabled: true`. При выключенной памяти controller не читает и не изменяет ledger, но его обязательный task journal и resume-state продолжают работать. Acceptance не означает merge, push или deploy, а разрешение одного runtime target не распространяется на другие цели или задачи.
 
 Assisted workflow хорошо работает, пока основной агент удерживает порядок этапов в диалоге. При длинной задаче или прерывании нужны durable identity, точное восстановление и проверяемый ответ на вопрос: относится ли этот PASS к текущим требованиям, policy, спецификации, исходникам и тестам.
 
@@ -22,8 +30,8 @@ Managed controller решает эту задачу как небольшой п
 
 ```mermaid
 flowchart LR
-    U[Требования и допуски пользователя] --> G[Go CLI и проверенный bundle]
-    G --> C[PowerShell controller: state и gates]
+    I[Установленные versioned skills, scripts и schemas] --> C[PowerShell controller: state и gates]
+    U[Требования и допуски пользователя] --> C
     Q[Локальная очередь] --> C
     C --> W[Изолированный worker]
     W -->|Предложение и исходные результаты| C
@@ -68,6 +76,8 @@ Worker result — предложение этапа по JSON Schema. Даже `
 
 **Решение.** Независимый reviewer читает полный актуальный diff, спецификацию и исходный запрос, не редактирует файлы и возвращает `PASS`, `REVISE` или `BLOCK` с адресуемыми findings. Отдельный reconciler принимает или отклоняет каждый finding с evidence. Принятое замечание вызывает одну correction round и новый независимый review полного изменённого diff.
 
+Для спецификаций применяется фиксированный cost/risk tier: S по умолчанию проходит только deterministic lint, M — одного sealed reviewer, L или high-risk — API Council с председателем и независимыми критиками. Явно запрошенный review для S использует одного reviewer. Включённый Council не повышает M автоматически, а недоступный Council для L/high-risk даёт `BLOCKED`, не downgrade.
+
 **Почему.** Reviewer не получает право автоматически расширить scope или переписать реализацию. Reconciliation сохраняет ответственность основного инженерного контура и отличает реальный дефект от пожелания. Spec review аналогично завершается lint и final validation актуальной reconciled specification.
 
 **Цена.** Появляется дополнительный model call и конечный лимит correction rounds. Незакрытое замечание или неполная reconciliation блокирует acceptance; текст автора `addressed` не заменяет свежий review.
@@ -82,11 +92,11 @@ Worker result — предложение этапа по JSON Schema. Даже `
 
 ## ADR-6: первоначальный запрет неподтверждённого runtime (история 0.7)
 
-**Решение.** Criteria типов `integration`, `ui` и `external_artifact` сохраняются как обязательные и требуют точную target identity. Текущий controller не запускает их и возвращает `BLOCKED`. Нельзя переименовать runtime-проверку в `static` или заменить её file assertion.
+**Решение в 0.7.** Criteria типов `integration`, `ui` и `external_artifact` сохранялись как обязательные и требовали точную target identity. Source-only controller не запускал их и возвращал `BLOCKED`. Нельзя было переименовать runtime-проверку в `static` или заменить её file assertion.
 
-**Почему.** Подготовленный тест, локальный sentinel или успешная сборка не доказывает загрузку, UI-поведение либо бизнес-результат в конкретной базе. Managed-адаптер не реализован. Временное ограничение durable Unica jobs сохраняется; пользователь разрешил отдельный native-пилот в `bp1`, но этот локальный маршрут не входит в публичный controller и не закрывает его runtime gate.
+**Почему.** Подготовленный тест, локальный sentinel или успешная сборка не доказывает загрузку, UI-поведение либо бизнес-результат в конкретной базе. На этапе 0.7 managed-адаптер ещё не был реализован; отдельный native-пилот в `bp1` не входил в публичный controller и не закрывал его runtime gate. Временное ограничение durable Unica jobs сохраняется.
 
-**Цена.** Managed mode `0.7.0-dev.1` завершает только анализ и source-only задачи с доступными deterministic checks. Реальная небольшая 1С задача, recovery внешнего эффекта и полный M8 остаются отдельной приёмкой.
+**Текущий статус.** Начиная с `0.8.0-dev.2` controller поддерживает только узкий явно разрешённый native-маршрут: FILE-база, одно расширение, точный snapshot и объявленные YAxUnit-тесты с оригинальным JUnit и control-read recovery. Все остальные runtime, UI, EPF/ERF и production-гейты остаются `BLOCKED` до появления отдельного подтверждённого адаптера и evidence contract.
 
 ## Поток задачи
 

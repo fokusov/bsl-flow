@@ -94,7 +94,7 @@ $requiredFiles = @(
     'global\skills\1c-init-project\assets\project\AGENTS.md',
     'global\skills\1c-init-project\assets\project\bsl-flow.yaml',
     'global\skills\1c-init-project\assets\project\.bsl-flow\project.yaml',
-    'README.md', 'README.en.md', 'INSTALL.md', 'docs\TEST_ENVIRONMENT_GUIDE_RU.md', 'VERSION', 'CHANGELOG.md', 'global\AGENTS.bootstrap.md',
+    'README.md', 'README.en.md', 'INSTALL.md', 'docs\FRAMEWORK_GUIDE_RU.md', 'docs\TEST_ENVIRONMENT_GUIDE_RU.md', 'VERSION', 'CHANGELOG.md', 'global\AGENTS.bootstrap.md',
     'global\openspec\schemas\bsl-flow\schema.yaml', 'global\openspec\schemas\bsl-flow\templates\spec.md',
     'global\skills\1c-spec-review\SKILL.md', 'global\skills\1c-spec-review\agents\openai.yaml',
     'global\skills\1c-spec-review\reviewer\opencode-reviewer.json',
@@ -177,6 +177,32 @@ $englishReadme = Get-Content -Raw (Join-Path $packageRoot 'README.en.md')
 Assert-True ($englishReadme -match '^# BSL Flow') 'English README does not use the BSL Flow name.'
 Assert-True ($publicReadme.Contains('[English](README.en.md)')) 'Primary Russian README does not link the English README.'
 Assert-True ($englishReadme.Contains('[Русская версия](README.md)')) 'English README does not link the primary Russian README.'
+$skillCount = @(Get-ChildItem -LiteralPath (Join-Path $packageRoot 'global\skills') -Directory).Count
+Assert-True ($publicReadme.Contains("$skillCount skills")) 'Primary README reports a stale skill count.'
+Assert-True ($englishReadme.Contains("$skillCount skills")) 'English README reports a stale skill count.'
+$architectureText = Get-Content -Raw (Join-Path $packageRoot 'docs\ARCHITECTURE_RU.md')
+$frameworkGuideText = Get-Content -Raw (Join-Path $packageRoot 'docs\FRAMEWORK_GUIDE_RU.md')
+$projectTemplateText = Get-Content -Raw (Join-Path $packageRoot 'global\skills\1c-init-project\assets\project\bsl-flow.yaml')
+$changeLogText = Get-Content -Raw (Join-Path $packageRoot 'CHANGELOG.md')
+Assert-True ($architectureText.Contains($packageVersion)) 'Architecture document reports a stale package version.'
+Assert-True ($frameworkGuideText.Contains($packageVersion)) 'Framework guide reports a stale package version.'
+Assert-True ($architectureText -notmatch '(?i)\bGo (?:CLI|binary|executable)\b') 'Architecture document still describes the rolled-back Go executable.'
+foreach ($text in @($publicReadme, $englishReadme, $architectureText, $frameworkGuideText)) {
+    Assert-True ($text -match '(?i)\bCore\b' -and $text -match '(?i)\bManaged\b') 'Public mode documentation does not define both Core and Managed.'
+}
+Assert-True ($publicReadme.Contains('Managed не включают')) 'Primary README does not state that installation/bootstrap cannot activate Managed.'
+Assert-True ($englishReadme.Contains('does not activate Managed')) 'English README does not state that installation/bootstrap cannot activate Managed.'
+Assert-True ($projectTemplateText.Contains('mode: assisted') -and $projectTemplateText.Contains('does not activate a managed task')) 'Project template does not preserve the assisted-by-default boundary.'
+Assert-True ($projectTemplateText -match '(?ms)^features:\s*.*?^\s{2}self_learning_memory:\s*.*?^\s{4}enabled:\s*false\s*$') 'Project template does not keep self-learning memory disabled by default.'
+$taskSkillText = Get-Content -Raw (Join-Path $packageRoot 'global\skills\1c-task\SKILL.md')
+$estimateSkillText = Get-Content -Raw (Join-Path $packageRoot 'global\skills\1c-estimate\SKILL.md')
+$implementSkillText = Get-Content -Raw (Join-Path $packageRoot 'global\skills\1c-implement\SKILL.md')
+Assert-True ($taskSkillText.Contains('Experience Ledger is an optional extension and defaults off')) 'Managed task skill does not document the memory opt-in boundary.'
+Assert-True ($estimateSkillText.Contains('not a stage, gate or authorization')) 'Estimate skill is no longer explicitly separated from the controller lifecycle.'
+Assert-True ($implementSkillText.Contains('When the change directory contains `execution.yaml`')) 'Implementation skill no longer guards execution-contract use by artifact presence.'
+$unreleasedMatch = [regex]::Match($changeLogText, '(?ms)^## Unreleased\s*(?<body>.*?)(?=^##\s)')
+Assert-True $unreleasedMatch.Success 'CHANGELOG lacks a bounded Unreleased section.'
+Assert-True ($unreleasedMatch.Groups['body'].Value -notmatch '(?i)windows/amd64|extracted binary|\bGo (?:CLI|binary|executable)\b') 'Unreleased CHANGELOG still claims native executable packaging.'
 $installScriptText = Get-Content -Raw (Join-Path $packageRoot 'scripts\Install-BSLFlow.ps1')
 $openCodeInstallerText = Get-Content -Raw (Join-Path $packageRoot 'scripts\Install-BSLFlowForOpenCode.ps1')
 foreach ($text in @($publicReadme, $englishReadme, (Get-Content -Raw (Join-Path $packageRoot 'INSTALL.md')))) {
@@ -190,7 +216,12 @@ Assert-True ($publicReadme.Contains('provider') -and $publicReadme.Contains('`BL
 $retiredPrefix = '1' + 'c'
 $retiredWord = 'li' + 'te'
 $forbiddenNamePattern = '(?i)' + $retiredPrefix + '[-_. ]?' + $retiredWord + '|one' + $retiredPrefix + '[-_. ]?' + $retiredWord
-$forbiddenHits = Get-ChildItem -LiteralPath $packageRoot -File -Recurse -Force |
+$scanEntries = @(Get-ChildItem -LiteralPath $packageRoot -Force | Where-Object { $_.Name -notin @('.git','.bsl-flow','.build','work','outputs') })
+$scanFiles = @($scanEntries | Where-Object { -not $_.PSIsContainer })
+foreach ($directory in @($scanEntries | Where-Object { $_.PSIsContainer })) {
+    $scanFiles += @(Get-ChildItem -LiteralPath $directory.FullName -File -Recurse -Force)
+}
+$forbiddenHits = $scanFiles |
     Where-Object {
         $relative = $_.FullName.Substring($packageRoot.TrimEnd('\', '/').Length + 1).Replace('\', '/')
         $_.FullName -notmatch '[\\/](?:\.git|\.bsl-flow|work|outputs)(?:[\\/]|$)' -and
@@ -573,8 +604,10 @@ class FakeOpenCode {
         $caseSpec = $validSpec.Replace('Сложность: M', "Сложность: $($routeCase.Complexity)").Replace('Риск: medium', "Риск: $($routeCase.Risk)")
         $caseSpec | Set-Content (Join-Path $casePath 'spec.md') -Encoding utf8
         'Route test.' | Set-Content (Join-Path $casePath 'original-task.md') -Encoding utf8
-        $caseRoute = & $invokeReview -ProjectPath $project -ChangeName $routeCase.Name
-        Assert-True ($caseRoute.ReviewRequired -eq $true) "Required route was skipped: $($routeCase.Name)"
+        $councilRequired = $false
+        try { & $invokeReview -ProjectPath $project -ChangeName $routeCase.Name | Out-Null }
+        catch { $councilRequired = $_.Exception.Message -match 'requires an enabled API Council route' }
+        Assert-True $councilRequired "L/high-risk route did not fail closed without Council: $($routeCase.Name)"
     }
     $routingGuardPath = Join-Path $project 'openspec\changes\routing-guard'
     New-Item -ItemType Directory -Path $routingGuardPath -Force | Out-Null

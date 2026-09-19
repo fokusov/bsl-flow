@@ -14,7 +14,7 @@ BSL Flow — публичный workflow-проект для AI coding agents, �
   -> независимое ревью спецификации
   -> реализация
   -> проверка и тесты
-  -> накопление знаний проекта
+  -> опциональное накопление знаний проекта
 ```
 
 ## Зачем нужен BSL Flow
@@ -50,6 +50,14 @@ inspect -> spec/design -> independent review -> targeted revision
         -> implement -> independent code review -> verify
 ```
 
+## Core и Managed
+
+По умолчанию BSL Flow работает в assisted-режиме (**Core**): агент применяет отдельные skills `1c-init-project`, `1c-spec`, `1c-spec-review`, `1c-implement`, `1c-verify` и `1c-debug`, а пользователь и агент сохраняют контроль над последовательностью и точками остановки.
+
+**Managed** — отдельный opt-in режим для зарегистрированной задачи. Он активируется только явным запросом пользователя и запуском `1c-task`; после этого controller владеет порядком этапов, журналом, recovery и evidence gates этой задачи. Установка пакета, наличие `bsl-flow.yaml`, bootstrap sentinel или доступность `1c-task` сами по себе Managed не включают и готовность host/runtime не доказывают.
+
+Реестр планируемых задач, машиночитаемые execution-артефакты, оценка, публикация и self-learning memory — дополнительные явные возможности. Они не являются обязательной частью Core и не запускаются автоматически при bootstrap или принятии managed-задачи. Experience Ledger выключен по умолчанию и включается только через `features.self_learning_memory.enabled: true`; обязательный журнал и resume-состояние managed controller от него не зависят.
+
 Фреймворк рассчитан на совместную работу с:
 
 - OpenAI Codex и другими coding agents;
@@ -61,7 +69,7 @@ inspect -> spec/design -> independent review -> targeted revision
 
 ## Актуальная версия
 
-Рабочая версия — **BSL Flow 0.8.0-dev.3**. В ней восемь skills, включая `1c-task`: контроллер сохраняет историю задачи, выбирает обязательные этапы, запускает изолированных Codex workers, проверяет актуальность исходников и доказательств и останавливается при неопределённом результате. Ревью спецификаций выполняет независимый API-совет (`review.council`).
+Рабочая версия — **BSL Flow 0.8.0-dev.3**. В ней 8 skills, включая `1c-task`: контроллер сохраняет историю задачи, выбирает обязательные этапы, запускает изолированных Codex workers, проверяет актуальность исходников и доказательств и останавливается при неопределённом результате. S по умолчанию получает lint, M — одного независимого reviewer, L/high-risk — API-совет (`review.council`).
 
 Единственный пользовательский вход — `global/skills/1c-task/scripts/Invoke-BSLFlowTask.ps1`; нужны PowerShell 7 из стандартной машинной установки `C:\Program Files\PowerShell\7\pwsh.exe` и Git; fallback на Windows PowerShell 5.1 не поддерживается. По решению владельца (2026-09-16) проект не выпускает Go-бинарник и не поддерживает Linux/macOS в ближайших релизах — история решения в [CHANGELOG.md](CHANGELOG.md).
 

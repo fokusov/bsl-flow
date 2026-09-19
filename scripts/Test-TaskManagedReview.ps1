@@ -12,7 +12,7 @@ $temp=Join-Path ([IO.Path]::GetTempPath()) ('bsl-flow-managed-review-'+[guid]::N
 $checks=0;$script:mode='pass';$script:calls=0
 $script:providerEvidenceCall=$null
 $script:managedWorkerProviderContext=$null
-$state=[pscustomobject]@{project_path=$temp;task_id=[guid]::NewGuid().ToString();request=[pscustomobject]@{models=[pscustomobject]@{worker='fixture-worker';reviewer='fixture-reviewer'}}}
+$state=[pscustomobject]@{project_path=$temp;task_id=[guid]::NewGuid().ToString();classification=[pscustomobject]@{complexity='M';risk='low'};request=[pscustomobject]@{models=[pscustomobject]@{worker='fixture-worker';reviewer='fixture-reviewer'}}}
 $change=Get-BFChangePath $state
 [void][IO.Directory]::CreateDirectory($change)
 $spec=New-SpecText
@@ -55,6 +55,13 @@ try {
     $result=Invoke-BFProfileSpecCritic $state (Join-Path $temp 'pass') '' $null
     if($result.verdict -ne 'PASS' -or $result.inputs.spec_sha256 -cne (Get-BFFileHash (Join-Path $change 'spec.md'))){throw 'Normalized review/input binding failed.'};$checks++
     if(-not(Test-Path (Join-Path $temp 'pass/critic-inputs/spec.md'))){throw 'Durable exact input snapshot missing.'};$checks++
+    # Enabling Council must not multiply an ordinary M review. The same sealed
+    # single critic remains authoritative for M; Council is reserved for L/high.
+    Copy-Item -LiteralPath (Join-Path $root 'global/skills/1c-init-project/assets/project/bsl-flow.yaml') -Destination (Join-Path $temp 'bsl-flow.yaml')
+    $beforeCouncilEnabledM=$script:calls
+    $mResult=Invoke-BFProfileSpecCritic $state (Join-Path $temp 'm-with-council-enabled') '' $null
+    if($mResult.schema_version -ne 1 -or $script:calls -ne ($beforeCouncilEnabledM+1)){throw 'Council-enabled M review did not use exactly one sealed reviewer.'};$checks++
+    Remove-Item -LiteralPath (Join-Path $temp 'bsl-flow.yaml') -Force
     [IO.File]::WriteAllText((Join-Path $temp 'pass/critic/payload.json'),'{}')
     $before=Get-BFFileHash (Join-Path $change 'review.json');$failed=$false
     try{Invoke-BFProfileSpecCritic $state (Join-Path $temp 'pass') '' $null|Out-Null}catch{$failed=$_.Exception.Message -match 'cached critic payload differs'}
@@ -75,7 +82,7 @@ try {
     $councilTemp=Join-Path ([IO.Path]::GetTempPath()) ('bsl-flow-managed-council-'+[guid]::NewGuid().ToString('N'))
     try {
         [void][IO.Directory]::CreateDirectory($councilTemp)
-        $councilState=[pscustomobject]@{project_path=$councilTemp;task_id=[guid]::NewGuid().ToString();request=[pscustomobject]@{models=[pscustomobject]@{worker='fixture-worker';reviewer='fixture-reviewer'};timeout_seconds=1800}}
+        $councilState=[pscustomobject]@{project_path=$councilTemp;task_id=[guid]::NewGuid().ToString();classification=[pscustomobject]@{complexity='L';risk='high'};request=[pscustomobject]@{models=[pscustomobject]@{worker='fixture-worker';reviewer='fixture-reviewer'};timeout_seconds=1800}}
         $councilChange=Get-BFChangePath $councilState
         [void][IO.Directory]::CreateDirectory($councilChange)
         [IO.File]::WriteAllText((Join-Path $councilChange 'spec.md'),$spec)
@@ -166,7 +173,7 @@ try {
             return (Read-BFJson $resultPath)
         }
         $positiveProfile=[pscustomobject]@{provider='codex';executable_sha256='be96b992178b1e467c225800da0d65f2c86d5eba1ef0b14632f65db381cbdfde'}
-        $positiveState=[pscustomobject]@{project_path=$positiveTemp;task_id=[guid]::NewGuid().ToString();request=[pscustomobject]@{models=[pscustomobject]@{worker='fixture-worker';reviewer='fixture-reviewer';reviewer_effort='medium'};timeout_seconds=1800;execution_profile=$positiveProfile}}
+        $positiveState=[pscustomobject]@{project_path=$positiveTemp;task_id=[guid]::NewGuid().ToString();classification=[pscustomobject]@{complexity='L';risk='high'};request=[pscustomobject]@{models=[pscustomobject]@{worker='fixture-worker';reviewer='fixture-reviewer';reviewer_effort='medium'};timeout_seconds=1800;execution_profile=$positiveProfile}}
         # The host-proof adapter is exercised through its public managed-review
         # seam. This fixture supplies a proof-shaped capability and a valid,
         # content-addressed catalog source without a native Codex process.

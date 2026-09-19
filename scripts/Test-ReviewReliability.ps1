@@ -22,6 +22,11 @@ function EventLine([string]$Text) {
     return (@{ type = 'text'; part = @{ text = $Text } } | ConvertTo-Json -Depth 4 -Compress)
 }
 Assert-True ((Get-BSLFlowYamlValue -Text '' -Path @('review','reviewer','model') -Default 'default-model') -eq 'default-model') 'absent project configuration uses the declared default'
+Assert-True ((Get-BSLFlowSpecReviewMode -Complexity S -Risk low -ReviewRequired $false) -eq 'lint') 'S defaults to deterministic lint without model review'
+Assert-True ((Get-BSLFlowSpecReviewMode -Complexity M -Risk medium -ReviewRequired $true) -eq 'single') 'M uses one independent reviewer'
+Assert-True ((Get-BSLFlowSpecReviewMode -Complexity L -Risk low -ReviewRequired $true) -eq 'council') 'L uses the API Council'
+Assert-True ((Get-BSLFlowSpecReviewMode -Complexity S -Risk high -ReviewRequired $true) -eq 'council') 'high risk overrides size and uses the API Council'
+Assert-True ((Get-BSLFlowSpecReviewMode -Complexity S -Risk low -ReviewRequired $true) -eq 'single') 'explicit S review uses one reviewer rather than Council'
 function Assert-ParserAccepted([string]$Name, [string[]]$Lines) {
     $parsed = Get-BSLFlowJsonFromOpenCodeEvents -Lines $Lines
     Assert-True ($parsed.marker -eq 'expected') $Name

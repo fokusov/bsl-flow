@@ -52,6 +52,12 @@ $script:BFMemoryTemplateActionSuccessfulRecovery = 'Repeat the bounded source co
 $script:BFMemoryTemplateObservationConfirmedFailure = 'The controller verifier recorded a declared criterion failure with retained evidence.'
 $script:BFMemoryTemplateActionConfirmedFailure = 'Address the retained controller failure evidence before retrying.'
 
+function Test-BFSelfLearningMemoryEnabled {
+    param($State)
+    $rules=Get-BFValue $State 'policy_rules'
+    return (Get-BFValue $rules 'self_learning_memory_enabled' $false) -eq $true
+}
+
 function Get-BFMemoryDirectory {
     param([string]$ProjectPath)
     return Assert-BFSafePath (Join-Path (Assert-BFSafePath $ProjectPath) '.bsl-flow/memory')
@@ -859,6 +865,7 @@ function Add-BFMemoryFromAttempt {
     # Controller-generated diagnostics from a completed failed verification are
     # retained as zero-confirmation advice and cannot promote.
     param($State, $Result, [string]$ResultHash)
+    if (-not (Test-BFSelfLearningMemoryEnabled $State)) { return $null }
     try {
         $projectId = [string]$State.project_path
         $evidence = @([ordered]@{kind='attempt-result'; task_id=[string]$Result.task_id; attempt_id=[string]$Result.attempt_id; sha256=$ResultHash})
@@ -935,6 +942,7 @@ function Add-BFMemoryFromAcceptance {
     # record. The item is a fixed template whose predicate is checked from the
     # controller receipt; worker result prose is never consulted.
     param($State, $Receipt, [string]$ReceiptHash)
+    if (-not (Test-BFSelfLearningMemoryEnabled $State)) { return $null }
     try {
         if ([string]::IsNullOrWhiteSpace($ReceiptHash)) { $ReceiptHash=Get-BFHash $Receipt }
         if ($ReceiptHash -notmatch '^[0-9a-f]{64}$') { return $null }
@@ -961,6 +969,7 @@ function Add-BFMemoryFromRecovery {
     # controller template. It can teach the retry procedure, while native,
     # runtime and external-effect recoveries remain outside auto-promotion.
     param($State, $Resolution, $Manifest, [string]$RecoveryHash)
+    if (-not (Test-BFSelfLearningMemoryEnabled $State)) { return $null }
     try {
         if ([string]::IsNullOrWhiteSpace($RecoveryHash)) { $RecoveryHash=Get-BFHash $Resolution }
         if ($RecoveryHash -notmatch '^[0-9a-f]{64}$') { return $null }
@@ -1099,6 +1108,9 @@ function Add-BFMemoryAttemptBinding {
     # the attempt-bound bundle. Any memory failure degrades to an explicit
     # disabled envelope and never breaks dispatch.
     param($State, [string]$Stage, [AllowNull()][object]$PendingFailureResult = $null, [AllowNull()][string]$PendingFailureResultHash = '')
+    if (-not (Test-BFSelfLearningMemoryEnabled $State)) {
+        return [ordered]@{schema_version=1; available=$false; bundle_id=$null; bundle_sha256=$null; records=@(); excluded=@(); disabled_reason='disabled-by-project-policy'}
+    }
     try {
         $projectId = [string]$State.project_path
         $directory = Get-BFMemoryDirectory $projectId
@@ -1140,6 +1152,11 @@ function Get-BFMemoryProjection {
     # writes: a stale index is rebuilt in memory and reported as replayed;
     # damaged stores disable memory with an explicit blocker.
     param($State, $Next, [AllowNull()][object]$PendingFailureResult = $null, [AllowNull()][string]$PendingFailureResultHash = '')
+    if (-not (Test-BFSelfLearningMemoryEnabled $State)) {
+        return [ordered]@{schema_version=1; available=$false; blocker='disabled-by-project-policy'
+            index=[ordered]@{events_count=0; event_files_count=0; last_event_seq=0; last_event_id=$null; replayed=$false}
+            working_set=@(); records=@(); bundle=$null}
+    }
     try {
         $projectId = [string]$State.project_path
         $stage = [string](Get-BFValue $Next 'stage' '')

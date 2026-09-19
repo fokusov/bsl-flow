@@ -14,7 +14,7 @@ task
   -> independent specification review
   -> implementation
   -> verification and tests
-  -> reusable project knowledge
+  -> optional reusable project knowledge
 ```
 
 ## Why BSL Flow
@@ -44,6 +44,14 @@ inspect -> spec/design -> independent review -> targeted revision
         -> implement -> independent code review -> verify
 ```
 
+## Core and Managed
+
+BSL Flow defaults to assisted work (**Core**): the agent applies the individual `1c-init-project`, `1c-spec`, `1c-spec-review`, `1c-implement`, `1c-verify`, and `1c-debug` skills while the user and agent retain control of sequencing and stopping points.
+
+**Managed** is a separate opt-in mode for a registered task. It is activated only by an explicit user request and a `1c-task` invocation; the controller then owns stage sequencing, the journal, recovery, and evidence gates for that task. Installing the package, having `bsl-flow.yaml` or a bootstrap sentinel, or making `1c-task` available does not activate Managed or prove host/runtime readiness.
+
+The planned-task registry, machine-readable execution artifacts, estimation, publication, and self-learning memory are additional explicit capabilities. They are not mandatory parts of Core and do not run automatically during bootstrap or managed-task acceptance. The Experience Ledger is disabled by default and requires `features.self_learning_memory.enabled: true`; the managed controller journal and resume state do not depend on it.
+
 The framework is intended to work with tools such as:
 
 - OpenAI Codex and other coding agents;
@@ -55,7 +63,7 @@ The framework is intended to work with tools such as:
 
 ## Current release
 
-The working version is **BSL Flow 0.8.0-dev.3**: seven skills, including the `1c-task` controller, immutable task history, risk-based stage routing, isolated Codex workers, source/evidence freshness checks and explicit recovery. Specification review is served by the independent API council (`review.council`).
+The working version is **BSL Flow 0.8.0-dev.3**: 8 skills, including the `1c-task` controller, immutable task history, risk-based stage routing, isolated Codex workers, source/evidence freshness checks and explicit recovery. S defaults to lint, M uses one independent reviewer, and L/high-risk uses the API Council (`review.council`).
 
 Version 0.8 adds opt-in bounded source repair with protected test inputs, a local supervisor for registered tasks, and immutable accepted-source handoff, delivered by the authoritative PowerShell 7 controller. The single user entrypoint is `global/skills/1c-task/scripts/Invoke-BSLFlowTask.ps1`; PowerShell 7 from the standard machine installation `C:\Program Files\PowerShell\7\pwsh.exe` and Git are required; Windows PowerShell 5.1 fallback is not supported. By owner decision (2026-09-16) the project ships no Go binary and no Linux/macOS support in the upcoming releases. See [INSTALL.md](INSTALL.md) for the remaining 1C runtime gates; the rollback decision is recorded in [CHANGELOG.md](CHANGELOG.md).
 

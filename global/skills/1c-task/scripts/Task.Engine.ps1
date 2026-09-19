@@ -41,7 +41,8 @@ function Get-BFProjectRules {
     $s=Get-BSLFlowYamlValue $text @('review','routing','s_default') 'optional'
     if($s -notin @('optional','required','off')){throw 'BF_INVALID: invalid S review policy.'}
     foreach($name in @('m_default','l_default','high_risk_override')){if((Get-BSLFlowYamlValue $text @('review','routing',$name) 'required') -ne 'required'){throw 'BF_BLOCKED: project policy weakens mandatory M/L/high review.'}}
-    return [ordered]@{s_review_required=($s -eq 'required')}
+    $memoryEnabled=ConvertTo-BSLFlowBoolean (Get-BSLFlowYamlValue $text @('features','self_learning_memory','enabled') 'false') 'features.self_learning_memory.enabled'
+    return [ordered]@{s_review_required=($s -eq 'required');self_learning_memory_enabled=$memoryEnabled}
 }
 
 function Start-BFTask {

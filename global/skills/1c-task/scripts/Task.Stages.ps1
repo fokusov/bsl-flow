@@ -140,8 +140,9 @@ function Invoke-BFSpecReviewStage {
     $shell=Join-Path $PSHOME 'pwsh.exe'
     $arguments=@('-NoProfile','-File',(Join-Path $reviewScripts 'Invoke-1CSpecReview.ps1'),'-ProjectPath',$State.project_path,'-ChangeName',('bsl-flow-'+$State.task_id),'-Complexity',$State.classification.complexity,'-Risk',$State.classification.risk,'-ForceReview','-ForceReplaceReview')
     $councilEnabled=$false
+    $councilRequired=($State.classification.complexity -eq 'L' -or $State.classification.risk -eq 'high')
     $configPath=Join-Path $State.project_path 'bsl-flow.yaml'
-    if(Test-Path -LiteralPath $configPath -PathType Leaf){
+    if($councilRequired -and (Test-Path -LiteralPath $configPath -PathType Leaf)){
         . (Join-Path $reviewScripts 'Council.Profile.ps1')
         $effectiveCouncil=Get-BSLFlowCouncilEffectivePolicy -ProjectRoot $State.project_path
         $councilEnabled=[bool]$effectiveCouncil.policy.enabled -and $effectiveCouncil.policy.legacy_mode -cne 'opencode_compat'

@@ -104,25 +104,6 @@ try {
 }
 catch { throw }
 
-# A prepared council publication is a durable recovery record. Resume it before
-# lint or any route can start another model call; Resume performs the final lint
-# and publication checks against the exact prepared bytes.
-$councilRunRoot = Join-Path $projectRoot ('.bsl-flow/reports/spec-review/' + $ChangeName + '.council')
-$councilPreparedPath = Join-Path $councilRunRoot 'publication/prepared.json'
-if (Test-Path -LiteralPath $councilPreparedPath -PathType Leaf) {
-    if ($null -eq $councilRouting -or -not [bool]$councilRouting.enabled -or $councilRouting.legacy_mode -ceq 'opencode_compat') {
-        throw 'BF_BLOCKED: prepared council publication requires the council route to remain enabled.'
-    }
-    . (Join-Path $PSScriptRoot 'Council.Engine.ps1')
-    $recovery = Resume-BSLFlowCouncilPreparedPublicationIfPresent -ProjectRoot $projectRoot -ChangeName $ChangeName
-    if ($null -eq $recovery) { throw 'BF_BLOCKED: prepared council publication disappeared before recovery.' }
-    return [pscustomobject]@{
-        Complexity = $Complexity; Risk = $Risk; Route = 'council'; ReviewRequired = $true
-        LintPassed = $true; ReviewPath = $reviewPath; Council = [ordered]@{ resumed = $true; publication = $recovery }
-    }
-}
-
-$lint = & (Join-Path $PSScriptRoot 'Test-1CSpec.ps1') -ChangePath $changeRoot
 $enabled = ConvertTo-BSLFlowBoolean (Get-BSLFlowYamlValue $configText @('review', 'enabled') 'true') 'review.enabled'
 $route = if ($Risk -eq 'high') {
     Get-BSLFlowYamlValue $configText @('review', 'routing', 'high_risk_override') 'required'
@@ -135,6 +116,27 @@ if ($policyRequired -and $route -ne 'required') {
     throw 'Project routing cannot weaken the mandatory M/L/high-risk review policy.'
 }
 $reviewRequired = $ForceReview -or ($route -eq 'required')
+$reviewMode = Get-BSLFlowSpecReviewMode -Complexity $Complexity -Risk $Risk -ReviewRequired $reviewRequired
+
+# A prepared council publication is a durable recovery record. Resume it before
+# lint or any route can start another model call; Resume performs the final lint
+# and publication checks against the exact prepared bytes.
+$councilRunRoot = Join-Path $projectRoot ('.bsl-flow/reports/spec-review/' + $ChangeName + '.council')
+$councilPreparedPath = Join-Path $councilRunRoot 'publication/prepared.json'
+if (Test-Path -LiteralPath $councilPreparedPath -PathType Leaf) {
+    if ($reviewMode -cne 'council' -or $null -eq $councilRouting -or -not [bool]$councilRouting.enabled -or $councilRouting.legacy_mode -ceq 'opencode_compat') {
+        throw 'BF_BLOCKED: prepared council publication requires the current L/high-risk council route to remain enabled.'
+    }
+    . (Join-Path $PSScriptRoot 'Council.Engine.ps1')
+    $recovery = Resume-BSLFlowCouncilPreparedPublicationIfPresent -ProjectRoot $projectRoot -ChangeName $ChangeName
+    if ($null -eq $recovery) { throw 'BF_BLOCKED: prepared council publication disappeared before recovery.' }
+    return [pscustomobject]@{
+        Complexity = $Complexity; Risk = $Risk; Route = 'council'; ReviewMode = 'council'; ReviewRequired = $true
+        LintPassed = $true; ReviewPath = $reviewPath; Council = [ordered]@{ resumed = $true; publication = $recovery }
+    }
+}
+
+$lint = & (Join-Path $PSScriptRoot 'Test-1CSpec.ps1') -ChangePath $changeRoot
 
 if ($reviewRequired -and -not $enabled -and -not $ForceReview) {
     throw 'Review is required by routing but review.enabled is false.'
@@ -142,7 +144,7 @@ if ($reviewRequired -and -not $enabled -and -not $ForceReview) {
 
 if (-not $reviewRequired) {
     return [pscustomobject]@{
-        Complexity = $Complexity; Risk = $Risk; Route = $route; ReviewRequired = $false
+        Complexity = $Complexity; Risk = $Risk; Route = $route; ReviewMode = 'lint'; ReviewRequired = $false
         LintPassed = [bool]$lint.passed; ReviewPath = $null
     }
 }
@@ -151,8 +153,8 @@ if ((Test-Path -LiteralPath $reviewPath -PathType Leaf) -and -not $ForceReplaceR
 
 $managedAdapter = $null
 if ($ManagedStatePath) {
-    if ($null -eq $councilRouting -or -not [bool]$councilRouting.enabled -or $councilRouting.legacy_mode -ceq 'opencode_compat') {
-        throw 'BF_BLOCKED: managed host state is supported only by the enabled council route.'
+    if ($reviewMode -cne 'council' -or $null -eq $councilRouting -or -not [bool]$councilRouting.enabled -or $councilRouting.legacy_mode -ceq 'opencode_compat') {
+        throw 'BF_BLOCKED: managed host state is supported only by the enabled L/high-risk council route.'
     }
     $managedInputLimit = [int]::Parse((Get-BSLFlowYamlValue $configText @('review', 'input', 'max_file_bytes') '262144'), [Globalization.CultureInfo]::InvariantCulture)
     $managedAdapter = Import-PublicManagedCouncilAdapter -StatePath $ManagedStatePath -ProjectRoot $projectRoot -ChangeRoot $changeRoot -CodexPath $ManagedCodexPath -MaxBytes $managedInputLimit
@@ -161,10 +163,13 @@ if ($ManagedStatePath) {
 $reviewPolicy = Get-BSLFlowReviewPolicy $configText
 $readMode = $reviewPolicy.ReadMode
 
-# Council is the default spec_review route. Legacy OpenCode stays only on the
-# explicit opencode_compat route; Get-BSLFlowCouncilPolicy throws
-# BF_MIGRATION_BLOCKED for silently reinterpreted legacy configs.
-if ($null -ne $councilRouting -and [bool]$councilRouting.enabled -and $councilRouting.legacy_mode -cne 'opencode_compat') {
+# Council is reserved for L/high-risk review. M and explicitly reviewed S use
+# the packaged single-reviewer route, so enabling Council does not multiply
+# ordinary review cost. L/high-risk fails closed instead of degrading to one critic.
+if ($reviewMode -ceq 'council') {
+    if ($null -eq $councilRouting -or -not [bool]$councilRouting.enabled -or $councilRouting.legacy_mode -ceq 'opencode_compat') {
+        throw 'BF_BLOCKED: L/high-risk specification review requires an enabled API Council route.'
+    }
     . (Join-Path $PSScriptRoot 'Invoke-CouncilReview.ps1')
     $councilArguments = @{
         ProjectPath = $projectRoot; ChangeName = $ChangeName
@@ -177,7 +182,7 @@ if ($null -ne $councilRouting -and [bool]$councilRouting.enabled -and $councilRo
     }
     $councilResult = Invoke-BSLFlowCouncilReview @councilArguments
     return [pscustomobject]@{
-        Complexity = $Complexity; Risk = $Risk; Route = 'council'; ReviewRequired = $true
+        Complexity = $Complexity; Risk = $Risk; Route = 'council'; ReviewMode = 'council'; ReviewRequired = $true
         LintPassed = [bool]$lint.passed; ReviewPath = $reviewPath; Council = $councilResult
     }
 }
@@ -483,7 +488,7 @@ finally {
 }
 
 return [pscustomobject]@{
-    Complexity = $Complexity; Risk = $Risk; Route = $route; ReviewRequired = $true
+    Complexity = $Complexity; Risk = $Risk; Route = $route; ReviewMode = 'single'; ReviewRequired = $true
     LintPassed = [bool]$lint.passed; ReviewPath = $reviewPath; Verdict = $review.verdict
     ReviewerVerdict = $review.reviewer_verdict; WeightedScore = $review.weighted_score
     RunId = $runId; ArtifactsPath = $runRoot; StatusPath = $statusPath

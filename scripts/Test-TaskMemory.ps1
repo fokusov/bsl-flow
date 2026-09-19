@@ -31,6 +31,7 @@ function New-MemState([string]$Project,[string]$TaskId,[string]$PolicyHash){
         # policy snapshot. Keep the fixture boundary equally complete so the
         # mandatory fingerprint comparison exercises the real promotion gate.
         policy_files=@([pscustomobject]@{path='Invoke-BSLFlowTask.ps1';sha256=('h'*64)})
+        policy_rules=[pscustomobject]@{self_learning_memory_enabled=$true}
     }
 }
 function Get-FixtureFingerprints([string]$Project,[string]$PolicyHash){
@@ -66,6 +67,30 @@ function Assert-MSchemaOk([string]$Json,[string]$SchemaFile,[string]$Message){
     try { $ok=[bool](Test-Json -Json $Json -SchemaFile $SchemaFile -ErrorAction Stop) } catch { $ok=$false }
     Assert-M $ok "$Message"
 }
+
+# --- 0. Self-learning memory is opt-in and absent policy stays disabled -------
+$project=New-MemProject
+try {
+    $state=New-MemState $project ([guid]::NewGuid().ToString()) ('p'*64)
+    $state.PSObject.Properties.Remove('policy_rules')
+    $rules=Get-BFProjectRules $project
+    Assert-M ($rules.self_learning_memory_enabled -eq $false) 'Missing project policy did not default self-learning memory off.'
+    Write-Fixture (Join-Path $project 'bsl-flow.yaml') "features:`n  self_learning_memory:`n    enabled: true`n"
+    $rules=Get-BFProjectRules $project
+    Assert-M ($rules.self_learning_memory_enabled -eq $true) 'Explicit project opt-in did not enable self-learning memory.'
+    Write-Fixture (Join-Path $project 'bsl-flow.yaml') "features:`n  self_learning_memory:`n    enabled: maybe`n"
+    Assert-MThrows { Get-BFProjectRules $project } 'Expected true or false for features.self_learning_memory.enabled'
+    Remove-Item -LiteralPath (Join-Path $project 'bsl-flow.yaml') -Force
+    $result=New-MemResult $state.task_id 'verify' 'FAIL' $null 'none' ([ordered]@{criterion_id='fixture';kind='file_assertion'})
+    Assert-M ($null -eq (Add-BFMemoryFromAttempt $state $result (Get-BFHash $result))) 'Default-off task extracted attempt memory.'
+    Assert-M ($null -eq (Add-BFMemoryFromAcceptance $state (New-MemAcceptanceReceipt $state.task_id) ('a'*64))) 'Default-off task extracted acceptance memory.'
+    Assert-M ($null -eq (Add-BFMemoryFromRecovery $state ([ordered]@{}) ([ordered]@{}) ('b'*64))) 'Default-off task extracted recovery memory.'
+    $binding=Add-BFMemoryAttemptBinding $state 'inspect'
+    Assert-M ($binding.available -eq $false -and $binding.disabled_reason -ceq 'disabled-by-project-policy') 'Default-off attempt binding was not explicitly disabled.'
+    $projection=Get-BFMemoryProjection $state ([ordered]@{action='dispatch';stage='inspect';blockers=@()})
+    Assert-M ($projection.available -eq $false -and $projection.blocker -ceq 'disabled-by-project-policy' -and $null -eq $projection.bundle) 'Default-off context projection was not explicitly disabled.'
+    Assert-M (-not (Test-Path -LiteralPath (Join-Path $project '.bsl-flow/memory'))) 'Default-off task created a memory store.'
+} finally { Remove-Item -LiteralPath $project -Recurse -Force }
 
 # --- 1. Closed versioned schemas over real artifacts -------------------------
 $project=New-MemProject
@@ -384,7 +409,7 @@ try {
     $emptyPrompt=Format-BFMemoryBundlePrompt $null
     Assert-M ($emptyPrompt.Contains('No applicable memory records')) 'Empty memory did not render the deterministic no-records block.'
     # Dispositions are independent of memory: recover/blocked dispositions survive.
-    $nativeState=[pscustomobject]@{task_id=[guid]::NewGuid().ToString();revision=2;status='running';stage='verify';intent_hash=('i'*64);policy_hash=('w'*64);baseline=('c'*40);classification=$null;active_attempt=[guid]::NewGuid().ToString();unresolved_effect=[pscustomobject]@{attempt_id=[guid]::NewGuid().ToString();stage='verify';scope='native_1c'};question=$null;evidence=@();request=[pscustomobject]@{mode='implement';source_paths=@('.')};project_path=$project;policy_files=@([pscustomobject]@{path='Invoke-BSLFlowTask.ps1';sha256=('h'*64)})}
+    $nativeState=[pscustomobject]@{task_id=[guid]::NewGuid().ToString();revision=2;status='running';stage='verify';intent_hash=('i'*64);policy_hash=('w'*64);baseline=('c'*40);classification=$null;active_attempt=[guid]::NewGuid().ToString();unresolved_effect=[pscustomobject]@{attempt_id=[guid]::NewGuid().ToString();stage='verify';scope='native_1c'};question=$null;evidence=@();request=[pscustomobject]@{mode='implement';source_paths=@('.')};project_path=$project;policy_files=@([pscustomobject]@{path='Invoke-BSLFlowTask.ps1';sha256=('h'*64)});policy_rules=[pscustomobject]@{self_learning_memory_enabled=$true}}
     $context=Get-BFMemoryProjection $nativeState ([ordered]@{action='recover';stage='verify';blockers=@('uncertain effect requires control read')})
     Assert-M ($context.available -eq $true) 'Memory projection broke on a recover-state task.'
     Assert-M (0 -eq @($context.records).Count -and ((@($context.bundle.excluded) | ForEach-Object { $_.reason }) -contains 'stage-scope-mismatch')) 'Memory recommendations leaked across a stage boundary for a verify recover task.'
@@ -398,6 +423,7 @@ try {
     [void](Invoke-BFGit $project @('init'))
     Write-Fixture (Join-Path $project 'hello.txt') "Initial`n"
     Write-Fixture (Join-Path $project '.gitignore') ".bsl-flow/`nopenspec/changes/`n"
+    Write-Fixture (Join-Path $project 'bsl-flow.yaml') "features:`n  self_learning_memory:`n    enabled: true`n"
     [void](Invoke-BFGit $project @('add','.'))
     [void](Invoke-BFGit $project @('-c','user.name=BSL Flow Test','-c','user.email=test@example.invalid','commit','-m','Fixture'))
     function New-E2EObservation{
@@ -464,13 +490,13 @@ try {
     Assert-M ($null -ne $memory -and $memory.available -eq $true -and [string]$memory.bundle_sha256 -match '^[0-9a-f]{64}$') 'Implement attempt did not receive a bound memory bundle.'
     Assert-M (1 -eq @($memory.records).Count -and 'accepted' -ceq [string]$memory.records[0].state -and [string]$memory.records[0].record_id -ceq $recordId) 'Attempt bundle lost the accepted record.'
     Assert-M (1 -eq @($context.memory.bundle.record_ids).Count -and [string]$context.memory.bundle.record_ids[0] -ceq $recordId) 'Capsule bundle ids disagree with the promoted record.'
-    # Old task in a memory-free project stays readable with an empty projection.
+    # Old task without the new policy key stays readable and safely disabled.
     $oldProject=New-MemProject
     try {
         $oldState=New-MemState $oldProject ([guid]::NewGuid().ToString()) ('z'*64)
+        $oldState.PSObject.Properties.Remove('policy_rules')
         $oldContext=Get-BFMemoryProjection $oldState ([ordered]@{action='dispatch';stage='inspect';blockers=@()})
-        Assert-M ($oldContext.available -eq $true -and 0 -eq @($oldContext.records).Count -and 0 -eq $oldContext.index.events_count -and 0 -eq @($oldContext.working_set).Count) 'Old project without memory did not project an empty capsule.'
-        Assert-M ($oldContext.bundle.bundle_id -ceq $oldContext.bundle.bundle_sha256 -and $oldContext.bundle.bundle_id -match '^[0-9a-f]{64}$') 'Empty memory bundle identity is not deterministic.'
+        Assert-M ($oldContext.available -eq $false -and $oldContext.blocker -ceq 'disabled-by-project-policy' -and 0 -eq @($oldContext.records).Count -and 0 -eq $oldContext.index.events_count) 'Old task without the opt-in flag was not safely disabled.'
     } finally { Remove-Item -LiteralPath $oldProject -Recurse -Force }
 } finally {
     if(Test-Path -LiteralPath $testRoot){ Remove-Item -LiteralPath $testRoot -Recurse -Force }
@@ -483,6 +509,7 @@ try {
     [void](Invoke-BFGit $project @('init'))
     Write-Fixture (Join-Path $project 'hello.txt') "Initial`n"
     Write-Fixture (Join-Path $project '.gitignore') ".bsl-flow/`nopenspec/changes/`n"
+    Write-Fixture (Join-Path $project 'bsl-flow.yaml') "features:`n  self_learning_memory:`n    enabled: true`n"
     [void](Invoke-BFGit $project @('add','.'))
     [void](Invoke-BFGit $project @('-c','user.name=BSL Flow Test','-c','user.email=test@example.invalid','commit','-m','Fixture'))
     function New-NegativeE2ERequest{

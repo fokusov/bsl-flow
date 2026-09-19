@@ -8,8 +8,11 @@
 
 ## Unreleased
 
+- Made self-learning memory a project opt-in (`features.self_learning_memory.enabled: false` by default): disabled tasks neither read nor write the Experience Ledger, while mandatory managed journals, context and recovery remain unchanged. Execution contracts, estimation, the planned-task registry and publication remain separate explicit extensions.
+- Added tiered specification-review routing: S defaults to deterministic lint, M uses one isolated reviewer, and L/high-risk requires the API Council with fail-closed behavior instead of a single-reviewer downgrade.
+- Documented the Core/Managed boundary: assisted skills remain the bootstrap default; Managed starts only for an explicitly requested `1c-task` run. Installation, project config and sentinel files do not activate Managed or authorize registry activation, estimation, publication, merge, push, deploy or runtime access.
 - Consolidated parity harness (req 20–21): a frozen-trace format with classified divergences (schema vs behavior change, load-bearing approved annotations) replaces boolean diffs; shadow mode drives only the allow-listed read/decision paths (spec lint/final, runner decide, memory projection) over frozen inputs with no writes, processes or model calls. Five PowerShell traces are frozen with capture provenance.
-- No-pwsh evidence (req 22, Windows scope): the S lifecycle audit proves every persisted process/exit/transport receipt binds the trusted host binary, git or the pinned provider; the clean-install smoke builds the windows/amd64 release through the deterministic packaging lane, extracts it (rejecting script entries and zip-slip) and drives help/version/capability/init/task lifecycle from the extracted binary. macOS/Linux execution smoke remains open per target.
+- Post-rollback packaging evidence (Windows scope): the deterministic PowerShell/.NET lane builds the package ZIP, verifies its manifest after extraction and runs the offline package suite from the extracted artifact. The current release has no native executable or no-pwsh claim; Linux/macOS support remains out of scope.
 - Council dispatch hardening (field report): the live dispatcher travels as a per-runspace sentinel across parallel thread-jobs, the council review assertion sources its engine dependency, and run metrics map council schema v2 reviews to the common record shape.
 
 ## 0.8.0-dev.3

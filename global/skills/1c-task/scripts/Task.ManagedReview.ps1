@@ -615,7 +615,8 @@ function Invoke-BFProfileSpecCritic {
     $culture=[Globalization.CultureInfo]::InvariantCulture
     $maxInput=[int]::Parse((Get-BSLFlowYamlValue $configText @('review','input','max_file_bytes') '262144'),$culture)
     if($maxInput -lt 1024 -or $maxInput -gt 1048576){throw 'BF_INVALID: review input bound is outside the supported range.'}
-    # Council is the default managed spec_review route. The chair reconciliation
+    $reviewMode=Get-BSLFlowSpecReviewMode -Complexity ([string]$State.classification.complexity) -Risk ([string]$State.classification.risk) -ReviewRequired $true
+    # Council is reserved for L/high-risk managed review. The chair reconciliation
     # is inline in review.json v2; no separate spec_reconcile worker is dispatched.
     . (Join-Path $reviewRoot 'scripts/Council.Profile.ps1')
     $managedCouncil=$null
@@ -623,10 +624,13 @@ function Invoke-BFProfileSpecCritic {
     $changeName=Split-Path (Get-BFChangePath $State) -Leaf
     $preparedPath=Join-Path $State.project_path ('.bsl-flow/reports/spec-review/' + $changeName + '.council/publication/prepared.json')
     if((Test-Path -LiteralPath $preparedPath -PathType Leaf) -and
-       ($null -eq $managedCouncil -or -not [bool]$managedCouncil.enabled -or $managedCouncil.legacy_mode -ceq 'opencode_compat')){
-        throw 'BF_BLOCKED: prepared council publication requires the council route to remain enabled.'
+       ($reviewMode -cne 'council' -or $null -eq $managedCouncil -or -not [bool]$managedCouncil.enabled -or $managedCouncil.legacy_mode -ceq 'opencode_compat')){
+        throw 'BF_BLOCKED: prepared council publication requires the current L/high-risk council route to remain enabled.'
     }
-    if($null -ne $managedCouncil -and [bool]$managedCouncil.enabled -and $managedCouncil.legacy_mode -cne 'opencode_compat'){
+    if($reviewMode -ceq 'council'){
+        if($null -eq $managedCouncil -or -not [bool]$managedCouncil.enabled -or $managedCouncil.legacy_mode -ceq 'opencode_compat'){
+            throw 'BF_BLOCKED: L/high-risk specification review requires an enabled API Council route.'
+        }
         . (Join-Path $reviewRoot 'scripts/Invoke-CouncilReview.ps1')
         . (Join-Path $reviewRoot 'scripts/Council.Engine.ps1')
         # A chair may have durably prepared its final publication immediately

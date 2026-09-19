@@ -50,6 +50,17 @@ function ConvertTo-BSLFlowBoolean {
     }
 }
 
+function Get-BSLFlowSpecReviewMode {
+    param(
+        [Parameter(Mandatory)][ValidateSet('S', 'M', 'L')][string]$Complexity,
+        [Parameter(Mandatory)][ValidateSet('low', 'medium', 'high')][string]$Risk,
+        [Parameter(Mandatory)][bool]$ReviewRequired
+    )
+    if (-not $ReviewRequired) { return 'lint' }
+    if ($Complexity -eq 'L' -or $Risk -eq 'high') { return 'council' }
+    return 'single'
+}
+
 function Write-BSLFlowJsonAtomic {
     param(
         [Parameter(Mandatory)]$Value,

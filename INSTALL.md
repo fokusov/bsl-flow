@@ -13,6 +13,8 @@
 
 Полный [контракт CLI и очереди](global/skills/1c-task/references/task-contract.md) описывает исправления, восстановление и локальную передачу результата. Установщик не регистрирует службу, расписание или автоматическую публикацию. Для разрешённой GitHub-публикации нужен уже установленный и авторизованный GitHub CLI. FILE-публикация использует локальный bare repository без GitHub credentials. Точные ограничения и отдельный входной JSON описаны в [публикации](docs/PUBLICATION_RU.md); native credentials — в [контракте runtime](docs/NATIVE_RUNTIME_RU.md).
 
+Установка и bootstrap оставляют проект в assisted/Core-режиме. Наличие `1c-task`, `bsl-flow.yaml` и `.bsl-flow/project.yaml` не создаёт managed-задачу и не доказывает готовность host/runtime. Managed начинается только по явному запросу пользователя и отдельному вызову `1c-task` для конкретной задачи; реестр, оценка и публикация также требуют собственных явных команд.
+
 ## Требования
 
 - PowerShell 7 с машинной установкой `C:\Program Files\PowerShell\7\pwsh.exe`;
@@ -108,9 +110,14 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 ## Настройка проекта
 
-Новые проекты получают review-блок автоматически (совет ревью, `review.council`). Основные значения:
+Новые проекты получают review-блок автоматически. Routing определяет обязательность: S по умолчанию ограничивается lint, M использует одного reviewer, L/high-risk требует `review.council`. Основные значения:
 
 ```yaml
+features:
+  # Optional Experience Ledger; managed journal and resume do not depend on it.
+  self_learning_memory:
+    enabled: false
+
 review:
   enabled: true
   routing:
@@ -205,6 +212,6 @@ openspec schema validate bsl-flow
 
 ## Ошибки внешнего review
 
-Review выполняет API-совет (`review.council`): роли резолвят модели через `llm.models`, credentials — через `token_env` провайдеров или локальный оверлей. Для обязательного route отсутствие credential, модели или корректного JSON является blocker: admission-гейт завершает совет с `BF_BLOCKED: council cannot start` до любого платного вызова. Framework не подменяет модель и не пропускает review автоматически. Невалидный output не записывается в `review.json`.
+M review выполняет один изолированный reviewer; L/high-risk review выполняет API-совет (`review.council`). Роли Council резолвят модели через `llm.models`, credentials — через `token_env` провайдеров или локальный оверлей. Отсутствие credential, модели или корректного JSON для обязательного Council route является blocker: admission-гейт завершает совет до любого платного вызова. Framework не подменяет модель, не понижает L/high-risk до одного reviewer и не пропускает review автоматически. Невалидный output не записывается в `review.json`.
 
 Project config может усилить routing, но не отключить обязательный review для M/L/high-risk. `review.enabled: false` допустим только там, где review и так необязателен; попытка обойти обязательный gate завершается ошибкой. Историческая конфигурация одиночного OpenCode-reviewer не переинтерпретируется молча: явный legacy-блок требует отдельного `opencode_compat`-режима, иначе запуск завершается migration blocker-ом.

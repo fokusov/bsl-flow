@@ -1,6 +1,29 @@
 # BSL Flow: assisted и managed работа
 
-Это руководство описывает интерфейс `1c-task` в BSL Flow `0.8.0-dev.2`. Он нужен, когда одной инструкции агенту недостаточно: маршрут задачи, вопросы, проверки и приёмка должны переживать прерывания и оставаться привязанными к точным требованиям и исходникам.
+Это руководство описывает интерфейс `1c-task` в BSL Flow `0.8.0-dev.3`. Он нужен, когда одной инструкции агенту недостаточно: маршрут задачи, вопросы, проверки и приёмка должны переживать прерывания и оставаться привязанными к точным требованиям и исходникам.
+
+## Граница Core и Managed
+
+| Контур | Как включается | Кто управляет этапами | Что не происходит автоматически |
+|---|---|---|---|
+| Core (assisted, по умолчанию) | Bootstrap проекта или прямой вызов отдельного skill | Пользователь и текущий агент | Регистрация managed-задачи, controller journal, публикация и оценка |
+| Managed (opt-in) | Явный запрос пользователя и `1c-task` для конкретной зарегистрированной задачи | Controller; один `Run` владеет последовательностью этапов | Merge, push, deploy, новая runtime-авторизация и активация других задач |
+
+Core включает `1c-init-project`, `1c-spec`, `1c-spec-review`, `1c-implement`, `1c-verify` и `1c-debug`. Эти skills можно применять независимо и пропорционально риску. `1c-estimate` остаётся отдельной операцией по явному запросу, а не обязательным этапом любого изменения.
+
+Managed добавляет неизменяемый журнал задачи, controller-owned transitions, recovery и проверку доказательств. Наличие установленного `1c-task`, проектного `bsl-flow.yaml` или `.bsl-flow/project.yaml` означает только доступность контракта и bootstrap-состояние. Оно не запускает задачу, не передаёт controller-у управление и не доказывает готовность Codex provider, 1С runtime или тестовой базы.
+
+Локальный реестр хранит только явно созданные planned-записи; до отдельной активации они не являются managed runs. Машиночитаемые `contract/execution/verification.yaml`, оценка, команды публикации и Experience Ledger также opt-in. Даже принятая managed-задача не разрешает merge, push или deploy без отдельного точного допуска.
+
+Self-learning memory выключен по умолчанию. Для явного включения добавь в проектный `bsl-flow.yaml`:
+
+```yaml
+features:
+  self_learning_memory:
+    enabled: true
+```
+
+При `false` controller не читает, не дополняет и не передаёт worker-ам `.bsl-flow/memory`; уже существующий ledger остаётся на диске и снова применяется только после opt-in. Это не отключает обязательный managed journal, task context или recovery state.
 
 ## Единый CLI в версии 0.8
 
@@ -34,7 +57,7 @@ Queue JSON имеет вид:
 
 Текущее состояние очереди хранится в `.bsl-flow/runner/queue-<uuid>-snapshot.json`, содержательные события — в общем `events.jsonl`. При перезапуске controller читает весь журнал: последние 256 ключей в snapshot служат только кешем. Сохранённая ошибка dispatch не повторяется на той же revision, даже если snapshot не успел обновиться. Ожидание ответа тоже создаёт событие; следующая проверка без изменения состояния его не дублирует. Оборванная или повреждённая строка журнала блокирует автоматическое продолжение и требует исследования сохранённых task attempts. Журнал не является отправкой уведомления во внешний сервис; интеграция читает его и использует `event_key` для своей дедупликации.
 
-Managed-контур поддерживает исходники и ограниченный [native-маршрут расширения](NATIVE_RUNTIME_RU.md) в явно разрешённой FILE-базе. В 0.7 реальные source-only пилоты прошли S- и M-маршруты; в 0.8.0-dev.2 публичный CLI завершил native unit-пилот с пятью тестами и контрольным восстановлением. Новым native-задачам нужен [mapping требований и независимый coverage review](REQUIREMENT_COVERAGE_RU.md). Временное ограничение durable Unica jobs сохраняется. Актуальные решения и ограничения — в [CHANGELOG.md](../CHANGELOG.md).
+Managed-контур поддерживает исходники и ограниченный [native-маршрут расширения](NATIVE_RUNTIME_RU.md) в явно разрешённой FILE-базе. В 0.7 реальные source-only пилоты прошли S- и M-маршруты; начиная с 0.8.0-dev.2 публичный controller завершил native unit-пилот с пятью тестами и контрольным восстановлением. Новым native-задачам нужен [mapping требований и независимый coverage review](REQUIREMENT_COVERAGE_RU.md). Временное ограничение durable Unica jobs сохраняется. Актуальные решения и ограничения — в [CHANGELOG.md](../CHANGELOG.md).
 
 Точный машинный контракт запросов, обновлений, результатов и exit codes находится в [`1c-task/references/task-contract.md`](../global/skills/1c-task/references/task-contract.md). При расхождении ориентируйся на него и текущий код.
 
@@ -65,10 +88,10 @@ Deterministic gates дополняют skills и OpenSpec:
 |---|---|
 | S, low | `inspect → implement → verify → acceptance` |
 | S, medium | `inspect → spec → implement → verify → acceptance` |
-| M, low/medium | `inspect → spec → spec_review → implement → verify → acceptance` |
-| L или high | `inspect → spec → spec_review → implement → code_review → verify → acceptance` |
+| M, low/medium | `inspect → spec → single spec_review → implement → verify → acceptance` |
+| L или high | `inspect → spec → Council spec_review → implement → code_review → verify → acceptance` |
 
-Для S проектная политика `review.routing.s_default: required` или `require_spec_review: true` добавляет `spec` и `spec_review`. `require_code_review: true` добавляет code review. Флаги `permissions`, `data_migration` и `data_deletion`, найденные при инспекции, повышают риск до high. Влияния на права, данные, проведение и обмен требуют integration evidence, `form_flow` требует UI evidence, а `external_artifact` — соответствующий профиль. В 0.8 native FILE-профиль выполняет объявленные YAxUnit-тесты; integration/UI/external artifact критерии без соответствующих доказательств остаются `BLOCKED`.
+Для S проектная политика `review.routing.s_default: required` или `require_spec_review: true` добавляет `spec` и один независимый `spec_review`; по умолчанию модель не вызывается. `review.council.enabled` делает Council доступным для L/high-risk, но не повышает M до Council. Недоступный Council блокирует L/high-risk вместо тихого отката к одному reviewer. `require_code_review: true` добавляет code review. Флаги `permissions`, `data_migration` и `data_deletion`, найденные при инспекции, повышают риск до high. Влияния на права, данные, проведение и обмен требуют integration evidence, `form_flow` требует UI evidence, а `external_artifact` — соответствующий профиль. В 0.8 native FILE-профиль выполняет объявленные YAxUnit-тесты; integration/UI/external artifact критерии без соответствующих доказательств остаются `BLOCKED`.
 
 Для `analysis_only` с `analysis_goal: analysis` маршрут состоит из `inspect` и `acceptance`. Значение `specification` добавляет `spec`, а необходимость review определяется классификацией и policy.
 

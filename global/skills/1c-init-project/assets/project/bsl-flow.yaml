@@ -1,4 +1,11 @@
+# Baseline for initialized user projects. Bootstrap preserves assisted/Core mode;
+# this file does not activate a managed task or prove host/runtime readiness.
 version: 2
+
+features:
+  # Optional Experience Ledger. Managed task journals and resume state do not depend on it.
+  self_learning_memory:
+    enabled: false
 
 workflow:
   # Bootstrap selects assisted behavior and does not prove managed host/runtime readiness.
@@ -96,6 +103,7 @@ review:
   enabled: true
 
   routing:
+    # Engine tier is fixed: S lint by default, M single reviewer, L/high Council.
     s_default: optional
     m_default: required
     l_default: required

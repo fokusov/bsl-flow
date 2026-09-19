@@ -1,3 +1,10 @@
+# Development configuration for the BSL Flow repository itself.
+# It is not the baseline installed into user projects; see the project asset template.
+features:
+  # Experience Ledger is an opt-in extension, including for this repository.
+  self_learning_memory:
+    enabled: false
+
 llm:
   providers:
     deepseek:
