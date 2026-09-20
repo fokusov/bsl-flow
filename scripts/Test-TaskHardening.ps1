@@ -28,6 +28,8 @@ try{
  $p=New-Project-H $testRoot 'manifest';$request=New-Request-H 'src';$task=Start-BFTask $p $request;$manifest=Get-BFSourceManifest $task
  Assert-H ($manifest.source_paths.Count-eq1-and$manifest.source_paths[0]-eq'.') 'Manifest retained a discovery hint as its security boundary.'
  Assert-H (@($manifest.files|?{$_.path-eq'outside.txt'-and-not$_.deleted}).Count-eq1) 'Worker-writable file outside source_paths was omitted.'
+ [void](& git -C $p config core.longpaths false)
+ Assert-H ((Invoke-BFGit $p @('config','--get','core.longpaths'))-ceq'true') 'Managed Git did not force Windows long-path support over a hostile repository setting.'
 
  # Stored paths can be internally fresh while belonging to another controller installation.
  Assert-H ((Failure-H {Assert-BFPolicyFresh $task})-eq'') 'Unchanged current controller policy was rejected.'

@@ -10,7 +10,7 @@ function Invoke-BFGit {
         # Keep Git stdout separate from diagnostic stderr: a warning (for
         # example an unreadable global ignore file) must never be mistaken for
         # command output such as `git status --porcelain`.
-        $combined = & git -c core.hooksPath=NUL -c core.fsmonitor=false -C $Root @Arguments 2>&1
+        $combined = & git -c core.longpaths=true -c core.hooksPath=NUL -c core.fsmonitor=false -C $Root @Arguments 2>&1
         $exit=$LASTEXITCODE
         $stdout=@($combined | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] }) | ForEach-Object { $_.ToString() }
         $stderr=@($combined | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] }) | ForEach-Object { $_.ToString() }
