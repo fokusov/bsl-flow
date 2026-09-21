@@ -213,6 +213,8 @@ Cancel запрещает новый dispatch. Прерываемый worker м�
 
 Настройки совета ревью можно вынести в профиль пользователя `%USERPROFILE%\.bsl-flow\config.yaml` (override `BSL_FLOW_USER_CONFIG`): профиль — база, проект вытесняет его по полям внутри именованных провайдеров, профилей моделей и ролей; незакоммиченный `.bsl-flow/providers.local.yaml` сохраняет высший приоритет для `token`/`base_url`. Профиль допускает только `llm.providers`, `llm.models` и привязки `review.council.roles.<роль>.model`; иной ключ отклоняется fail-closed с именем файла и ключа. Файл не создаётся автоматически.
 
+Описание recovery после финально невалидного chair payload, границы retry и состав dry-run routing preview см. в [описании Council review recovery](COUNCIL_REVIEW_RECOVERY_KNOWN_ISSUES_RU.md).
+
 Для M/L-изменений допустима опциональная тройка машиночитаемых артефактов рядом со `spec.md`: `contract.yaml`, `execution.yaml`, `verification.yaml`. Их проверяет детерминированный линт `Invoke-1CSpecContractLint.ps1` (тот же `-ChangePath`, что у линта `spec.md`); отсутствие артефактов — валидное штатное состояние.
 
 ## Где лежат результаты

@@ -118,7 +118,8 @@ function New-BSLFlowCouncilAttempt {
     param(
         [Parameter(Mandatory)][string]$RunRoot,
         [Parameter(Mandatory)][ValidateSet('brainstorm', 'intent_critic', 'architecture_critic', 'executability_critic', 'chair')][string]$Role,
-        [Parameter(Mandatory)]$Binding
+        [Parameter(Mandatory)]$Binding,
+        [switch]$ForceNew
     )
     . (Join-Path $PSScriptRoot 'Review.Common.ps1')
     . (Join-Path $PSScriptRoot 'Council.Validation.ps1')
@@ -154,7 +155,7 @@ function New-BSLFlowCouncilAttempt {
     if ($existingFiles.Count -gt 0) {
         $latest = Get-Content -Raw -LiteralPath $existingFiles[-1].FullName | ConvertFrom-Json -ErrorAction Stop
         $latestHash = Get-BSLFlowBytesSha256 ([System.Text.Encoding]::UTF8.GetBytes(($latest.binding | ConvertTo-Json -Depth 10)))
-        if ($latestHash -ceq $bindingHash) { return $latest }
+        if ($latestHash -ceq $bindingHash -and -not $ForceNew) { return $latest }
         $sequence = $existingFiles.Count + 1
     }
     else { $sequence = 1 }
@@ -169,6 +170,48 @@ function New-BSLFlowCouncilAttempt {
     }
     Write-BSLFlowJsonAtomic -Value $attempt -Path (Join-Path $roleDir ('attempt-{0:D4}.json' -f $sequence))
     return $attempt
+}
+
+function Get-BSLFlowCouncilChairValidationFailures {
+    param(
+        [Parameter(Mandatory)][string]$RunRoot,
+        [Parameter(Mandatory)][string]$BindingSha256
+    )
+    $roleDir = Join-Path $RunRoot 'chair'
+    if (-not (Test-Path -LiteralPath $roleDir -PathType Container)) { return @() }
+    $matches = [System.Collections.Generic.List[object]]::new()
+    foreach ($path in @(Get-ChildItem -LiteralPath $roleDir -File -Filter 'validation-failed-*.json' | Sort-Object Name)) {
+        $record = Get-Content -Raw -LiteralPath $path.FullName | ConvertFrom-Json -ErrorAction Stop
+        if ([string]$record.binding_sha256 -ceq $BindingSha256) { $matches.Add($record) }
+    }
+    return @($matches)
+}
+
+function Write-BSLFlowCouncilChairValidationFailure {
+    param(
+        [Parameter(Mandatory)][string]$RunRoot,
+        [Parameter(Mandatory)]$Attempt,
+        [Parameter(Mandatory)][string[]]$Errors,
+        [ValidateSet('payload_schema', 'final_invariant')][string]$Phase = 'final_invariant'
+    )
+    $roleDir = Join-Path $RunRoot 'chair'
+    New-Item -ItemType Directory -Path $roleDir -Force | Out-Null
+    $path = Join-Path $roleDir ('validation-failed-{0:D4}.json' -f [int]$Attempt.sequence)
+    if (Test-Path -LiteralPath $path -PathType Leaf) {
+        return (Get-Content -Raw -LiteralPath $path | ConvertFrom-Json -ErrorAction Stop)
+    }
+    $record = [pscustomobject][ordered]@{
+        schema_version = 1
+        attempt_id = [string]$Attempt.attempt_id
+        sequence = [int]$Attempt.sequence
+        binding_sha256 = [string]$Attempt.binding_sha256
+        effective_status = 'validation_failed'
+        phase = $Phase
+        errors = @($Errors | ForEach-Object { ([string]$_ -replace '[\r\n]+', ' ').Trim() })
+        recorded_at_utc = [DateTime]::UtcNow.ToString('o')
+    }
+    Write-BSLFlowJsonAtomic -Value $record -Path $path
+    return $record
 }
 
 function Register-BSLFlowCouncilMemberResult {

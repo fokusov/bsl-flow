@@ -94,7 +94,7 @@ $requiredFiles = @(
     'global\skills\1c-init-project\assets\project\AGENTS.md',
     'global\skills\1c-init-project\assets\project\bsl-flow.yaml',
     'global\skills\1c-init-project\assets\project\.bsl-flow\project.yaml',
-    'README.md', 'README.en.md', 'INSTALL.md', 'docs\FRAMEWORK_GUIDE_RU.md', 'docs\TEST_ENVIRONMENT_GUIDE_RU.md', 'VERSION', 'CHANGELOG.md', 'global\AGENTS.bootstrap.md',
+    'README.md', 'README.en.md', 'INSTALL.md', 'docs\FRAMEWORK_GUIDE_RU.md', 'docs\COUNCIL_REVIEW_RECOVERY_KNOWN_ISSUES_RU.md', 'docs\TEST_ENVIRONMENT_GUIDE_RU.md', 'VERSION', 'CHANGELOG.md', 'global\AGENTS.bootstrap.md',
     'global\openspec\schemas\bsl-flow\schema.yaml', 'global\openspec\schemas\bsl-flow\templates\spec.md',
     'global\skills\1c-spec-review\SKILL.md', 'global\skills\1c-spec-review\agents\openai.yaml',
     'global\skills\1c-spec-review\reviewer\opencode-reviewer.json',

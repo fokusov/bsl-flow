@@ -83,7 +83,12 @@ function Invoke-BSLFlowCouncilReview {
             }
             $plan += [pscustomobject][ordered]@{
                 role = [string]$entry.role_name; attempt_id = $attempt.attempt_id
-                route = $route; credential_source = [string]$entry.credential.credential_source
+                provider = [string]$entry.binding.provider; model = [string]$entry.binding.model
+                effort = [string]$entry.binding.effort; route = $route
+                credential_source = [string]$entry.credential.credential_source
+                token_env = [string]$entry.provider.token_env; fallback = [string]$entry.role.fallback
+                admission = $(if ($route -ceq 'blocked') { 'blocked' } else { 'admitted' })
+                endpoint = ('{0}://{1}:{2}{3}' -f [string]$entry.binding.endpoint.scheme, [string]$entry.binding.endpoint.host, [int]$entry.binding.endpoint.port, [string]$entry.binding.endpoint.base_path)
             }
         }
         return [ordered]@{ dry_run = $true; run_root = $runRoot; plan = @($plan); manifest_requirements = @($snapshot.manifest.requirements).Count }
@@ -675,6 +680,19 @@ function Invoke-BSLFlowCouncilCycle {
     $chairEntry | Add-Member -NotePropertyName binding -NotePropertyValue $chairBinding -Force
     $chairAttempt = New-BSLFlowCouncilAttempt -RunRoot $RunRoot -Role 'chair' -Binding $chairBinding
     $retainedChair = Get-BSLFlowCouncilRoleResult -RunRoot $RunRoot -Role 'chair' -Attempt $chairAttempt
+    if ($null -ne $retainedChair) {
+        $validationFailures = @(Get-BSLFlowCouncilChairValidationFailures -RunRoot $RunRoot -BindingSha256 ([string]$chairAttempt.binding_sha256))
+        $currentValidationFailure = @($validationFailures | Where-Object { [string]$_.attempt_id -ceq [string]$chairAttempt.attempt_id })
+        if ($currentValidationFailure.Count -gt 0) {
+            if ($validationFailures.Count -ge 2) {
+                throw 'BF_BLOCKED: chair validation retry budget is exhausted; retained evidence requires operator inspection.'
+            }
+            # One bounded retry receives a new immutable attempt while all member
+            # results remain bound to the same aggregate and are reused.
+            $chairAttempt = New-BSLFlowCouncilAttempt -RunRoot $RunRoot -Role 'chair' -Binding $chairBinding -ForceNew
+            $retainedChair = Get-BSLFlowCouncilRoleResult -RunRoot $RunRoot -Role 'chair' -Attempt $chairAttempt
+        }
+    }
     $chairRoute.attempt = $chairAttempt
     $chairRoute.attempt_path = (Join-Path $RunRoot 'chair')
     $chairView = [pscustomobject][ordered]@{
@@ -764,9 +782,20 @@ function Invoke-BSLFlowCouncilCycle {
                 throw 'BF_BLOCKED: chair provider outcome is unknown_after_dispatch.'
             }
         }
-        $chairEnvelope = Register-BSLFlowCouncilMemberResult -RunRoot $RunRoot -Attempt $chairAttempt -Payload $chairPayload -Status 'completed' -Summary 'Chair reconciliation completed.' -Observed (Get-BSLFlowEnvelopeValue $chairDispatch 'observed') -ExecutionMode ([string](Get-BSLFlowEnvelopeValue $chairDispatch 'execution_mode')) -DispatchedAtUtc $chairDispatchedAt -CompletedAtUtc $chairCompletedAt -Usage $chairDispatchUsage -CostState $chairCostState
         $providerUsd = $null
         try { $reportedCost = Get-BSLFlowEnvelopeValue $chairDispatch 'reported_cost_usd'; if ($null -ne $reportedCost) { $providerUsd = [double]$reportedCost } } catch { $providerUsd = $null }
+        try {
+            $chairEnvelope = Register-BSLFlowCouncilMemberResult -RunRoot $RunRoot -Attempt $chairAttempt -Payload $chairPayload -Status 'completed' -Summary 'Chair reconciliation completed.' -Observed (Get-BSLFlowEnvelopeValue $chairDispatch 'observed') -ExecutionMode ([string](Get-BSLFlowEnvelopeValue $chairDispatch 'execution_mode')) -DispatchedAtUtc $chairDispatchedAt -CompletedAtUtc $chairCompletedAt -Usage $chairDispatchUsage -CostState $chairCostState
+        }
+        catch {
+            $validationMessage = [string]$_.Exception.Message
+            $null = Write-BSLFlowCouncilChairValidationFailure -RunRoot $RunRoot -Attempt $chairAttempt -Errors @($validationMessage) -Phase 'payload_schema'
+            $chairEnvelope = Register-BSLFlowCouncilMemberResult -RunRoot $RunRoot -Attempt $chairAttempt -Payload $null -Status 'invalid_response' -Summary (($validationMessage -replace '[\r\n]+', ' ')) -Observed (Get-BSLFlowEnvelopeValue $chairDispatch 'observed') -ExecutionMode ([string](Get-BSLFlowEnvelopeValue $chairDispatch 'execution_mode')) -DispatchedAtUtc $chairDispatchedAt -CompletedAtUtc $chairCompletedAt -Usage $chairDispatchUsage -CostState $chairCostState
+            if ($null -eq $BeforeDispatch) {
+                $null = Complete-BSLFlowCouncilBudgetOutcome -RunRoot $RunRoot -Role 'chair' -Attempt $chairAttempt -Status 'invalid_response' -ProviderReportedUsd $providerUsd -CostState $chairCostState
+            }
+            throw "BF_BLOCKED: chair payload validation failed: $validationMessage"
+        }
         if ($null -eq $BeforeDispatch) {
             $null = Complete-BSLFlowCouncilBudgetOutcome -RunRoot $RunRoot -Role 'chair' -Attempt $chairAttempt -Status 'completed' -ProviderReportedUsd $providerUsd -CostState $chairCostState
         }
@@ -838,7 +867,29 @@ function Invoke-BSLFlowCouncilCycle {
         gate = [pscustomobject][ordered]@{ structural_only = $true; passed = $true }
     }
     $review.reconciliation.review_sha256 = Get-BSLFlowCouncilReviewDigest $review
-    Assert-BSLFlowCouncilReview $review
+    try { Assert-BSLFlowCouncilReview $review }
+    catch {
+        $validationMessage = [string]$_.Exception.Message
+        $null = Write-BSLFlowCouncilChairValidationFailure -RunRoot $RunRoot -Attempt $chairAttempt -Errors @($validationMessage) -Phase 'final_invariant'
+        throw "BF_BLOCKED: chair final invariant validation failed: $validationMessage"
+    }
+
+    # Validate the intended final bytes before they can replace live spec/design
+    # files. This keeps a bad chair response out of prepared publication and gives
+    # the bounded chair-only retry a clean, unchanged draft to work from.
+    $preflightDir = Join-Path (Join-Path $RunRoot 'validation') ('preflight-' + [string]$chairAttempt.attempt_id)
+    New-Item -ItemType Directory -Path $preflightDir -Force | Out-Null
+    [System.IO.File]::WriteAllBytes((Join-Path $preflightDir 'spec.md'), $finalSpecBytes)
+    [System.IO.File]::WriteAllBytes((Join-Path $preflightDir 'original-task.md'), [System.IO.File]::ReadAllBytes((Join-Path $changeDir 'original-task.md')))
+    $preflightDesignPath = Join-Path $preflightDir 'design.md'
+    if ($null -ne $finalDesignBytes) { [System.IO.File]::WriteAllBytes($preflightDesignPath, $finalDesignBytes) }
+    $preflightLint = & (Join-Path $PSScriptRoot 'Test-1CSpec.ps1') -ChangePath $preflightDir -NoThrow
+    $preflightGate = Test-BSLFlowCouncilFinalGate -Review $review -OriginalTaskPath (Join-Path $preflightDir 'original-task.md') -SpecPath (Join-Path $preflightDir 'spec.md') -DesignPath $preflightDesignPath -Lint $preflightLint -ProjectPath $ProjectRoot
+    if (-not [bool]$preflightGate.passed) {
+        $validationErrors = @($preflightGate.errors | ForEach-Object { [string]$_ })
+        $null = Write-BSLFlowCouncilChairValidationFailure -RunRoot $RunRoot -Attempt $chairAttempt -Errors $validationErrors -Phase 'final_invariant'
+        throw ('BF_BLOCKED: chair final preflight failed: ' + ($validationErrors -join '; '))
+    }
     $existingReviewBytes = $null
     if (Test-Path -LiteralPath (Join-Path $changeDir 'review.json') -PathType Leaf) {
         $existingReviewBytes = [System.IO.File]::ReadAllBytes((Join-Path $changeDir 'review.json'))

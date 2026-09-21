@@ -8,6 +8,7 @@
 
 ## Unreleased
 
+- Council recovery now records schema/final-invariant failures without rewriting the original chair evidence, permits one bounded chair-only retry while reusing completed member roles, blocks further dispatch after the retry budget is exhausted, validates intended final spec/design bytes before prepared publication, and exposes the effective provider/model/admission matrix in dry-run output. Managed provider hooks also rehydrate their controller helpers inside isolated closure scope, restoring mixed direct/fallback routing and budget receipts.
 - Made self-learning memory a project opt-in (`features.self_learning_memory.enabled: false` by default): disabled tasks neither read nor write the Experience Ledger, while mandatory managed journals, context and recovery remain unchanged. Execution contracts, estimation, the planned-task registry and publication remain separate explicit extensions.
 - Added tiered specification-review routing: S defaults to deterministic lint, M uses one isolated reviewer, and L/high-risk requires the API Council with fail-closed behavior instead of a single-reviewer downgrade.
 - Documented the Core/Managed boundary: assisted skills remain the bootstrap default; Managed starts only for an explicitly requested `1c-task` run. Installation, project config and sentinel files do not activate Managed or authorize registry activation, estimation, publication, merge, push, deploy or runtime access.

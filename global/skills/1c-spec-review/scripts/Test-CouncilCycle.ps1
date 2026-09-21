@@ -394,4 +394,145 @@ try {
 }
 finally { Remove-Item -LiteralPath $proj10 -Recurse -Force -ErrorAction SilentlyContinue }
 
+# 11. Dry-run exposes the effective route matrix without secrets or dispatch.
+$proj11 = New-TempProject
+try {
+    [System.Environment]::SetEnvironmentVariable('OPENAI_API_KEY', 'test-token')
+    [System.Environment]::SetEnvironmentVariable('DEEPSEEK_API_KEY', 'test-token')
+    try {
+        $plan11 = Invoke-BSLFlowCouncilReview -ProjectPath $proj11 -ChangeName 'demo' -DryRun
+        $chair11 = @($plan11.plan | Where-Object { $_.role -eq 'chair' })[0]
+        Assert-True ([string]$chair11.provider -eq 'openai' -and [string]$chair11.model) 'dry-run exposes effective provider and model'
+        Assert-True ([string]$chair11.effort -and [string]$chair11.token_env -eq 'OPENAI_API_KEY') 'dry-run exposes effort and token-env name without a token value'
+        Assert-True ([string]$chair11.fallback -and [string]$chair11.admission -eq 'admitted') 'dry-run exposes fallback and admission result'
+        Assert-True ([string]$chair11.endpoint -match '^https://') 'dry-run exposes sanitized endpoint identity'
+    }
+    finally {
+        [System.Environment]::SetEnvironmentVariable('OPENAI_API_KEY', $null)
+        [System.Environment]::SetEnvironmentVariable('DEEPSEEK_API_KEY', $null)
+    }
+}
+finally { Remove-Item -LiteralPath $proj11 -Recurse -Force -ErrorAction SilentlyContinue }
+
+# 12. A semantically invalid completed chair response never reaches prepared
+# publication. One fresh chair attempt reuses all completed member results.
+$proj12 = New-TempProject
+try {
+    [System.Environment]::SetEnvironmentVariable('OPENAI_API_KEY', 'test-token')
+    [System.Environment]::SetEnvironmentVariable('DEEPSEEK_API_KEY', 'test-token')
+    try {
+        $script:recoveryCalls = [System.Collections.Generic.List[string]]::new()
+        $recoveryDispatcher = {
+            param($Attempt, $PromptText, $Route)
+            $role = [string]$Attempt.role
+            $script:recoveryCalls.Add($role)
+            if ($role -ne 'chair') {
+                return [ordered]@{
+                    status = 'completed'
+                    payload = [pscustomobject][ordered]@{
+                        role = $role; verdict = 'PASS'; findings = @(); do_not_change = @(); needs_input_questions = @()
+                    }
+                    observed = [ordered]@{ provider = 'stub'; model = 'stub-critic'; effort = $null }
+                    execution_mode = 'direct_api'; fallback_reason = $null
+                }
+            }
+            $aggregateText = [regex]::Match($PromptText, '(?s)BEGIN TRUSTED AGGREGATES.*?>>>[\r\n]+(?<json>\{.*\})[\r\n]+<<<END TRUSTED AGGREGATES').Groups['json'].Value
+            $aggregate = $aggregateText | ConvertFrom-Json -ErrorAction Stop
+            $protectedDecisions = @($aggregate.protected | ForEach-Object {
+                [pscustomobject][ordered]@{ composite_id = [string]$_.composite_id; decision = 'preserved'; reason = 'scope'; evidence = 'stub' }
+            })
+            $requirementRefs = @($aggregate.requirements | ForEach-Object {
+                [pscustomobject][ordered]@{ id = [string]$_.id; final_refs = @('Требуемое поведение / 1') }
+            })
+            $specText = [regex]::Match($PromptText, '(?s)BEGIN UNTRUSTED DATA: spec\.md>>>[\r\n]+(?<spec>.*?)[\r\n]+<<<END UNTRUSTED DATA: spec\.md').Groups['spec'].Value + "`n"
+            $chairNumber = @($script:recoveryCalls | Where-Object { $_ -eq 'chair' }).Count
+            return [ordered]@{
+                status = 'completed'
+                payload = [pscustomobject][ordered]@{
+                    verdict = 'PASS'; decisions = @(); protected_decisions = $protectedDecisions; requirement_refs = $requirementRefs
+                    final_spec_text = $(if ($chairNumber -eq 1) { '# Incomplete final specification' } else { $specText })
+                    final_design_text = $null
+                }
+                observed = [ordered]@{ provider = 'stub'; model = 'stub-chair'; effort = $null }
+                execution_mode = 'direct_api'; fallback_reason = $null
+            }
+        }
+        $spec12 = Join-Path $proj12 'openspec\changes\demo\spec.md'
+        $draftHash12 = (Get-FileHash -Algorithm SHA256 -LiteralPath $spec12).Hash
+        try {
+            $null = Invoke-BSLFlowCouncilReview -ProjectPath $proj12 -ChangeName 'demo' -AllowLiveDispatch -Dispatcher $recoveryDispatcher
+            throw 'FAIL invalid chair final specification was published'
+        }
+        catch { Assert-True ([string]$_.Exception.Message -match 'final invariant validation failed') 'invalid chair final specification is blocked before publication' }
+        Assert-True ((Get-FileHash -Algorithm SHA256 -LiteralPath $spec12).Hash -eq $draftHash12) 'failed chair preflight leaves live spec bytes unchanged'
+        $run12 = Join-Path $proj12 '.bsl-flow\reports\spec-review\demo.council'
+        Assert-True (-not (Test-Path -LiteralPath (Join-Path $run12 'publication\prepared.json') -PathType Leaf)) 'failed chair preflight creates no prepared publication'
+        Assert-True (Test-Path -LiteralPath (Join-Path $run12 'chair\validation-failed-0001.json') -PathType Leaf) 'validation failure marker is durable'
+        $result12 = Invoke-BSLFlowCouncilReview -ProjectPath $proj12 -ChangeName 'demo' -AllowLiveDispatch -Dispatcher $recoveryDispatcher
+        Assert-True ([bool]$result12.final_validation.passed) 'bounded chair retry completes final validation'
+        Assert-True (@($script:recoveryCalls | Where-Object { $_ -ne 'chair' }).Count -eq 3) 'bounded retry reuses all completed member roles'
+        Assert-True (@($script:recoveryCalls | Where-Object { $_ -eq 'chair' }).Count -eq 2) 'bounded retry dispatches exactly one fresh chair attempt'
+        Assert-True (@(Get-ChildItem -LiteralPath (Join-Path $run12 'chair') -File -Filter 'attempt-*.json').Count -eq 2) 'chair retry keeps two immutable sequenced attempts'
+    }
+    finally {
+        [System.Environment]::SetEnvironmentVariable('OPENAI_API_KEY', $null)
+        [System.Environment]::SetEnvironmentVariable('DEEPSEEK_API_KEY', $null)
+    }
+}
+finally { Remove-Item -LiteralPath $proj12 -Recurse -Force -ErrorAction SilentlyContinue }
+
+# 13. The validation retry is bounded: two invalid chair attempts require
+# operator inspection and a third invocation performs no provider dispatch.
+$proj13 = New-TempProject
+try {
+    [System.Environment]::SetEnvironmentVariable('OPENAI_API_KEY', 'test-token')
+    [System.Environment]::SetEnvironmentVariable('DEEPSEEK_API_KEY', 'test-token')
+    try {
+        $script:boundedCalls = [System.Collections.Generic.List[string]]::new()
+        $alwaysInvalidChair = {
+            param($Attempt, $PromptText, $Route)
+            $role = [string]$Attempt.role
+            $script:boundedCalls.Add($role)
+            if ($role -ne 'chair') {
+                return [ordered]@{ status = 'completed'; payload = [pscustomobject][ordered]@{
+                    role = $role; verdict = 'PASS'; findings = @(); do_not_change = @(); needs_input_questions = @()
+                }; observed = [ordered]@{ provider = 'stub'; model = 'stub-critic'; effort = $null }; execution_mode = 'direct_api'; fallback_reason = $null }
+            }
+            $aggregateText = [regex]::Match($PromptText, '(?s)BEGIN TRUSTED AGGREGATES.*?>>>[\r\n]+(?<json>\{.*\})[\r\n]+<<<END TRUSTED AGGREGATES').Groups['json'].Value
+            $aggregate = $aggregateText | ConvertFrom-Json -ErrorAction Stop
+            $protectedDecisions = @($aggregate.protected | ForEach-Object {
+                [pscustomobject][ordered]@{ composite_id = [string]$_.composite_id; decision = 'preserved'; reason = 'scope'; evidence = 'stub' }
+            })
+            $requirementRefs = @($aggregate.requirements | ForEach-Object {
+                [pscustomobject][ordered]@{ id = [string]$_.id; final_refs = @('Требуемое поведение / 1') }
+            })
+            return [ordered]@{ status = 'completed'; payload = [pscustomobject][ordered]@{
+                verdict = 'PASS'; decisions = @(); protected_decisions = $protectedDecisions; requirement_refs = $requirementRefs
+                final_spec_text = '# Always incomplete'; final_design_text = $null
+            }; observed = [ordered]@{ provider = 'stub'; model = 'stub-chair'; effort = $null }; execution_mode = 'direct_api'; fallback_reason = $null }
+        }
+        foreach ($attemptNumber in 1..2) {
+            try {
+                $null = Invoke-BSLFlowCouncilReview -ProjectPath $proj13 -ChangeName 'demo' -AllowLiveDispatch -Dispatcher $alwaysInvalidChair
+                throw 'FAIL invalid chair unexpectedly passed'
+            }
+            catch { Assert-True ([string]$_.Exception.Message -match 'final invariant validation failed') "invalid chair attempt $attemptNumber is recorded" }
+        }
+        $callsBeforeBlock13 = @($script:boundedCalls).Count
+        try {
+            $null = Invoke-BSLFlowCouncilReview -ProjectPath $proj13 -ChangeName 'demo' -AllowLiveDispatch -Dispatcher $alwaysInvalidChair
+            throw 'FAIL exhausted validation retry dispatched again'
+        }
+        catch { Assert-True ([string]$_.Exception.Message -match 'retry budget is exhausted') 'third invocation reports exhausted chair validation retry budget' }
+        Assert-True (@($script:boundedCalls).Count -eq $callsBeforeBlock13) 'exhausted validation retry performs no provider dispatch'
+        Assert-True (@($script:boundedCalls | Where-Object { $_ -ne 'chair' }).Count -eq 3) 'exhausted retry still reused member roles'
+        Assert-True (@($script:boundedCalls | Where-Object { $_ -eq 'chair' }).Count -eq 2) 'validation retry budget permits exactly two chair calls'
+    }
+    finally {
+        [System.Environment]::SetEnvironmentVariable('OPENAI_API_KEY', $null)
+        [System.Environment]::SetEnvironmentVariable('DEEPSEEK_API_KEY', $null)
+    }
+}
+finally { Remove-Item -LiteralPath $proj13 -Recurse -Force -ErrorAction SilentlyContinue }
+
 "ALL_STAGE_CYCLE_PASSED=$passed"

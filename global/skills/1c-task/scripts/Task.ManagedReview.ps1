@@ -556,8 +556,15 @@ function New-BFManagedCouncilProviderDispatchHooks {
         [Parameter(Mandatory)]$ProviderContext
     )
     $artifactRoot = Assert-BFSafePath (Get-BFValue $ProviderContext 'artifact_root' '')
+    $hookScriptsRoot = $PSScriptRoot
     $beforeDispatch = {
         param($Attempt, $Route)
+        # GetNewClosure isolates the hook in a dynamic module. Rehydrate the
+        # exact controller helpers there before the hook is invoked by Council.
+        . (Join-Path $hookScriptsRoot 'Task.Storage.ps1')
+        . (Join-Path $hookScriptsRoot 'Task.Contracts.ps1')
+        . (Join-Path $hookScriptsRoot 'Task.Execution.ps1')
+        . (Join-Path $hookScriptsRoot 'Task.ManagedReview.ps1')
         # The fallback worker owns its own provider reservation/outcome through
         # Invoke-BFManagedWorker. The Council hook therefore only replaces the
         # Council ledger for direct API calls.
@@ -575,6 +582,10 @@ function New-BFManagedCouncilProviderDispatchHooks {
     }.GetNewClosure()
     $afterDispatch = {
         param($Attempt, $Route, $Transport, $Status, $Failure)
+        . (Join-Path $hookScriptsRoot 'Task.Storage.ps1')
+        . (Join-Path $hookScriptsRoot 'Task.Contracts.ps1')
+        . (Join-Path $hookScriptsRoot 'Task.Execution.ps1')
+        . (Join-Path $hookScriptsRoot 'Task.ManagedReview.ps1')
         if ([string](Get-BFValue $Route 'route' '') -ceq 'current_agent_fallback') { return }
         $directory = Get-BFManagedCouncilProviderDispatchDirectory -ProviderContext $ProviderContext -Attempt $Attempt
         $observed = Get-BFValue $Transport 'observed'
