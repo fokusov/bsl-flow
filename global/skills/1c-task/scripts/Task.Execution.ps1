@@ -501,10 +501,18 @@ function Test-BFExecutionCapability {
         [void][IO.Directory]::CreateDirectory((Assert-BFSafePath $path))
     }
     $version=Invoke-BFProcess $profile.sandbox.executable @('--version') $State.worker_path '' (Join-Path $Directory 'sandbox-version') 30
-    if($version.exit_code -ne 0 -or [IO.File]::ReadAllText($version.stdout).Trim() -cne 'codex-cli 0.154.0'){throw 'BF_BLOCKED: unverified sandbox version.'}
+    if($version.exit_code -ne 0){throw 'BF_BLOCKED: sandbox version probe failed.'}
+    $sandboxVersion=[IO.File]::ReadAllText($version.stdout).Trim()
+    [void](Assert-BFCodexHostVersion $sandboxVersion)
     $version=Invoke-BFProcess $profile.executable @('--version') $State.worker_path '' (Join-Path $Directory 'provider-version') 30
-    $expected=if($profile.provider -eq 'opencode'){'1.18.30'}else{'codex-cli 0.154.0'}
-    if($version.exit_code -ne 0 -or [IO.File]::ReadAllText($version.stdout).Trim() -cne $expected){throw 'BF_BLOCKED: unverified provider version.'}
+    if($version.exit_code -ne 0){throw 'BF_BLOCKED: provider version probe failed.'}
+    $providerVersion=[IO.File]::ReadAllText($version.stdout).Trim()
+    if($profile.provider -eq 'opencode'){
+        if($providerVersion -cne '1.18.30'){throw 'BF_BLOCKED: unverified provider version.'}
+    }else{
+        [void](Assert-BFCodexHostVersion $providerVersion)
+        if($providerVersion -cne $sandboxVersion){throw 'BF_BLOCKED: Codex provider and sandbox versions differ.'}
+    }
     $configSentinel=Join-Path $Config 'sentinel.txt'
     [IO.File]::WriteAllText($configSentinel,'config')
     $source=Assert-BFSafePath (Join-Path $State.worker_path '.bsl-flow-worker/host-probe.txt')

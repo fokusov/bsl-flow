@@ -86,6 +86,18 @@ function Invoke-BFProcess {
     } finally { $stdoutFile.Dispose(); $stderrFile.Dispose(); $process.Dispose() }
 }
 
+function Assert-BFCodexHostVersion {
+    param([Parameter(Mandatory)][string]$VersionText)
+    if ($VersionText -cnotmatch '^codex-cli (\d+\.\d+\.\d+)$') {
+        throw "BF_BLOCKED: unsupported Codex host version format: $VersionText."
+    }
+    $version = [version]$Matches[1]
+    if ($version -lt [version]'0.153.0') {
+        throw "BF_BLOCKED: Codex host version predates the validated sandbox contract: $VersionText."
+    }
+    return $VersionText
+}
+
 function Resolve-BFCodex {
     param([string]$Path)
     if (-not $Path) {

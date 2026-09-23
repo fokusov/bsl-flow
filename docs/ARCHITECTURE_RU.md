@@ -1,6 +1,6 @@
 # Архитектура managed-контура BSL Flow
 
-Статус документа: актуальная архитектура `0.8.0-dev.3`. Узкий native FILE-адаптер расширения прошёл публичный controller-owned unit-пилот с пятью тестами и контрольным восстановлением; это не подтверждает произвольные 1С, UI, EPF/ERF или production-сценарии. Временное ограничение Unica сохраняется. Историческое ADR-6 уточнено текущим статусом ниже. Актуальные решения и история — в [CHANGELOG.md](../CHANGELOG.md).
+Статус документа: актуальная архитектура `0.8.0-dev.4`. Узкий native FILE-адаптер расширения прошёл публичный controller-owned unit-пилот с пятью тестами и контрольным восстановлением; это не подтверждает произвольные 1С, UI, EPF/ERF или production-сценарии. Временное ограничение Unica сохраняется. Историческое ADR-6 уточнено текущим статусом ниже. Актуальные решения и история — в [CHANGELOG.md](../CHANGELOG.md).
 
 Машинные схемы и request/recovery contracts описаны в [`1c-task/references/task-contract.md`](../global/skills/1c-task/references/task-contract.md). Проверенная граница Windows host вынесена в [`managed-host-contract.md`](managed-host-contract.md).
 
@@ -128,7 +128,7 @@ Codex adapter сохраняет session ID, requested model/effort и provider 
 
 ## Ограничения релиза
 
-- адаптер допускает проверенные native Windows `codex-cli 0.153.0` и `0.154.0`; новая версия требует capability suite;
+- обычный managed-адаптер принимает стабильный `codex-cli` начиная с `0.153.0` только после проверки фактической sandbox-изоляции; profiled-контур дополнительно связывает точные версии и SHA-256 provider/sandbox, а sealed fallback Council сохраняет отдельный проверенный контракт;
 - source-only worker не получает сеть, plugins, multi-agent, memories, browser/computer use, hooks или project Codex config;
 - задачи выполняются последовательно; task lock дополняется отдельными same-user locks для разрешённой FILE-базы и пары remote/ref;
 - новый publication profile создаёт одну Git-ветку; merge, deployment, глобальная установка и автоматический rollback в него не входят;

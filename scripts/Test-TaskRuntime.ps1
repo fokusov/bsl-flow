@@ -16,6 +16,12 @@ try{
     $target=Join-Path $tmp 'base';[void][IO.Directory]::CreateDirectory($target);[IO.File]::WriteAllBytes((Join-Path $target '1Cv8.1CD'),[byte[]](0))
     $criterion=[pscustomobject]@{id='native';kind='integration';observation='two tests';executable=$exe;arguments=@();report='.bsl-flow-worker/native.xml';expected_tests=@('M.A.A','M.B.B');protected_paths=@('src/ext/Ext/ObjectModule.bsl');target=$target;native_1c=[pscustomobject]@{source_root='src/ext';extension='Ext';module='M';platform_version='8.3.27.2074';executable_sha256=$hash;authorized_operations=@('inventory','load','update','test');authorization_reference='user-current-task'}}
     Assert-BFNativeCriterion $criterion;Check $true 'Valid fixture native criterion was rejected.'
+    $v85=$criterion.PSObject.Copy();$v85.native_1c=$criterion.native_1c.PSObject.Copy();$v85.native_1c.platform_version='8.5.1.1529'
+    Assert-BFNativeCriterion $v85;Check $true '1C 8.5.1 native criterion was rejected.'
+    $unsupported=$criterion.PSObject.Copy();$unsupported.native_1c=$criterion.native_1c.PSObject.Copy();$unsupported.native_1c.platform_version='8.4.1.1529'
+    Reject {Assert-BFNativeCriterion $unsupported} 'invalid native 1C platform version'
+    $unsupported.native_1c.platform_version='8.5.0.1529'
+    Reject {Assert-BFNativeCriterion $unsupported} 'invalid native 1C platform version'
     $bad=$criterion.PSObject.Copy();$bad.target='relative';Reject {Assert-BFNativeCriterion $bad} 'absolute FILE'
     $bad=$criterion.PSObject.Copy();$bad.arguments=@('/P','secret');Reject {Assert-BFNativeCriterion $bad} 'free arguments'
     Check ((Get-BFRuntimeTargetKey $target) -ceq (Get-BFRuntimeTargetKey ($target+'\'))) 'Target key is not canonical.'

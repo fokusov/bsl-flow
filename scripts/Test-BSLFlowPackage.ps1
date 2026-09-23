@@ -151,7 +151,7 @@ $requiredFiles = @(
     'global\skills\1c-task\schemas\publication.schema.json', 'scripts\Test-TaskPublication.ps1', 'scripts\Test-PublicationGit.ps1',
     'docs\NATIVE_RUNTIME_RU.md', 'docs\REQUIREMENT_COVERAGE_RU.md', 'docs\PUBLICATION_RU.md',
     'global\skills\1c-task\scripts\Task.Delivery.ps1', 'global\skills\1c-task\scripts\Task.Runner.ps1',
-    'scripts\Test-SandboxedVerification.ps1',
+    'scripts\Test-SandboxedVerification.ps1', 'scripts\Test-CodexHostCapability.ps1',
     'scripts\Test-ManagedHost.ps1',
     'global\skills\1c-verify\references\testing-policy.md',
     'scripts\Test-BFProfiledCodexHostCapability.ps1',
@@ -242,7 +242,7 @@ foreach ($suite in @('Test-ADRIndex.ps1', 'Test-TaskContext.ps1', 'Test-TaskArch
 foreach ($suite in @('Test-CouncilValidation.ps1', 'Test-CouncilEngine.ps1', 'Test-CouncilTransport.ps1', 'Test-CouncilFallback.ps1', 'Test-CouncilRouting.ps1', 'Test-CouncilCycle.ps1', 'Test-CouncilLifecycle.ps1', 'Test-CouncilProfile.ps1')) {
     & (Join-Path $packageRoot "global\skills\1c-spec-review\scripts\$suite") -PackageRoot $packageRoot
 }
-foreach ($suite in @('Test-TaskStorage.ps1', 'Test-TaskRegistry.ps1', 'Test-TaskRegistryConcurrency.ps1', 'Test-LegacyNativeFence.ps1', 'Test-TaskLifecycle.ps1', 'Test-TaskHardening.ps1', 'Test-TaskResume.ps1', 'Test-TaskCrashRecovery.ps1', 'Test-TaskRepair.ps1', 'Test-TaskDelivery.ps1', 'Test-TaskRunner.ps1', 'Test-RunnerRecovery.ps1', 'Test-TaskRuntime.ps1', 'Test-NativeController.ps1', 'Test-NativeRecovery.ps1', 'Test-NativeReuse.ps1', 'Test-RequirementCoverage.ps1', 'Test-CoverageController.ps1', 'Test-PublicationGit.ps1', 'Test-TaskPublication.ps1')) {
+foreach ($suite in @('Test-TaskStorage.ps1', 'Test-TaskRegistry.ps1', 'Test-TaskRegistryConcurrency.ps1', 'Test-LegacyNativeFence.ps1', 'Test-TaskLifecycle.ps1', 'Test-TaskHardening.ps1', 'Test-TaskResume.ps1', 'Test-TaskCrashRecovery.ps1', 'Test-TaskRepair.ps1', 'Test-TaskDelivery.ps1', 'Test-TaskRunner.ps1', 'Test-RunnerRecovery.ps1', 'Test-CodexHostCapability.ps1', 'Test-TaskRuntime.ps1', 'Test-NativeController.ps1', 'Test-NativeRecovery.ps1', 'Test-NativeReuse.ps1', 'Test-RequirementCoverage.ps1', 'Test-CoverageController.ps1', 'Test-PublicationGit.ps1', 'Test-TaskPublication.ps1')) {
     & (Join-Path $packageRoot "scripts\$suite") -PackageRoot $packageRoot
 }
 

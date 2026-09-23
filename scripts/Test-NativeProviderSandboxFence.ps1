@@ -6,6 +6,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 if ([string]::IsNullOrWhiteSpace($PackageRoot)) { $PackageRoot = Split-Path -Parent $PSScriptRoot }
 $PackageRoot = [IO.Path]::GetFullPath($PackageRoot)
+. (Join-Path $PackageRoot 'global\skills\1c-task\scripts\Task.Process.ps1')
 
 function Write-FenceJson {
     param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)]$Value)
@@ -23,7 +24,7 @@ function Invoke-Version {
     catch { return [pscustomobject]@{ code = -1; text = $_.Exception.Message } }
 }
 
-function Find-Codex154 {
+function Find-SupportedCodex {
     param([string]$Requested)
     $candidates = [Collections.Generic.List[string]]::new()
     if (-not [string]::IsNullOrWhiteSpace($Requested)) { [void]$candidates.Add($Requested) }
@@ -45,7 +46,9 @@ function Find-Codex154 {
         try { $resolved = [IO.Path]::GetFullPath($candidate) } catch { continue }
         if (-not $seen.Add($resolved) -or -not (Test-Path -LiteralPath $resolved -PathType Leaf)) { continue }
         $version = Invoke-Version $resolved
-        if ($version.code -eq 0 -and $version.text -ceq 'codex-cli 0.154.0') { return [pscustomobject]@{ path = $resolved; candidates = @($candidates); version = $version.text } }
+        if ($version.code -ne 0) { continue }
+        try { [void](Assert-BFCodexHostVersion $version.text) } catch { continue }
+        return [pscustomobject]@{ path = $resolved; candidates = @($candidates); version = $version.text }
     }
     return [pscustomobject]@{ path = $null; candidates = @($candidates); version = $null }
 }
@@ -57,11 +60,11 @@ $OutputRoot = [IO.Path]::GetFullPath($OutputRoot)
 if (Test-Path -LiteralPath $OutputRoot) { throw "OutputRoot must be a new evidence directory: $OutputRoot" }
 [void][IO.Directory]::CreateDirectory($OutputRoot)
 $utf8 = [Text.UTF8Encoding]::new($false)
-$found = Find-Codex154 $CodexPath
+$found = Find-SupportedCodex $CodexPath
 if ($null -eq $found.path) {
     $blocked = [ordered]@{
-        schema_version = 1; status = 'BLOCKED'; reason = 'BF_BLOCKED: exact Codex 0.154.0 executable is unavailable.'
-        required_version = 'codex-cli 0.154.0'; candidates = @($found.candidates); model_calls = 0; runtime_1c = 'not_run'
+        schema_version = 1; status = 'BLOCKED'; reason = 'BF_BLOCKED: supported stable Codex executable is unavailable.'
+        required_version = 'codex-cli >= 0.153.0 (stable)'; candidates = @($found.candidates); model_calls = 0; runtime_1c = 'not_run'
     }
     Write-FenceJson (Join-Path $OutputRoot 'result.json') $blocked
     $blocked | ConvertTo-Json -Depth 8
@@ -69,7 +72,7 @@ if ($null -eq $found.path) {
 }
 
 $scripts = Join-Path $PackageRoot 'global\skills\1c-task\scripts'
-foreach ($name in @('Task.Storage.ps1', 'Task.Contracts.ps1', 'Task.Process.ps1', 'Task.Execution.ps1')) { . (Join-Path $scripts $name) }
+foreach ($name in @('Task.Storage.ps1', 'Task.Contracts.ps1', 'Task.Execution.ps1')) { . (Join-Path $scripts $name) }
 $project = Join-Path $OutputRoot 'project'
 $worker = Join-Path $OutputRoot 'worker'
 $toolset = Join-Path $OutputRoot 'toolset'

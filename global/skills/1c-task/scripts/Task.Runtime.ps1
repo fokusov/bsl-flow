@@ -36,7 +36,7 @@ function Assert-BFNativeCriterion {
     Assert-BFRelativePath $native.source_root
     foreach($name in @('extension','module','platform_version','authorization_reference')){Assert-BFText $native.$name ('criterion.native_1c.'+$name)}
     if($native.extension -cnotmatch '^[A-Za-zА-Яа-яЁё_][A-Za-zА-Яа-яЁё0-9_]{0,127}$' -or $native.module -cnotmatch '^[A-Za-zА-Яа-яЁё_][A-Za-zА-Яа-яЁё0-9_]{0,127}$'){throw 'BF_INVALID: unsafe native 1C extension or module name.'}
-    if($native.platform_version -cnotmatch '^8\.3\.\d+\.\d+$'){throw 'BF_INVALID: invalid native 1C platform version.'}
+    if($native.platform_version -cnotmatch '^8\.(?:3\.\d+|5\.[1-9]\d*)\.\d+$'){throw 'BF_INVALID: invalid native 1C platform version.'}
     if($native.executable_sha256 -cnotmatch '^[0-9a-f]{64}$'){throw 'BF_INVALID: native executable SHA-256 must be lowercase hexadecimal.'}
     if($Criterion.executable -isnot [string] -or -not [IO.Path]::IsPathRooted($Criterion.executable) -or [IO.Path]::GetFileName($Criterion.executable) -ine '1cv8.exe'){throw 'BF_INVALID: native executable must be an absolute 1cv8.exe path.'}
     if($Criterion.arguments -isnot [array] -or $Criterion.arguments.Count -ne 0){throw 'BF_INVALID: native 1C criteria do not accept free arguments.'}

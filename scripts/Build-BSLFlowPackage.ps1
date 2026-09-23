@@ -49,7 +49,15 @@ New-Item -ItemType Directory -Path $zipParent -Force | Out-Null
 
 $excludedRootSegments = @('.bsl-flow', '.build', 'work', 'outputs')
 $excludedRootFiles = @()
-$relativePaths = [string[]]@(Get-ChildItem -LiteralPath $root -File -Recurse -Force | Where-Object {
+$packageFiles = foreach ($entry in (Get-ChildItem -LiteralPath $root -Force)) {
+    if ($entry.PSIsContainer) {
+        if ($entry.Name -in @($excludedRootSegments + '.git')) { continue }
+        Get-ChildItem -LiteralPath $entry.FullName -File -Recurse -Force
+    } else {
+        $entry
+    }
+}
+$relativePaths = [string[]]@($packageFiles | Where-Object {
     $relative = $_.FullName.Substring($root.Length + 1)
     $segments = @($relative -split '[\\/]')
     $generatedRootArtifact = $segments.Count -eq 1 -and ($segments[0] -eq 'package-manifest.json' -or $segments[0] -like '*.zip' -or $segments[0] -like '*.zip.sha256')

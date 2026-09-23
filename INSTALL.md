@@ -1,4 +1,4 @@
-# Установка BSL Flow 0.8.0-dev.3
+# Установка BSL Flow 0.8.0-dev.4
 
 Установка framework не загружает расширения в базы.
 
@@ -26,6 +26,8 @@
 
 Для полного регрессионного набора пакета дополнительно нужен .NET SDK 5 или новее: тесты компилируют маленький имитатор reviewer и не обращаются к платной модели. Для повседневной работы skills SDK не нужен. Проверки запускай через `scripts/Test-BSLFlowPackage.ps1`; они не запускают 1С и не заменяют приёмку в тестовой базе.
 
+Обычный managed-адаптер проверяет стабильный `codex-cli` начиная с `0.153.0` по фактической read/write sandbox-изоляции при запуске задачи. Версия `0.155.1` включена в офлайн-контракты, но реальный host-пилот на другой машине остаётся отдельной проверкой. Для profiled execution provider и sandbox должны иметь одинаковую версию и совпадать с SHA-256 из request; sealed current-agent Council fallback требует собственного проверенного host-контракта.
+
 По умолчанию package suite работает offline: не проверяет реальные credentials/model catalog и не делает model calls. Дополнительные проверки установленного host-окружения включаются отдельно:
 
 ```powershell
@@ -42,7 +44,7 @@
 .\scripts\Build-BSLFlowPackage.ps1 -PackageRoot . -Test
 ```
 
-Build создаёт `outputs\BSL-Flow-0.8.0-dev.3.zip`, внешний файл `.sha256` и внутренний `package-manifest.json` с SHA-256 каждого файла. Пути архива сортируются, timestamps фиксируются; `.git`, `.bsl-flow`, `work` и `outputs` в пакет не входят. Повторная сборка тем же PowerShell runtime должна дать тот же SHA-256. `-Test` повторяет сборку, распаковывает точный ZIP во временный каталог, сверяет manifest и запускает offline package suite из распакованного artifact. Установка в глобальные каталоги при этом не выполняется.
+Build создаёт `outputs\BSL-Flow-0.8.0-dev.4.zip`, внешний файл `.sha256` и внутренний `package-manifest.json` с SHA-256 каждого файла. Пути архива сортируются, timestamps фиксируются; `.git`, `.bsl-flow`, `work` и `outputs` в пакет не входят. Повторная сборка тем же PowerShell runtime должна дать тот же SHA-256. `-Test` повторяет сборку, распаковывает точный ZIP во временный каталог, сверяет manifest и запускает offline package suite из распакованного artifact. Установка в глобальные каталоги при этом не выполняется.
 
 Build entrypoint, установщик, task CLI и offline suite требуют PowerShell 7. Используется стандартная машинная установка `C:\Program Files\PowerShell\7\pwsh.exe`; fallback на Windows PowerShell 5.1 не предусмотрен.
 

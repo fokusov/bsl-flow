@@ -28,7 +28,8 @@ function Test-BFCodexCapability {
     [void][IO.Directory]::CreateDirectory($Directory)
     $version=Invoke-BFProcess $CodexPath @('--version') $State.worker_path '' (Join-Path $Directory 'version') 30
     $versionText=[IO.File]::ReadAllText($version.stdout).Trim()
-    if ($version.exit_code -ne 0 -or $versionText -notin @('codex-cli 0.153.0','codex-cli 0.154.0')) { throw "BF_BLOCKED: unverified Codex host version: $versionText. Run and review the host capability suite before supporting it." }
+    if ($version.exit_code -ne 0) { throw 'BF_BLOCKED: Codex host version probe failed.' }
+    [void](Assert-BFCodexHostVersion $versionText)
     $sentinel=Join-Path $Directory 'controller-sentinel.txt'
     [IO.File]::WriteAllText($sentinel,'controller', (New-Object Text.UTF8Encoding($false)))
     $probeRoot=Join-Path $State.worker_path '.bsl-flow-worker/capability'
