@@ -117,7 +117,7 @@ $requiredFiles = @(
     'global\skills\1c-task\scripts\Task.Memory.ps1',
     'global\skills\1c-task\scripts\Task.Contracts.ps1',
     'global\skills\1c-task\scripts\Task.Architecture.ps1',
-    'scripts\Test-ADRIndex.ps1',
+    'scripts\Test-ADRIndex.ps1', 'scripts\Test-CouncilMixedRoute.ps1',
     'scripts\Test-TaskContext.ps1',
     'scripts\Test-TaskArchitectureBundle.ps1',
     'scripts\Test-TaskResumePilot.ps1',
@@ -236,7 +236,7 @@ foreach ($relative in $requiredFiles) {
     Assert-True ($ignoreProbe.ExitCode -ne 0) "Required package file is hidden by .gitignore: $relative"
 }
 & (Join-Path $packageRoot 'scripts\Test-1CTestTooling.ps1') -PackageRoot $packageRoot
-foreach ($suite in @('Test-ADRIndex.ps1', 'Test-TaskContext.ps1', 'Test-TaskArchitectureBundle.ps1', 'Test-TaskResumePilot.ps1', 'Test-ProjectArchitectureIndex.ps1', 'Test-TaskMemory.ps1', 'Test-ProjectUpgrade.ps1', 'Test-WorkstationSetup.ps1', 'Test-InteractiveTestPilot.ps1', 'Test-ExternalArtifactEvidence.ps1', 'Test-TestStarter.ps1', 'Test-TestEvidence.ps1', 'Test-ExtensionIdentitySafety.ps1', 'Test-AgentAudit.ps1', 'Test-OpenCodeAdapter.ps1', 'Test-ReviewReliability.ps1', 'Test-TaskManagedReview.ps1', 'Test-BFProfiledCodexHostCapability.ps1', 'Test-SpecContractLint.ps1', 'Test-ExecutionGraphDiscipline.ps1')) {
+foreach ($suite in @('Test-ADRIndex.ps1', 'Test-TaskContext.ps1', 'Test-TaskArchitectureBundle.ps1', 'Test-TaskResumePilot.ps1', 'Test-ProjectArchitectureIndex.ps1', 'Test-TaskMemory.ps1', 'Test-ProjectUpgrade.ps1', 'Test-WorkstationSetup.ps1', 'Test-InteractiveTestPilot.ps1', 'Test-ExternalArtifactEvidence.ps1', 'Test-TestStarter.ps1', 'Test-TestEvidence.ps1', 'Test-ExtensionIdentitySafety.ps1', 'Test-AgentAudit.ps1', 'Test-OpenCodeAdapter.ps1', 'Test-ReviewReliability.ps1', 'Test-TaskManagedReview.ps1', 'Test-CouncilMixedRoute.ps1', 'Test-BFProfiledCodexHostCapability.ps1', 'Test-SpecContractLint.ps1', 'Test-ExecutionGraphDiscipline.ps1')) {
     & (Join-Path $packageRoot "scripts\$suite") -PackageRoot $packageRoot
 }
 foreach ($suite in @('Test-CouncilValidation.ps1', 'Test-CouncilEngine.ps1', 'Test-CouncilTransport.ps1', 'Test-CouncilFallback.ps1', 'Test-CouncilRouting.ps1', 'Test-CouncilCycle.ps1', 'Test-CouncilLifecycle.ps1', 'Test-CouncilProfile.ps1')) {
@@ -246,7 +246,7 @@ foreach ($suite in @('Test-TaskStorage.ps1', 'Test-TaskRegistry.ps1', 'Test-Task
     & (Join-Path $packageRoot "scripts\$suite") -PackageRoot $packageRoot
 }
 
-foreach ($skillName in @('1c-init-project', '1c-spec', '1c-spec-review', '1c-implement', '1c-verify', '1c-debug', '1c-task')) {
+foreach ($skillName in @('1c-init-project', '1c-spec', '1c-spec-review', '1c-estimate', '1c-implement', '1c-verify', '1c-debug', '1c-task')) {
     $skillFile = Join-Path $packageRoot "global\skills\$skillName\SKILL.md"
     Assert-True (Test-Path -LiteralPath $skillFile -PathType Leaf) "Missing skill: $skillName"
     $skillText = Get-Content -Raw -LiteralPath $skillFile
@@ -584,7 +584,9 @@ class FakeOpenCode {
     $targetFramework = "net$sdkMajor.0"
     $fakeProjectText = '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>{0}</TargetFramework><AssemblyName>opencode</AssemblyName><EnableDefaultCompileItems>false</EnableDefaultCompileItems></PropertyGroup><ItemGroup><Compile Include="opencode.cs" /></ItemGroup></Project>' -f $targetFramework
     $fakeProjectText | Set-Content -LiteralPath $fakeProject -Encoding utf8
-    & $dotnet.Source build $fakeProject '--nologo' '--configuration' 'Release' '--output' $fakeBin | Out-Null
+    $nugetConfig = Join-Path $testRoot 'NuGet.Config'
+    [IO.File]::WriteAllText($nugetConfig, '<configuration><packageSources><clear /></packageSources></configuration>')
+    & $dotnet.Source build $fakeProject '--nologo' '--configuration' 'Release' '--output' $fakeBin "-p:RestoreConfigFile=$nugetConfig" | Out-Null
     Assert-True ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $fakeProvider -PathType Leaf)) 'Compiled fake OpenCode provider is available.'
     $env:PATH = $fakeBin + [System.IO.Path]::PathSeparator + $oldPath
     $mRoute = & $invokeReview -ProjectPath $project -ChangeName 'm-change'

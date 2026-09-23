@@ -133,7 +133,9 @@ class FakeProvider {
         $targetFramework = "net$sdkMajor.0"
         $project = '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>{0}</TargetFramework><AssemblyName>fake-provider</AssemblyName><EnableDefaultCompileItems>false</EnableDefaultCompileItems></PropertyGroup><ItemGroup><Compile Include="fake-provider.cs" /></ItemGroup></Project>' -f $targetFramework
         [IO.File]::WriteAllText($projectPath, $project, (New-Object Text.UTF8Encoding($false)))
-        $buildOutput = @(& $dotnet.Source build $projectPath '--nologo' '--configuration' 'Release' '--output' $tempRoot)
+        $nugetConfig = Join-Path $tempRoot 'NuGet.Config'
+        [IO.File]::WriteAllText($nugetConfig, '<configuration><packageSources><clear /></packageSources></configuration>')
+        $buildOutput = @(& $dotnet.Source build $projectPath '--nologo' '--configuration' 'Release' '--output' $tempRoot "-p:RestoreConfigFile=$nugetConfig")
         if ($LASTEXITCODE -ne 0) { throw "Fake provider build failed: $($buildOutput -join ' ')" }
         $providerPath = Join-Path $tempRoot 'fake-provider.exe'
     Assert-True ((Test-Path -LiteralPath $providerPath -PathType Leaf)) 'fake provider compiled'

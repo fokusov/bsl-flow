@@ -75,7 +75,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 - проверит packaged OpenSpec schema;
 - проверит эффективные права bounded read/file listing и sealed reviewer agents, включая запрет unrestricted grep;
-- установит единственную копию семи skills в общий `%USERPROFILE%\.agents\skills` и после backup удалит управляемые дубликаты из `%CODEX_HOME%\skills`;
+- установит единственную копию восьми skills в общий `%USERPROFILE%\.agents\skills` и после backup удалит управляемые дубликаты из `%CODEX_HOME%\skills`;
 - установит глобальную schema `bsl-flow`;
 - заменит старый managed bootstrap-блок новым bsl-flow-блоком и удалит после backup старую OpenSpec schema;
 - создаст backup и выполнит rollback при ошибке;
