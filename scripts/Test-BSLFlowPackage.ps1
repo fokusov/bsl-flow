@@ -200,9 +200,10 @@ $implementSkillText = Get-Content -Raw (Join-Path $packageRoot 'global\skills\1c
 Assert-True ($taskSkillText.Contains('Experience Ledger is an optional extension and defaults off')) 'Managed task skill does not document the memory opt-in boundary.'
 Assert-True ($estimateSkillText.Contains('not a stage, gate or authorization')) 'Estimate skill is no longer explicitly separated from the controller lifecycle.'
 Assert-True ($implementSkillText.Contains('When the change directory contains `execution.yaml`')) 'Implementation skill no longer guards execution-contract use by artifact presence.'
-$unreleasedMatch = [regex]::Match($changeLogText, '(?ms)^## Unreleased\s*(?<body>.*?)(?=^##\s)')
-Assert-True $unreleasedMatch.Success 'CHANGELOG lacks a bounded Unreleased section.'
-Assert-True ($unreleasedMatch.Groups['body'].Value -notmatch '(?i)windows/amd64|extracted binary|\bGo (?:CLI|binary|executable)\b') 'Unreleased CHANGELOG still claims native executable packaging.'
+$releasePattern = '(?ms)^## ' + [regex]::Escape($packageVersion) + '\s*(?<body>.*?)(?=^##\s|\z)'
+$releaseMatch = [regex]::Match($changeLogText, $releasePattern)
+Assert-True $releaseMatch.Success "CHANGELOG lacks a bounded $packageVersion section."
+Assert-True ($releaseMatch.Groups['body'].Value -notmatch '(?i)windows/amd64|extracted binary|\bGo (?:CLI|binary|executable)\b') "CHANGELOG $packageVersion section still claims native executable packaging."
 $installScriptText = Get-Content -Raw (Join-Path $packageRoot 'scripts\Install-BSLFlow.ps1')
 $openCodeInstallerText = Get-Content -Raw (Join-Path $packageRoot 'scripts\Install-BSLFlowForOpenCode.ps1')
 foreach ($text in @($publicReadme, $englishReadme, (Get-Content -Raw (Join-Path $packageRoot 'INSTALL.md')))) {
