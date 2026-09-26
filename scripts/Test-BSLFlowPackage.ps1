@@ -246,6 +246,19 @@ foreach ($suite in @('Test-CouncilValidation.ps1', 'Test-CouncilEngine.ps1', 'Te
 foreach ($suite in @('Test-TaskStorage.ps1', 'Test-TaskRegistry.ps1', 'Test-TaskRegistryConcurrency.ps1', 'Test-LegacyNativeFence.ps1', 'Test-TaskLifecycle.ps1', 'Test-TaskHardening.ps1', 'Test-TaskResume.ps1', 'Test-TaskCrashRecovery.ps1', 'Test-TaskRepair.ps1', 'Test-TaskDelivery.ps1', 'Test-TaskRunner.ps1', 'Test-RunnerRecovery.ps1', 'Test-CodexHostCapability.ps1', 'Test-TaskRuntime.ps1', 'Test-NativeController.ps1', 'Test-NativeRecovery.ps1', 'Test-NativeReuse.ps1', 'Test-RequirementCoverage.ps1', 'Test-CoverageController.ps1', 'Test-PublicationGit.ps1', 'Test-TaskPublication.ps1')) {
     & (Join-Path $packageRoot "scripts\$suite") -PackageRoot $packageRoot
 }
+# Additional suites register themselves with one file per suite in
+# scripts/suites.d/<name>.suite holding the package-relative script path, so
+# independent changes never edit one shared suite list.
+$suiteRegistry = Join-Path $packageRoot 'scripts\suites.d'
+if (Test-Path -LiteralPath $suiteRegistry -PathType Container) {
+    foreach ($registration in @(Get-ChildItem -LiteralPath $suiteRegistry -Filter '*.suite' -File | Sort-Object Name)) {
+        $relativeSuite = (Get-Content -Raw -LiteralPath $registration.FullName).Trim()
+        Assert-True ($relativeSuite -match '^(?:scripts|global)[\\/][^:]+\.ps1$' -and $relativeSuite -notmatch '\.\.') "Invalid suite registration: $($registration.Name)"
+        $suitePath = Join-Path $packageRoot $relativeSuite
+        Assert-True (Test-Path -LiteralPath $suitePath -PathType Leaf) "Registered suite is missing: $relativeSuite"
+        & $suitePath -PackageRoot $packageRoot
+    }
+}
 
 foreach ($skillName in @('1c-init-project', '1c-spec', '1c-spec-review', '1c-estimate', '1c-implement', '1c-verify', '1c-debug', '1c-task')) {
     $skillFile = Join-Path $packageRoot "global\skills\$skillName\SKILL.md"
