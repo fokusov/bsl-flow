@@ -47,7 +47,7 @@ $zipHashPath = $zipPath + '.sha256'
 $zipParent = Split-Path -Parent $zipPath
 New-Item -ItemType Directory -Path $zipParent -Force | Out-Null
 
-$excludedRootSegments = @('.bsl-flow', '.build', 'work', 'outputs')
+$excludedRootSegments = @('.bsl-flow', '.build', '.claude', 'work', 'outputs')
 $excludedRootFiles = @()
 $packageFiles = foreach ($entry in (Get-ChildItem -LiteralPath $root -Force)) {
     if ($entry.PSIsContainer) {

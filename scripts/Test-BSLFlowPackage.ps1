@@ -217,7 +217,7 @@ Assert-True ($publicReadme.Contains('provider') -and $publicReadme.Contains('`BL
 $retiredPrefix = '1' + 'c'
 $retiredWord = 'li' + 'te'
 $forbiddenNamePattern = '(?i)' + $retiredPrefix + '[-_. ]?' + $retiredWord + '|one' + $retiredPrefix + '[-_. ]?' + $retiredWord
-$scanEntries = @(Get-ChildItem -LiteralPath $packageRoot -Force | Where-Object { $_.Name -notin @('.git','.bsl-flow','.build','work','outputs') })
+$scanEntries = @(Get-ChildItem -LiteralPath $packageRoot -Force | Where-Object { $_.Name -notin @('.git','.bsl-flow','.build','.claude','work','outputs') })
 $scanFiles = @($scanEntries | Where-Object { -not $_.PSIsContainer })
 foreach ($directory in @($scanEntries | Where-Object { $_.PSIsContainer })) {
     $scanFiles += @(Get-ChildItem -LiteralPath $directory.FullName -File -Recurse -Force)
@@ -225,7 +225,7 @@ foreach ($directory in @($scanEntries | Where-Object { $_.PSIsContainer })) {
 $forbiddenHits = $scanFiles |
     Where-Object {
         $relative = $_.FullName.Substring($packageRoot.TrimEnd('\', '/').Length + 1).Replace('\', '/')
-        $_.FullName -notmatch '[\\/](?:\.git|\.bsl-flow|work|outputs)(?:[\\/]|$)' -and
+        $_.FullName -notmatch '[\\/](?:\.git|\.bsl-flow|\.claude|work|outputs)(?:[\\/]|$)' -and
             $relative -notmatch '^\.build/'
     } |
     Select-String -Pattern $forbiddenNamePattern
