@@ -74,6 +74,20 @@
         "global/skills/1c-task/scripts/Task.Toolsets.ps1",
         "scripts/New-BSLFlowToolsetSnapshot.ps1"
       ]
+    },
+    {
+      "id": "packaging.build",
+      "kind": "module",
+      "refs": [
+        "scripts/Build-BSLFlowPackage.ps1"
+      ]
+    },
+    {
+      "id": "governance.managed-freeze",
+      "kind": "document",
+      "refs": [
+        "docs/plans/2026-09-26-remediation-plan.md"
+      ]
     }
   ],
   "decisions": [
@@ -234,6 +248,38 @@
       "revisit_triggers": [
         "Проектный ADR-index потребуется вне архитектуры самого BSL Flow",
         "Обнаружено расхождение индекса с нормативным текстом ADR"
+      ]
+    },
+    {
+      "id": "ADR-11",
+      "title": "Заморозка managed-поверхности до бенчмарка",
+      "status": "accepted",
+      "applies_to": ["governance.managed-freeze"],
+      "source": {
+        "path": "docs/ARCHITECTURE_RU.md",
+        "anchor": "adr-11-заморозка-managed-поверхности-до-бенчмарка"
+      },
+      "informed_by": ["ADR-10"],
+      "supersedes": [],
+      "revisit_triggers": [
+        "Бенчмарк Ф6 завершён и по kill-list принято решение владельца",
+        "Понадобилось расширение managed-поверхности вне зафиксированного исключения Next/Submit и реестра worker-адаптеров"
+      ]
+    },
+    {
+      "id": "ADR-12",
+      "title": "Две поставки (Core/Managed) из одного репозитория",
+      "status": "accepted",
+      "applies_to": ["packaging.build"],
+      "source": {
+        "path": "docs/ARCHITECTURE_RU.md",
+        "anchor": "adr-12-две-поставки-coremanaged-из-одного-репозитория"
+      },
+      "informed_by": ["ADR-11"],
+      "supersedes": [],
+      "revisit_triggers": [
+        "Managed получил подтверждённый кросс-платформенный runtime",
+        "Появилась причина разойтись на два отдельных репозитория"
       ]
     }
   ]
