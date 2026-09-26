@@ -59,6 +59,8 @@ Do not propose a new subsystem, metadata object, generic framework, unrelated re
 
 After creating a spec, use `1c-spec-review`. It always runs deterministic lint and applies project routing. M/L and high-risk specs require the independent review and final invariant validation before implementation.
 
+For an M/L or high-risk change, after the spec is created run `scripts/Set-1CActiveChange.ps1 -ProjectPath <project> -ChangeName <change>` so hosts that enforce a pre-edit gate (for example the Claude Code plugin's hooks) and `1c-verify`'s `Test-1CChangeGate.ps1` can find the active change's complexity, risk, and spec hash.
+
 ## Output
 
 State the class and risk, which OpenSpec artifacts and review sidecars were created, why design was or was not needed, and any material assumptions or blockers.

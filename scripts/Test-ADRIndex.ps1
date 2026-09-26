@@ -15,7 +15,7 @@ function Failure-A([scriptblock]$Action){try{& $Action|Out-Null;return ''}catch{
 
 $index=Read-BFArchitectureIndex $root
 Assert-A ($null -ne (Assert-BFADRIndex $index $root)) 'Valid ADR index was rejected.'
-Assert-A ($index.decisions.Count -eq 10 -and $index.subjects.Count -eq 9) 'ADR index inventory changed unexpectedly.'
+Assert-A ($index.decisions.Count -eq 13 -and $index.subjects.Count -eq 12) 'ADR index inventory changed unexpectedly.'
 
 # Deterministic canonical identity across repeated recomputation.
 $first=Get-BFArchitectureIndexHash $index

@@ -62,7 +62,7 @@ function New-BaseEstimate {
         inputs = [ordered]@{ spec_sha256 = $specSha; design_sha256 = $null; original_task_sha256 = $originalSha }
         classification = [ordered]@{ complexity = 'M'; risk = 'medium' }
         baseline = 'middle_3y'
-        ai_basis = [ordered]@{ model = 'gpt-6-astra'; effort = 'medium'; attempts = [ordered]@{ min = 1; max = 4 } }
+        ai_basis = [ordered]@{ model = 'unknown'; effort = 'medium'; attempts = [ordered]@{ min = 1; max = 4 } }
         blocks = @(
             [ordered]@{ id = 'B-01'; title = 'Блок один'; human = [ordered]@{ min = 8; max = 20 }; ai = [ordered]@{ min = 1.25; max = 3 }; justification = 'Обоснование первого блока оценки.' }
             [ordered]@{ id = 'B-02'; title = 'Блок два'; human = [ordered]@{ min = 6; max = 16 }; ai = [ordered]@{ min = 1; max = 2.75 }; justification = 'Обоснование второго блока оценки.' }
