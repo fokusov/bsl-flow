@@ -26,8 +26,18 @@ function New-TempProject {
         $text = [IO.File]::ReadAllText($source)
         [System.IO.File]::WriteAllText((Join-Path $change $name), ($text -replace "`r`n", "`n"), [System.Text.UTF8Encoding]::new($false))
     }
-    [System.IO.File]::WriteAllText((Join-Path $root 'bsl-flow.yaml'), (Get-Content -Raw -LiteralPath (Join-Path $PackageRoot 'global\skills\1c-init-project\assets\project\bsl-flow.yaml')))
+    [System.IO.File]::WriteAllText((Join-Path $root 'bsl-flow.yaml'), (Set-FixtureRoleModel (Get-Content -Raw -LiteralPath (Join-Path $PackageRoot 'global\skills\1c-init-project\assets\project\bsl-flow.yaml')) 'architecture_critic' 'astra'))
     return $root
+}
+
+function Set-FixtureRoleModel([string]$Text, [string]$Role, [string]$Model) {
+    # Council independence (default distinct_models) needs at least two distinct
+    # critic models; rebind one critic of the packaged template to another
+    # existing profile so the cycle fixtures exercise the default policy.
+    $pattern = '(?m)^(?<head>[ ]+' + [regex]::Escape($Role) + ':[ ]*\r?\n(?:[ ]+(?!model:)[A-Za-z_]+:.*\r?\n)*?[ ]+model:)[ ]*\S+'
+    $updated = [regex]::new($pattern).Replace($Text, { param($m) $m.Groups['head'].Value + ' ' + $Model }, 1)
+    if ($updated -ceq $Text) { throw "Fixture role model binding not found: $Role" }
+    return $updated
 }
 
 # Stub dispatcher: deterministic role payloads without network. One critic asks
