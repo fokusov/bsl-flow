@@ -205,6 +205,22 @@ $configText = [IO.File]::ReadAllText($configPath)
 $templateText = [IO.File]::ReadAllText($templatePath)
 $actions = New-Object Collections.Generic.List[object]
 $mergedText = Add-MissingTemplateNodes $configText $templateText $actions
+
+# The packaged template no longer ships concrete model ids under llm.models
+# (they belong in the operator's ~/.bsl-flow/config.yaml), so the merge above
+# never re-adds that block. An existing project may still carry its own
+# concrete llm.models entries from before this change: they are never
+# deleted here, only flagged with a recommendation to move them out of the
+# versioned project file.
+$recommendations = New-Object Collections.Generic.List[string]
+$originalParsedForModels = Get-YamlMap $configText 'bsl-flow.yaml'
+$legacyModelNames = @($originalParsedForModels.entries.Keys | Where-Object {
+    $_.StartsWith('llm.models.') -and ($_.Substring('llm.models.'.Length) -notmatch '\.')
+})
+if ($legacyModelNames.Count -gt 0) {
+    $legacyModelLabels = @($legacyModelNames | ForEach-Object { $_.Substring('llm.models.'.Length) } | Sort-Object)
+    $recommendations.Add("Project bsl-flow.yaml still defines concrete llm.models entries ($($legacyModelLabels -join ', ')). Move them to ~/.bsl-flow/config.yaml (see scripts/New-BSLFlowUserConfig.ps1) so model ids stay out of the versioned project template.")
+}
 $gitIgnorePath=Join-Path $project '.gitignore'
 if(Test-Path -LiteralPath $gitIgnorePath -PathType Container){throw "A directory exists where .gitignore is required: $gitIgnorePath"}
 $gitIgnoreOriginal=if(Test-Path -LiteralPath $gitIgnorePath -PathType Leaf){[IO.File]::ReadAllText($gitIgnorePath)}else{$null}
@@ -225,7 +241,7 @@ $planStatus = if ($actions.Count -gt 0) { 'changes_planned' } else { 'up_to_date
 $actionArray = @($actions | ForEach-Object { $_ })
 $plan = [pscustomobject]@{
     schema_version=1; project=$project; installed_framework_version=$targetVersion; project_framework_version=$currentVersion
-    status=$planStatus; actions=$actionArray; apply_requested=[bool]$Apply
+    status=$planStatus; actions=$actionArray; apply_requested=[bool]$Apply; recommendations=@($recommendations | ForEach-Object { $_ })
 }
 $planJson = $plan | ConvertTo-Json -Depth 8
 Write-Host $planJson

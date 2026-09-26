@@ -11,7 +11,7 @@
     { "phase": "Исправления по код-ревью", "share_of_implementation_core": [0.15, 0.25] },
     { "phase": "Краткая пользовательская инструкция", "share_of_implementation_core": [0.05, 0.1] }
   ],
-  "ai_defaults": { "model": "gpt-6-astra", "effort": "medium", "attempts": { "min": 1, "max": 4 } },
+  "ai_defaults": { "model": "unknown", "effort": "medium", "attempts": { "min": 1, "max": 4 } },
   "ai_anchor_modifiers": {
     "match": "fork_drivers",
     "modifiers": [
