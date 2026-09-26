@@ -74,6 +74,12 @@ policy:
   require_independent_review_for_high_risk: true
   max_review_fix_rounds: 1
 
+# Provider endpoints are safe to commit (no secrets); concrete model ids and
+# the model-profile bindings below are operator choices, never project
+# defaults. Bind llm.models.review-fast / review-strong / review-chair in
+# ~/.bsl-flow/config.yaml (generate a starting point with
+# scripts/New-BSLFlowUserConfig.ps1). Until bound, the council admission gate
+# fails closed with BF_BLOCKED before any paid call.
 llm:
   providers:
     openai:
@@ -84,20 +90,6 @@ llm:
       protocol: openai_compatible
       base_url: https://api.deepseek.com
       token_env: DEEPSEEK_API_KEY
-
-  models:
-    sol:
-      provider: openai
-      model: gpt-5.6-sol
-      effort: medium
-    astra:
-      provider: openai
-      model: gpt-6-astra
-      effort: high
-    flash:
-      provider: deepseek
-      model: deepseek-flash
-      effort: medium
 
 review:
   enabled: true
@@ -117,30 +109,34 @@ review:
     # opencode_compat = separate compatibility route outside the API council.
     legacy_mode: block
     roles:
+      # review-fast/review-strong/review-chair are symbolic model profiles,
+      # not model ids. Critics and the chair must resolve to distinct models
+      # (see review.council.independence); bind each profile to a concrete
+      # provider+model in ~/.bsl-flow/config.yaml.
       brainstorm:
         enabled: false
         required: false
-        model: astra
+        model: review-strong
         fallback: current_agent
       intent_critic:
         enabled: true
         required: true
-        model: flash
+        model: review-fast
         fallback: current_agent
       architecture_critic:
         enabled: true
         required: true
-        model: flash
+        model: review-fast
         fallback: current_agent
       executability_critic:
         enabled: true
         required: true
-        model: flash
+        model: review-fast
         fallback: current_agent
       chair:
         enabled: true
         required: true
-        model: sol
+        model: review-chair
         fallback: current_agent
 
   permissions:

@@ -145,12 +145,12 @@ review:
       intent_critic:
         enabled: true
         required: true
-        model: flash
+        model: review-fast
         fallback: current_agent
       chair:
         enabled: true
         required: true
-        model: sol
+        model: review-chair
         fallback: current_agent
   permissions:
     project_read_mode: read_search
@@ -163,7 +163,7 @@ review:
     timeout_seconds: 600
 ```
 
-Роли резолвят модели через `llm.models`, а credentials — через `token_env` провайдеров или локальный оверлей. В стандартном `project_read_mode: read_search` reviewer может читать релевантные исходники, но не должен обходить всё дерево; служебные каталоги `.git`, `.bsl-flow` и бинарные артефакты закрыты permissions. Для sealed review без чтения проекта установи `project_read_mode: attached_only`. Для другой модели меняй привязку роли или профиль в `llm.models`; silent fallback не выполняется. Таймаут 600 секунд рассчитан на длинные ревью; уменьшай его только после измеренного пилота выбранной модели.
+`review-fast`, `review-strong` и `review-chair` — символьные профили модели, а не имена моделей. Шаблон проекта их не определяет: конкретный провайдер и модель для каждого профиля привязываются только в файле профиля пользователя (см. следующий раздел и `scripts/New-BSLFlowUserConfig.ps1`). Пока профиль не привязан, гейт допуска совета до первого платного вызова отказывает fail-closed: `BF_BLOCKED: model profile 'review-fast' is not bound; define llm.models.review-fast (and its provider) in ~/.bsl-flow/config.yaml (see New-BSLFlowUserConfig.ps1)`. Роли резолвят модели через `llm.models` (проектный и/или профильный), а credentials — через `token_env` провайдеров или локальный оверлей. В стандартном `project_read_mode: read_search` reviewer может читать релевантные исходники, но не должен обходить всё дерево; служебные каталоги `.git`, `.bsl-flow` и бинарные артефакты закрыты permissions. Для sealed review без чтения проекта установи `project_read_mode: attached_only`. Для другой модели меняй привязку профиля в `llm.models` профиля пользователя; silent fallback не выполняется. Таймаут 600 секунд рассчитан на длинные ревью; уменьшай его только после измеренного пилота выбранной модели.
 
 Новые поля существующей секции `policy`:
 
@@ -178,30 +178,50 @@ policy:
 
 ### Конфиг совета в профиле пользователя
 
-Привязки «роль → модель», профили моделей и провайдеров совета можно хранить вне проекта — в файле профиля `%USERPROFILE%\.bsl-flow\config.yaml`. Файл не создаётся автоматически; его отсутствие — штатное состояние, поведение совета при этом не меняется. Приоритет конфигурации: **профиль → проект → локальный оверлей** (`.bsl-flow/providers.local.yaml` сохраняет высший приоритет для `token`/`base_url`).
+Проектный шаблон `bsl-flow.yaml` не содержит конкретных имён моделей: роли совета ссылаются на символьные профили `review-fast` (критики), `review-strong` (brainstorm) и `review-chair` (председатель). Привязка каждого профиля к настоящему провайдеру и модели живёт только в файле профиля пользователя `%USERPROFILE%\.bsl-flow\config.yaml` (POSIX: `$HOME/.bsl-flow/config.yaml`). Файл не создаётся автоматически; его отсутствие — штатное состояние, но тогда любая включённая роль совета остаётся без модели, и допуск до первого платного вызова отказывает fail-closed:
 
-Профиль может определять только провайдеров, профили моделей и привязки ролей:
+```
+BF_BLOCKED: model profile 'review-fast' is not bound; define llm.models.review-fast (and its provider) in ~/.bsl-flow/config.yaml (see New-BSLFlowUserConfig.ps1)
+```
+
+Быстрее всего создать файл профиля неинтерактивным генератором:
+
+```powershell
+pwsh -NoProfile -File scripts/New-BSLFlowUserConfig.ps1 -Template anthropic-deepseek
+```
+
+`-Template` принимает `openai-deepseek`, `anthropic-deepseek` или `anthropic-only`; каждый шаблон привязывает `review-fast`/`review-strong`/`review-chair` к провайдерам с `token_env` и оставляет плейсхолдеры вида `REPLACE-ME` в имени модели — их нужно заменить на реальный id модели у выбранного провайдера. Путь по умолчанию — `~/.bsl-flow/config.yaml` (или значение `BSL_FLOW_USER_CONFIG`, если оно задано); `-Path` задаёт другой файл, `-Force` перезаписывает существующий, `-WhatIf` показывает план без записи. Пример сгенерированного файла (после подстановки реальных id):
 
 ```yaml
 llm:
   providers:
-    personal:
+    anthropic:
+      protocol: anthropic_messages
+      base_url: https://api.anthropic.com
+      token_env: ANTHROPIC_API_KEY
+    deepseek:
       protocol: openai_compatible
-      base_url: https://api.example.com/v1
-      token_env: MY_PERSONAL_TOKEN
+      base_url: https://api.deepseek.com
+      token_env: DEEPSEEK_API_KEY
   models:
-    personal-high:
-      provider: personal
-      model: vendor/model-x
+    review-fast:
+      provider: deepseek
+      model: deepseek/deepseek-v4-pro
+      effort: medium
+    review-chair:
+      provider: anthropic
+      model: anthropic/claude-opus
       effort: high
 review:
   council:
     roles:
+      intent_critic:
+        model: review-fast
       chair:
-        model: personal-high
+        model: review-chair
 ```
 
-Проектный `bsl-flow.yaml` переопределяет профиль по каждому именованному провайдеру, профилю модели и роли; сущности, заданные только в профиле, дополняют набор. Остальные ключи совета (`review.council.enabled`, `budget`, `review.reviewer.*`, `review.routing` и другие) в профиле запрещены: неизвестный ключ или литеральный токен отклоняются fail-closed ошибкой с именем файла и ключа, совет не стартует. Credential резолвится только через `token_env` провайдера или локальный оверлей. Для тестов и CI путь переопределяется переменной окружения `BSL_FLOW_USER_CONFIG` (полный путь к файлу; если переменная задана, а файла нет — ошибка).
+Приоритет конфигурации: **профиль → проект → локальный оверлей** (`.bsl-flow/providers.local.yaml` сохраняет высший приоритет для `token`/`base_url`). Профиль может определять только провайдеров, профили моделей и привязки ролей (только ключ `model`, без `enabled`/`required`/`fallback` — они остаются проектными). Проектный `bsl-flow.yaml`, если он всё же переопределяет конкретный провайдер, профиль модели или роль, имеет приоритет; сущности, заданные только в профиле, дополняют набор. Остальные ключи совета (`review.council.enabled`, `budget`, `review.reviewer.*`, `review.routing` и другие) в профиле запрещены: неизвестный ключ или литеральный токен отклоняются fail-closed ошибкой с именем файла и ключа, совет не стартует. Совет требует различающиеся модели у критиков и председателя (`review.council.independence`); привязывай `review-fast` и `review-chair` к разным моделям (по умолчанию — к разным провайдерам, как в примере выше). Credential резолвится только через `token_env` провайдера или локальный оверлей. Для тестов и CI путь переопределяется переменной окружения `BSL_FLOW_USER_CONFIG` (полный путь к файлу; если переменная задана, а файла нет — ошибка).
 
 ## Ручной bootstrap проекта
 

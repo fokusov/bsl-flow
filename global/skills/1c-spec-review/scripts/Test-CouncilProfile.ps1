@@ -451,6 +451,70 @@ try {
     finally { Remove-Item -LiteralPath (Join-Path $hashLocal 'providers.local.yaml') -Force }
     Remove-Item -LiteralPath $hashProject -Recurse -Force
 
+    # 17. Admission fails closed before any paid call when a role's model
+    # profile is bound nowhere (project text nor user profile nor overlay),
+    # with an actionable BF_BLOCKED message naming the unbound profile and
+    # the generator that can bind it.
+    $unboundProject = Join-Path $tempRoot 'project-unbound-profile'
+    $unboundChange = Join-Path $unboundProject 'openspec\changes\demo'
+    New-Item -ItemType Directory -Path $unboundChange -Force | Out-Null
+    Copy-Item -LiteralPath (Join-Path $PackageRoot 'openspec\changes\api-specification-council\original-task.md') -Destination (Join-Path $unboundChange 'original-task.md')
+    Copy-Item -LiteralPath (Join-Path $PackageRoot 'openspec\changes\api-specification-council\spec.md') -Destination (Join-Path $unboundChange 'spec.md')
+    $unboundText = @(
+        'review:',
+        '  council:',
+        '    enabled: true',
+        '    roles:',
+        '      intent_critic:',
+        '        enabled: true',
+        '        required: true',
+        '        model: review-fast',
+        '      architecture_critic:',
+        '        enabled: true',
+        '        required: true',
+        '        model: review-fast',
+        '      executability_critic:',
+        '        enabled: true',
+        '        required: true',
+        '        model: review-fast',
+        '      chair:',
+        '        enabled: true',
+        '        required: true',
+        '        model: review-chair'
+    ) -join "`n"
+    $unboundText += "`n"
+    [System.IO.File]::WriteAllText((Join-Path $unboundProject 'bsl-flow.yaml'), $unboundText, $utf8)
+    $unboundAbsentProfile = Join-Path $tempRoot 'unbound-absent-profile.yaml'
+    $unboundError = $null
+    try { Get-BSLFlowCouncilEffectivePolicy -ProjectRoot $unboundProject -UserProfilePath $unboundAbsentProfile | Out-Null }
+    catch { $unboundError = [string]$_.Exception.Message }
+    Assert-True ($null -ne $unboundError -and $unboundError.StartsWith('BF_BLOCKED:') -and $unboundError.Contains("'review-fast'") -and $unboundError.Contains('llm.models.review-fast') -and $unboundError.Contains('New-BSLFlowUserConfig.ps1')) 'unbound model profile referenced by an enabled role fails admission with an actionable BF_BLOCKED message naming the profile'
+
+    # 18. The same template shape resolves cleanly once a user profile binds
+    # the referenced model profiles: admission succeeds and roles carry
+    # distinct-by-construction models (project template uses review-fast for
+    # every critic and review-chair for the chair; the profile supplies both).
+    $boundProfilePath = Join-Path $tempRoot 'profile-review-bound.yaml'
+    [System.IO.File]::WriteAllText($boundProfilePath, (@(
+        'llm:',
+        '  providers:',
+        '    personalapi:',
+        '      protocol: openai_compatible',
+        '      base_url: https://api.personal.example/v1',
+        '      token_env: BSL_FLOW_TEST_PROFILE_TOKEN',
+        '  models:',
+        '    review-fast:',
+        '      provider: personalapi',
+        '      model: vendor/fast-model',
+        '    review-chair:',
+        '      provider: personalapi',
+        '      model: vendor/chair-model'
+    ) -join "`n") + "`n", $utf8)
+    $boundEffective = Get-BSLFlowCouncilEffectivePolicy -ProjectRoot $unboundProject -UserProfilePath $boundProfilePath
+    Assert-True ([string]$boundEffective.policy.roles.intent_critic.model -ceq 'review-fast') 'profile binding resolves the critic model profile'
+    Assert-True ([string]$boundEffective.policy.roles.chair.model -ceq 'review-chair') 'profile binding resolves the chair model profile'
+    Assert-True ([string]$boundEffective.policy.models.'review-fast'.model -cne [string]$boundEffective.policy.models.'review-chair'.model) 'bound profiles keep critics on a model distinct from the chair'
+
     "ALL_COUNCIL_PROFILE_PASSED=$passed"
 }
 finally {
