@@ -255,8 +255,24 @@ function Get-BSLFlowCouncilEffectivePolicy {
     $effectiveText = Merge-BSLFlowCouncilPolicyText -ProjectText $projectText -ProfileText $profileText -ProfilePath $profilePath
     try { $policy = Get-BSLFlowCouncilPolicy $effectiveText }
     catch {
+        # Admission must fail closed before any paid call when a role's model
+        # profile is bound nowhere (not project, not profile, not overlay).
+        # Get-BSLFlowCouncilPolicy already detects both shapes of this; this
+        # layer only replaces its message with actionable guidance pointing
+        # at the user profile and its generator, without duplicating the check.
+        $inner = [string]$_.Exception.Message
+        $unknownProfileMatch = [regex]::Match($inner, '(?<role>\S+) references unknown model profile: (?<model>.+)\.$')
+        if ($unknownProfileMatch.Success) {
+            $missingProfile = $unknownProfileMatch.Groups['model'].Value
+            throw "BF_BLOCKED: model profile '$missingProfile' is not bound; define llm.models.$missingProfile (and its provider) in ~/.bsl-flow/config.yaml (see New-BSLFlowUserConfig.ps1)"
+        }
+        $unboundRoleMatch = [regex]::Match($inner, '^Enabled role (?<role>\S+) must reference llm\.models')
+        if ($unboundRoleMatch.Success) {
+            $missingRole = $unboundRoleMatch.Groups['role'].Value
+            throw "BF_BLOCKED: council role '$missingRole' has no model profile bound; define review.council.roles.$missingRole.model and the matching llm.models entry in ~/.bsl-flow/config.yaml (see New-BSLFlowUserConfig.ps1)"
+        }
         if (-not $profileUsed) { throw }
-        throw ("Council policy is invalid (project bsl-flow.yaml with user profile config ${profilePath}): " + $_.Exception.Message)
+        throw ("Council policy is invalid (project bsl-flow.yaml with user profile config ${profilePath}): " + $inner)
     }
     $overlay = Get-BSLFlowLocalProviderOverlay -ProjectPath $ProjectRoot
     $overlayUsed = $false
