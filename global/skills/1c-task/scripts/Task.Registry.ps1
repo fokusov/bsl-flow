@@ -43,16 +43,14 @@
 # value visible; show/history of a damaged task fail BF_BLOCKED with the
 # exact reason.
 #
-# Activation: `Activate` validates the trusted request schema v1 (requirement
-# 5: task_id, project_root inside this clone, title/priority/labels/depends_on
-# per requirement 3, controller_contract 'repository-store-aware/v1') against
-# the planned task, then returns a staged BF_BLOCKED without appending a
-# revision; enabling the controller write slice is a later increment. The
-# stale-completed overview concept is deferred by the specification
-# (requirement 7) and therefore omitted in v1.
+# Activation: there is no controller action that moves a planned task out of
+# `planned`; that write slice is not declared yet, so a planned task stays
+# planned until a later increment adds it. The stale-completed overview
+# concept is deferred by the specification (requirement 7) and therefore
+# omitted in v1.
 #
 # Output contract: JSON mode emits exactly one versioned document per command
-# (normative schemas v1); errors and the staged activation emit exactly
+# (normative schemas v1); errors emit exactly
 # { "error": { "class": "BF_INVALID|BF_BLOCKED|BF_CONFLICT", "message": ... } };
 # human mode keeps a concise stderr line whose first field is the error class.
 # Exit codes: 0 success, 2 BF_INVALID, 11 BF_BLOCKED/BF_CONFLICT.
@@ -74,7 +72,6 @@ $script:BFRegistryListMaximumLimit = 200
 $script:BFRegistryGenesisHash = '0' * 64
 $script:BFRegistrySortFields = @('created_at', 'updated_at', 'priority', 'status', 'title')
 $script:BFRegistryArchivedModes = @('false', 'true', 'all')
-$script:BFRegistryControllerContract = 'repository-store-aware/v1'
 $script:BFRegistryFreshnessFields = @('baseline_path', 'worker_path', 'evidence_path')
 $script:BFRegistryOverviewCountKeys = @('needs_input', 'blocked', 'running', 'completed', 'planned', 'archived', 'corrupt', 'orphaned')
 
@@ -644,86 +641,6 @@ function Invoke-BFRegistrySetArchived {
     return [pscustomobject]@{ TaskId = $TaskId; Revision = $nextRevision; Payload = $payload; Document = $document }
 }
 
-function Assert-BFRegistryActivationRequest {
-    # Trusted request schema v1 for `task activate` (requirement 5). Validates
-    # field presence, types, metadata constants, the declared controller
-    # contract, and that project_root is an existing directory inside a
-    # worktree of the same clone. Any failure is BF_INVALID without a revision.
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]$Store,
-        [Parameter(Mandatory = $true)][string]$TaskId,
-        [Parameter(Mandatory = $true)]$Request
-    )
-    if ($null -eq $Request -or ($Request -isnot [System.Collections.IDictionary] -and $Request -isnot [pscustomobject])) {
-        throw (New-BFError 'BF_INVALID' 'Trusted activation request must be an object.')
-    }
-    $requestTaskId = [string](Get-BFObjectProperty $Request 'task_id')
-    if ($requestTaskId -cnotmatch $script:BFRegistryUuidPattern) { throw (New-BFError 'BF_INVALID' 'Trusted request task_id must be a canonical lower-case UUID.') }
-    if ($requestTaskId -cne $TaskId) { throw (New-BFError 'BF_INVALID' 'Trusted request task_id does not match the addressed repository task.') }
-    $contract = Get-BFObjectProperty $Request 'controller_contract'
-    if ($contract -isnot [string] -or $contract -cne $script:BFRegistryControllerContract) {
-        throw (New-BFError 'BF_INVALID' ("Trusted request controller_contract must be '{0}'." -f $script:BFRegistryControllerContract))
-    }
-    $projectRoot = Get-BFObjectProperty $Request 'project_root'
-    if ($projectRoot -isnot [string] -or [string]::IsNullOrWhiteSpace($projectRoot)) { throw (New-BFError 'BF_INVALID' 'Trusted request project_root is required.') }
-    $requestedAbsolute = Assert-BFSafePath $projectRoot
-    if (-not [System.IO.Directory]::Exists($requestedAbsolute)) { throw (New-BFError 'BF_INVALID' 'Trusted request project_root does not exist.') }
-    $requestedTopLevel = Assert-BFSafePath (Invoke-BFStorageGitRead $requestedAbsolute @('rev-parse', '--show-toplevel'))
-    $requestedCommonText = Invoke-BFStorageGitRead $requestedTopLevel @('rev-parse', '--path-format=absolute', '--git-common-dir')
-    if ([string]::IsNullOrWhiteSpace($requestedCommonText)) { throw (New-BFError 'BF_INVALID' 'Trusted request project_root has an empty Git common dir.') }
-    $requestedCommon = if ([System.IO.Path]::IsPathRooted($requestedCommonText)) { Assert-BFSafePath $requestedCommonText } else { Assert-BFSafePath (Join-Path $requestedTopLevel $requestedCommonText) }
-    if (-not [string]::Equals($requestedCommon, $Store.CommonDir, [System.StringComparison]::OrdinalIgnoreCase)) {
-        throw (New-BFError 'BF_INVALID' 'Trusted request project_root belongs to a different clone.')
-    }
-    $title = Get-BFObjectProperty $Request 'title'
-    if ($title -isnot [string]) { throw (New-BFError 'BF_INVALID' 'Trusted request title must be a string.') }
-    $priority = Get-BFObjectProperty $Request 'priority'
-    if ($priority -isnot [string]) { throw (New-BFError 'BF_INVALID' 'Trusted request priority must be a string.') }
-    $labelsRaw = $null
-    if ($Request -is [System.Collections.IDictionary]) { $labelsRaw = $Request['labels'] } else { $labelsRaw = $Request.PSObject.Properties['labels'].Value }
-    if ($null -eq $labelsRaw -or $labelsRaw -isnot [array]) { throw (New-BFError 'BF_INVALID' 'Trusted request labels must be an array.') }
-    $dependenciesRaw = $null
-    if ($Request -is [System.Collections.IDictionary]) { $dependenciesRaw = $Request['depends_on'] } else { $dependenciesRaw = $Request.PSObject.Properties['depends_on'].Value }
-    if ($null -eq $dependenciesRaw -or $dependenciesRaw -isnot [array]) { throw (New-BFError 'BF_INVALID' 'Trusted request depends_on must be an array.') }
-    # Reuses the requirement-3 metadata validation (title/priority/labels/depends_on).
-    [void](New-BFRegistryPayload -Title $title -Priority $priority -Labels $labelsRaw -DependsOn $dependenciesRaw)
-}
-
-function Invoke-BFRegistryActivate {
-    # v1 staged activation: full trusted-request validation, then BLOCKED
-    # without a revision. Returns the staged outcome; validation problems throw.
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]$Store,
-        [Parameter(Mandatory = $true)][string]$TaskId,
-        [AllowNull()][string]$InputFile
-    )
-    Assert-BFRegistryUuid $TaskId
-    $state = Read-BFRegistryTaskState -TasksRoot $Store.TasksRoot -TaskId $TaskId
-    if ($null -eq $state) { throw (New-BFError 'BF_INVALID' ("task {0} does not exist in the repository store." -f $TaskId)) }
-    if ($state['health'] -ceq 'orphaned') { throw (New-BFError 'BF_BLOCKED' ("task journal is orphaned: {0}" -f $state['diagnostic'])) }
-    if ($state['health'] -ceq 'corrupt') { throw (New-BFError 'BF_BLOCKED' ("task journal is corrupt: {0}" -f $state['diagnostic'])) }
-    $legacyConflict = Get-BFRegistryLegacyConflict -Store $Store -TaskId $TaskId
-    if ($null -ne $legacyConflict) { throw (New-BFError 'BF_BLOCKED' $legacyConflict) }
-    if ([string](Get-BFObjectProperty $state['metadata'] 'status') -cne 'planned') {
-        throw (New-BFError 'BF_CONFLICT' 'only planned repository tasks can be activated.')
-    }
-    if ([string]::IsNullOrWhiteSpace($InputFile)) { throw (New-BFError 'BF_INVALID' 'activate requires -InputFile with a full trusted request.') }
-    $request = Read-BFJson $InputFile
-    Assert-BFRegistryActivationRequest -Store $Store -TaskId $TaskId -Request $request
-    # The store context already verified the exact worktree root; the controller
-    # write slice that would append the ready revision is not declared yet.
-    $reason = "Repository task activation is not yet declared for the PowerShell controller (schema/store v1). Full trusted-request validation passed and the command is staged BLOCKED: task {0} remains planned and no revision was written." -f $TaskId
-    return [pscustomobject]@{
-        Staged       = $true
-        Reason       = $reason
-        Revision     = [int]$state['revision']
-        Metadata     = $state['metadata']
-        RepositoryId = $Store.RepositoryId
-    }
-}
-
 function Read-BFLegacyTaskSnapshot {
     # Neutral read-only view of one checkout-local legacy task journal. Bytes
     # are never rewritten. Verifies whichever chain linkage the journal
@@ -960,7 +877,7 @@ function Get-BFRegistryRows {
             continue
         }
         $summary = Get-BFRegistryDependencySummary -DependsOn @((Get-BFObjectProperty $state['metadata'] 'depends_on')) -States $repositoryStates
-        $row = New-BFRegistryRow -Source 'repository' -TaskId $taskId -Metadata $state['metadata'] -CreatedAt ([string]$state['created_at']) -UpdatedAt ([string]$state['updated_at']) -Revision ([string](Get-BFObjectProperty $state['latest'] 'hash')) -DependencySummary $summary -NextAction 'activate'
+        $row = New-BFRegistryRow -Source 'repository' -TaskId $taskId -Metadata $state['metadata'] -CreatedAt ([string]$state['created_at']) -UpdatedAt ([string]$state['updated_at']) -Revision ([string](Get-BFObjectProperty $state['latest'] 'hash')) -DependencySummary $summary -NextAction $null
         if ($legacySnapshots.ContainsKey($taskId)) {
             $legacy = $legacySnapshots[$taskId]
             if ($legacy['health'] -ceq 'ok') {
@@ -1307,7 +1224,7 @@ function Get-BFRegistryHumanShow {
     [void]$lines.Add(("updated: {0}" -f (ConvertTo-BFRegistryHumanText ([string]$State['updated_at']))))
     [void]$lines.Add(("revision: {0}" -f (ConvertTo-BFRegistryHumanText ([string](Get-BFObjectProperty $State['latest'] 'hash')))))
     [void]$lines.Add(("freshness: {0}" -f (Test-BFRegistryFreshness -Document $metadata)))
-    [void]$lines.Add('next_action: activate')
+    [void]$lines.Add('next_action: -')
     return (($lines.ToArray()) -join "`n")
 }
 
@@ -1443,7 +1360,6 @@ function Invoke-BFRegistryShow {
         if ($null -ne $target) { $resolvedStates[$dependency] = $target }
     }
     $summary = Get-BFRegistryDependencySummary -DependsOn $rowDependencies.ToArray() -States $resolvedStates
-    $planned = ($statusValue -ceq 'planned')
     $document = [ordered]@{
         schema_version      = 1
         repository_id       = $Store.RepositoryId
@@ -1451,7 +1367,7 @@ function Invoke-BFRegistryShow {
         title               = [string](Get-BFObjectProperty $metadata 'title')
         status              = $statusValue
         stage               = $null
-        next_action         = ($(if ($planned) { 'activate' } else { $null }))
+        next_action         = $null
         priority            = [string](Get-BFObjectProperty $metadata 'priority')
         labels              = @(Get-BFObjectProperty $metadata 'labels')
         dependency_summary  = $summary
@@ -1584,7 +1500,7 @@ function New-BFRegistryWriteResult {
         archived       = [bool](Get-BFObjectProperty $metadata 'archived')
         priority       = [string](Get-BFObjectProperty $metadata 'priority')
         title          = [string](Get-BFObjectProperty $metadata 'title')
-        next_action    = 'activate'
+        next_action    = $null
     }
     $human = [System.Collections.Generic.List[string]]::new()
     [void]$human.Add(("command: {0}" -f $Command))
@@ -1595,7 +1511,7 @@ function New-BFRegistryWriteResult {
     [void]$human.Add(("priority: {0}" -f $document['priority']))
     [void]$human.Add(("archived: {0}" -f ([bool]$document['archived']).ToString().ToLowerInvariant()))
     [void]$human.Add(("title: {0}" -f (ConvertTo-BFRegistryHumanText $document['title'])))
-    [void]$human.Add('next_action: activate')
+    [void]$human.Add('next_action: -')
     return [pscustomobject]@{ Document = $document; Human = (($human.ToArray()) -join "`n") }
 }
 
@@ -1629,7 +1545,7 @@ function Invoke-BFRegistryCommand {
         [string]$Format = 'Human',
         [string]$InputFile
     )
-    $registryActions = @('Create', 'EditRegistry', 'List', 'Show', 'History', 'Overview', 'ArchiveTask', 'UnarchiveTask', 'Activate')
+    $registryActions = @('Create', 'EditRegistry', 'List', 'Show', 'History', 'Overview', 'ArchiveTask', 'UnarchiveTask')
     try {
         if ($Action -cnotin $registryActions) { throw (New-BFError 'BF_INVALID' ("unknown registry action: {0}" -f $Action)) }
         if ($Format -cnotin @('Human', 'Json')) { throw (New-BFError 'BF_INVALID' ("format must be Human or Json, got: {0}" -f $Format)) }
@@ -1647,22 +1563,6 @@ function Invoke-BFRegistryCommand {
             'Show' { $outcome = Invoke-BFRegistryShow -Store $store -TaskId $TaskId }
             'History' { $outcome = Invoke-BFRegistryHistory -Store $store -TaskId $TaskId }
             'Overview' { $outcome = Invoke-BFRegistryOverview -Store $store }
-            'Activate' {
-                $activation = Invoke-BFRegistryActivate -Store $store -TaskId $TaskId -InputFile $InputFile
-                # Staged outcome: BF_BLOCKED-shaped error document, exit 11, and
-                # no revision (requirement 5 / error schema v1).
-                $document = [ordered]@{
-                    error = [ordered]@{ class = 'BF_BLOCKED'; message = [string]$activation.Reason }
-                }
-                $human = [System.Collections.Generic.List[string]]::new()
-                [void]$human.Add('command: activate')
-                [void]$human.Add(("task: {0}" -f $TaskId))
-                [void]$human.Add(("repository: {0}" -f $activation.RepositoryId))
-                [void]$human.Add('staged: activation blocked')
-                [void]$human.Add(("BF_BLOCKED: {0}" -f $activation.Reason))
-                $outcome = [pscustomobject]@{ Document = $document; Human = (($human.ToArray()) -join "`n") }
-                $exitCode = 11
-            }
             default { throw (New-BFError 'BF_INVALID' ("unknown registry action: {0}" -f $Action)) }
         }
         $stdoutText = if ($Format -ceq 'Json') { Get-BFCanonicalJson $outcome.Document } else { $outcome.Human }
