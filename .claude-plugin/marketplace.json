@@ -1,0 +1,14 @@
+{
+  "name": "bsl-flow",
+  "description": "BSL Flow: a 1C:Enterprise/BSL development workflow for AI agents.",
+  "owner": {
+    "name": "BSL Flow"
+  },
+  "plugins": [
+    {
+      "name": "bsl-flow",
+      "source": "./",
+      "description": "1C:Enterprise/BSL development workflow: S/M/L sizing, specification review, evidence-based verification, and enforcement hooks."
+    }
+  ]
+}

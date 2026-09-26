@@ -74,6 +74,15 @@
         "global/skills/1c-task/scripts/Task.Toolsets.ps1",
         "scripts/New-BSLFlowToolsetSnapshot.ps1"
       ]
+    },
+    {
+      "id": "hosts.claude-code",
+      "kind": "module",
+      "refs": [
+        "hosts/claude-code/hooks/PreToolUse-EditGate.ps1",
+        "hosts/claude-code/hooks/PreToolUse-EvidenceGuard.ps1",
+        "global/skills/1c-verify/scripts/Test-1CChangeGate.ps1"
+      ]
     }
   ],
   "decisions": [
@@ -234,6 +243,22 @@
       "revisit_triggers": [
         "Проектный ADR-index потребуется вне архитектуры самого BSL Flow",
         "Обнаружено расхождение индекса с нормативным текстом ADR"
+      ]
+    },
+    {
+      "id": "ADR-13",
+      "title": "Hooks — нижняя планка, не sandbox",
+      "status": "accepted",
+      "applies_to": ["hosts.claude-code"],
+      "source": {
+        "path": "docs/ARCHITECTURE_RU.md",
+        "anchor": "adr-13-hooks-нижняя-планка-не-sandbox"
+      },
+      "informed_by": ["ADR-2"],
+      "supersedes": [],
+      "revisit_triggers": [
+        "Claude Code начал перехватывать запись через Bash или сторонние инструменты",
+        "Test-1CChangeGate.ps1 перестал ловить реальный обход хуков"
       ]
     }
   ]

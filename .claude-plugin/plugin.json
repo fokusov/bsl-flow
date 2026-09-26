@@ -1,0 +1,17 @@
+{
+  "name": "bsl-flow",
+  "displayName": "BSL Flow",
+  "version": "0.8.1-dev",
+  "description": "1C:Enterprise/BSL development workflow: S/M/L sizing, specification review, evidence-based verification, and enforcement hooks for 1C projects.",
+  "author": {
+    "name": "BSL Flow"
+  },
+  "license": "MIT",
+  "keywords": ["1c", "bsl", "1c-enterprise", "code-review", "workflow"],
+  "skills": ["./global/skills/"],
+  "agents": [
+    "./hosts/claude-code/agents/bsl-flow-spec-reviewer.md",
+    "./hosts/claude-code/agents/bsl-flow-code-reviewer.md"
+  ],
+  "hooks": "./hosts/claude-code/hooks/hooks.json"
+}
