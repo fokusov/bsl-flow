@@ -87,7 +87,8 @@ try {
     $env = Register-BSLFlowCouncilMemberResult -RunRoot $tempRun -Attempt $a1 -Payload $payload -Status 'completed' -Summary 'fixture member result' -Observed $observed -ExecutionMode 'direct_api'
     Assert-True ($env.requested.model -eq 'deepseek-flash' -and $env.payload_sha256 -match '^[a-f0-9]{64}$') 'member envelope built by controller'
 
-    $policyText = Get-Content -Raw -LiteralPath (Join-Path $PackageRoot 'global\skills\1c-init-project\assets\project\bsl-flow.yaml')
+    # The packaged template names symbolic profiles; bind them inline.
+    $policyText = (Get-Content -Raw -LiteralPath (Join-Path $PackageRoot 'global\skills\1c-init-project\assets\project\bsl-flow.yaml')).TrimEnd() + "`nllm:`n  models:`n    review-fast:`n      provider: deepseek`n      model: deepseek-flash`n    review-strong:`n      provider: openai`n      model: gpt-6-astra`n    review-chair:`n      provider: openai`n      model: gpt-5.6-sol`n"
     $policy = Get-BSLFlowCouncilPolicy $policyText
     $readiness = Get-BSLFlowCouncilReadiness -PolicyRoles $policy.roles -RunRoot $tempRun
     Assert-True (-not $readiness.chair_allowed) 'chair blocked while required roles miss terminal results'

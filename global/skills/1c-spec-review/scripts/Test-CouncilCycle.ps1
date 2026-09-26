@@ -26,18 +26,20 @@ function New-TempProject {
         $text = [IO.File]::ReadAllText($source)
         [System.IO.File]::WriteAllText((Join-Path $change $name), ($text -replace "`r`n", "`n"), [System.Text.UTF8Encoding]::new($false))
     }
-    [System.IO.File]::WriteAllText((Join-Path $root 'bsl-flow.yaml'), (Set-FixtureRoleModel (Get-Content -Raw -LiteralPath (Join-Path $PackageRoot 'global\skills\1c-init-project\assets\project\bsl-flow.yaml')) 'architecture_critic' 'astra'))
+    [System.IO.File]::WriteAllText((Join-Path $root 'bsl-flow.yaml'), (ConvertTo-BoundCouncilFixture (Get-Content -Raw -LiteralPath (Join-Path $PackageRoot 'global\skills\1c-init-project\assets\project\bsl-flow.yaml'))))
     return $root
 }
 
-function Set-FixtureRoleModel([string]$Text, [string]$Role, [string]$Model) {
-    # Council independence (default distinct_models) needs at least two distinct
-    # critic models; rebind one critic of the packaged template to another
-    # existing profile so the cycle fixtures exercise the default policy.
-    $pattern = '(?m)^(?<head>[ ]+' + [regex]::Escape($Role) + ':[ ]*\r?\n(?:[ ]+(?!model:)[A-Za-z_]+:.*\r?\n)*?[ ]+model:)[ ]*\S+'
-    $updated = [regex]::new($pattern).Replace($Text, { param($m) $m.Groups['head'].Value + ' ' + $Model }, 1)
-    if ($updated -ceq $Text) { throw "Fixture role model binding not found: $Role" }
-    return $updated
+function ConvertTo-BoundCouncilFixture([string]$Text) {
+    # The packaged template names symbolic profiles only; the fixture binds
+    # them inline (project-local llm.models) instead of a user profile. Council
+    # independence (default distinct_models) also needs two distinct critic
+    # models, so one critic is rebound to the strong profile.
+    $pattern = '(?m)^(?<head>[ ]+architecture_critic:[ ]*\r?\n(?:[ ]+(?!model:)[A-Za-z_]+:.*\r?\n)*?[ ]+model:)[ ]*\S+'
+    $updated = [regex]::new($pattern).Replace($Text, { param($m) $m.Groups['head'].Value + ' review-strong' }, 1)
+    if ($updated -ceq $Text) { throw 'Fixture role model binding not found: architecture_critic' }
+    if (-not $updated.EndsWith("`n")) { $updated += "`n" }
+    return ($updated + "llm:`n  models:`n    review-fast:`n      provider: deepseek`n      model: deepseek-flash`n      effort: medium`n    review-strong:`n      provider: openai`n      model: gpt-6-astra`n      effort: high`n    review-chair:`n      provider: openai`n      model: gpt-5.6-sol`n      effort: medium`n")
 }
 
 # Stub dispatcher: deterministic role payloads without network. One critic asks
@@ -312,7 +314,7 @@ try {
     $configText8 = $configText8.Replace($budgetAnchor, $budgetBlock)
     # Give each model profile an explicit per-dispatch estimate so the cycle
     # admission is a real number, then the resume leg clamps the limit.
-    foreach ($modelName in @('sol', 'astra', 'flash')) {
+    foreach ($modelName in @('review-fast', 'review-strong', 'review-chair')) {
         $modelAnchor = '    ' + $modelName + ":" + "`n" + '      provider:'
         $modelReplacement = '    ' + $modelName + ":" + "`n" + '      cost_estimate_usd: 0.01' + "`n" + '      provider:'
         $configText8 = $configText8.Replace($modelAnchor, $modelReplacement)

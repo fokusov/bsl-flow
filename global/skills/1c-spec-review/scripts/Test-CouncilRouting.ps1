@@ -100,7 +100,20 @@ function New-PublicManagedState([string]$ProjectRoot, [string]$TaskId) {
     }
 }
 
-$template = Get-Content -Raw -LiteralPath (Join-Path $PackageRoot 'global\skills\1c-init-project\assets\project\bsl-flow.yaml')
+function ConvertTo-BoundCouncilFixture([string]$Text) {
+    # The packaged template names symbolic profiles only; the fixture binds
+    # them inline (project-local llm.models) instead of a user profile. Council
+    # independence (default distinct_models) also needs two distinct critic
+    # models, so one critic is rebound to the strong profile.
+    $pattern = '(?m)^(?<head>[ ]+architecture_critic:[ ]*\r?\n(?:[ ]+(?!model:)[A-Za-z_]+:.*\r?\n)*?[ ]+model:)[ ]*\S+'
+    $updated = [regex]::new($pattern).Replace($Text, { param($m) $m.Groups['head'].Value + ' review-strong' }, 1)
+    if ($updated -ceq $Text) { throw 'Fixture role model binding not found: architecture_critic' }
+    if (-not $updated.EndsWith("`n")) { $updated += "`n" }
+    return ($updated + "llm:`n  models:`n    review-fast:`n      provider: deepseek`n      model: deepseek-flash`n      effort: medium`n    review-strong:`n      provider: openai`n      model: gpt-6-astra`n      effort: high`n    review-chair:`n      provider: openai`n      model: gpt-5.6-sol`n      effort: medium`n")
+}
+
+$packagedTemplate = Get-Content -Raw -LiteralPath (Join-Path $PackageRoot 'global\skills\1c-init-project\assets\project\bsl-flow.yaml')
+$template = ConvertTo-BoundCouncilFixture $packagedTemplate
 $taskSkill = Join-Path $PackageRoot 'global\skills\1c-task'
 . (Join-Path $taskSkill 'scripts\Task.Storage.ps1')
 . (Join-Path $taskSkill 'scripts\Task.Memory.ps1')
@@ -218,6 +231,14 @@ llm:
       provider: fixture
       model: fixture-model
       effort: medium
+    second:
+      provider: fixture
+      model: fixture-model-b
+      effort: medium
+    chairm:
+      provider: fixture
+      model: fixture-chair-model
+      effort: medium
 review:
   enabled: true
   input:
@@ -241,7 +262,7 @@ review:
       architecture_critic:
         enabled: true
         required: true
-        model: flash
+        model: second
         fallback: block
       executability_critic:
         enabled: true
@@ -251,7 +272,7 @@ review:
       chair:
         enabled: true
         required: true
-        model: flash
+        model: chairm
         fallback: block
 "@
     [IO.File]::WriteAllText((Join-Path $publicTemp 'bsl-flow.yaml'), $publicConfig, [Text.UTF8Encoding]::new($false))
