@@ -104,12 +104,13 @@ function ConvertTo-BoundCouncilFixture([string]$Text) {
     # The packaged template names symbolic profiles only; the fixture binds
     # them inline (project-local llm.models) instead of a user profile. Council
     # independence (default distinct_models) also needs two distinct critic
-    # models, so one critic is rebound to the strong profile.
+    # models, so one critic is rebound to a second critic profile on the same
+    # provider as the others (credential routing stays unchanged).
     $pattern = '(?m)^(?<head>[ ]+architecture_critic:[ ]*\r?\n(?:[ ]+(?!model:)[A-Za-z_]+:.*\r?\n)*?[ ]+model:)[ ]*\S+'
-    $updated = [regex]::new($pattern).Replace($Text, { param($m) $m.Groups['head'].Value + ' review-strong' }, 1)
+    $updated = [regex]::new($pattern).Replace($Text, { param($m) $m.Groups['head'].Value + ' review-alt' }, 1)
     if ($updated -ceq $Text) { throw 'Fixture role model binding not found: architecture_critic' }
     if (-not $updated.EndsWith("`n")) { $updated += "`n" }
-    return ($updated + "llm:`n  models:`n    review-fast:`n      provider: deepseek`n      model: deepseek-flash`n      effort: medium`n    review-strong:`n      provider: openai`n      model: gpt-6-astra`n      effort: high`n    review-chair:`n      provider: openai`n      model: gpt-5.6-sol`n      effort: medium`n")
+    return ($updated + "llm:`n  models:`n    review-fast:`n      provider: deepseek`n      model: deepseek-flash`n      effort: medium`n    review-alt:`n      provider: deepseek`n      model: deepseek-alt`n      effort: medium`n    review-strong:`n      provider: openai`n      model: gpt-6-astra`n      effort: high`n    review-chair:`n      provider: openai`n      model: gpt-5.6-sol`n      effort: medium`n")
 }
 
 $packagedTemplate = Get-Content -Raw -LiteralPath (Join-Path $PackageRoot 'global\skills\1c-init-project\assets\project\bsl-flow.yaml')
