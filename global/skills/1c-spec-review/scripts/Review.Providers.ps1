@@ -490,6 +490,23 @@ function Invoke-BSLFlowClaudeSubagentSingleReview {
     catch { return New-BSLFlowProviderFailure -Phase 'parsing' -Message "Imported subagent raw review was not valid JSON: $($_.Exception.Message)" }
     $observedModel = $null
     try { if ($rawReview.PSObject.Properties['observed_model']) { $observedModel = [string]$rawReview.observed_model } } catch { $observedModel = $null }
+    if (-not $observedModel) {
+        # The packaged Claude Code subagent (hosts/claude-code/agents/bsl-flow-spec-reviewer.md)
+        # never emits observed_model itself (its output contract is only the raw
+        # review fields), but it pins its own model in YAML frontmatter, which is
+        # the actual identity independence depends on. Read it best-effort so
+        # same_model_as_author is not always null just because the raw JSON is silent.
+        try {
+            $packageRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)))
+            $agentDefinitionPath = Join-Path $packageRoot 'hosts\claude-code\agents\bsl-flow-spec-reviewer.md'
+            if (Test-Path -LiteralPath $agentDefinitionPath -PathType Leaf) {
+                $agentDefinitionText = Get-Content -Raw -LiteralPath $agentDefinitionPath
+                $frontmatterMatch = [regex]::Match($agentDefinitionText, '(?ms)^---\s*\n.*?^model:\s*(?<model>\S+)\s*$.*?^---')
+                if ($frontmatterMatch.Success) { $observedModel = $frontmatterMatch.Groups['model'].Value.Trim() }
+            }
+        }
+        catch { $observedModel = $null }
+    }
     $requestedModel = if ($observedModel) { $observedModel } else { 'unknown' }
     return New-BSLFlowProviderSuccess -RawReview $rawReview -Provider 'claude_subagent' -Agent 'bsl-flow-spec-reviewer' -RequestedModel $requestedModel -ObservedModel $observedModel -Usage $null -Isolation 'host_subagent'
 }
