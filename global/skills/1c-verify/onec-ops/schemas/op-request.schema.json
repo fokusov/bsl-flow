@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "onec-ops/v1/op-request.schema.json",
+  "title": "onec-ops operation request",
+  "type": "object",
+  "required": ["schema_version", "capability", "project_path"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": 1 },
+    "capability": { "type": "string" },
+    "project_path": { "type": "string" },
+    "provider": { "type": "string" },
+    "params": { "type": "object" },
+    "authorization_file": { "type": "string" }
+  }
+}
