@@ -204,6 +204,34 @@ try {
 }
 finally { Remove-Item -LiteralPath $proj3 -Recurse -Force -ErrorAction SilentlyContinue }
 
+# 3a. An anthropic_messages chair receives a structured schema whose ref enums
+# are the actual draft anchors; openai-compatible critics receive none. The
+# published review of a distinct-model council carries no limitations.
+$proj3a = New-TempProject
+. (Join-Path $skill 'scripts\Council.Validation.ps1')
+try {
+    $config3a = (Get-Content -Raw -LiteralPath (Join-Path $proj3a 'bsl-flow.yaml')) -replace "`r`n", "`n"
+    $config3a = [regex]::new('(?m)^(?<head>[ ]+chair:[ ]*\n(?:[ ]+(?!model:)[A-Za-z_]+:.*\n)*?[ ]+model:)[ ]*\S+').Replace($config3a, { param($m) $m.Groups['head'].Value + ' review-claude' }, 1)
+    $config3a = $config3a.Replace("llm:`n  providers:`n", "llm:`n  providers:`n    anthropic:`n      protocol: anthropic_messages`n")
+    $config3a = $config3a.TrimEnd() + "`n    review-claude:`n      provider: anthropic`n      model: claude-chair-fixture`n      effort: high`n"
+    [System.IO.File]::WriteAllText((Join-Path $proj3a 'bsl-flow.yaml'), $config3a, [System.Text.UTF8Encoding]::new($false))
+    $schemaBox = @{}
+    $schemaStub = {
+        param($Attempt, $PromptText, $Route)
+        $schemaBox[[string]$Attempt.role] = $Route['output_schema']
+        return & $stub $Attempt $PromptText $Route
+    }.GetNewClosure()
+    foreach ($name in @('DEEPSEEK_API_KEY', 'ANTHROPIC_API_KEY')) { [System.Environment]::SetEnvironmentVariable($name, 'test-token') }
+    try { $result3a = Invoke-BSLFlowCouncilReview -ProjectPath $proj3a -ChangeName 'demo' -AllowLiveDispatch -Dispatcher $schemaStub }
+    finally { foreach ($name in @('DEEPSEEK_API_KEY', 'ANTHROPIC_API_KEY')) { [System.Environment]::SetEnvironmentVariable($name, $null) } }
+    $chairSchema3a = $schemaBox['chair']
+    $draftAnchorIds = @(Get-BSLFlowSpecAnchors -SpecText ([IO.File]::ReadAllText((Join-Path $proj3a 'openspec\changes\demo\spec.md'))) | ForEach-Object { [string]$_.id })
+    Assert-True ($null -ne $chairSchema3a -and (@($chairSchema3a.properties.requirement_refs.items.properties.final_refs.items.enum) -join ',') -ceq ($draftAnchorIds -join ',')) 'anthropic chair dispatch carries the anchor-id enum built at dispatch time'
+    Assert-True ($null -eq $schemaBox['intent_critic']) 'openai-compatible critics dispatch without a tool schema'
+    Assert-True ($null -eq $result3a.review.PSObject.Properties['limitations'] -and [string]$result3a.review.verdict -ceq 'needs_input') 'distinct-model council publishes no limitations'
+}
+finally { Remove-Item -LiteralPath $proj3a -Recurse -Force -ErrorAction SilentlyContinue }
+
 # 4. A timeout after dispatch is persisted once and never blindly repeated.
 $proj4 = New-TempProject
 try {

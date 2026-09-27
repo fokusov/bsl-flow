@@ -195,9 +195,13 @@ function Get-BSLFlowCouncilApiRequest {
     }
     if ($Binding.protocol -ceq 'anthropic_messages') {
         # Anthropic Messages: structured output through one forced tool call.
-        # Named efforts are deliberately NOT mapped: extended thinking cannot be
-        # combined with a forced tool_choice, so a string effort is ignored for
-        # this protocol. An integer effort stays the explicit max_tokens cap.
+        # The model must accept a forced tool_choice (for example claude-opus-5
+        # or claude-sonnet-5); models that reject it (Opus 5.5, Fable 5.1)
+        # answer 400, which maps to failed_before_acceptance. Named efforts are
+        # deliberately NOT mapped: thinking/effort support differs per model
+        # and a wrong field is a 400, so a string effort is ignored for this
+        # protocol and the model default applies. An integer effort stays the
+        # explicit max_tokens cap.
         $schema = $OutputSchema
         if ($null -eq $schema) { $schema = [ordered]@{ type = 'object' } }
         $maxTokens = if ($isReasoningEffort) { $script:BSLFlowAnthropicDefaultMaxTokens } else { $tokenBudget }
