@@ -48,6 +48,9 @@ function Remove-IsolatedTestTree {
 
 if ([string]::IsNullOrWhiteSpace($PackageRoot)) { $PackageRoot = Split-Path -Parent $PSScriptRoot }
 $packageRoot = [System.IO.Path]::GetFullPath($PackageRoot)
+# Install the pristine artifact before controller suites retain evidence under work/.
+# The installer intentionally rejects any files absent from the package manifest.
+& (Join-Path $packageRoot 'scripts/Test-InstallCore.ps1') -PackageRoot $packageRoot
 foreach ($scriptFile in Get-ChildItem -LiteralPath (Join-Path $packageRoot 'scripts'), (Join-Path $packageRoot 'global') -Filter '*.ps1' -File -Recurse) {
     $scriptTokens = $null; $scriptErrors = $null
     $scriptAst = [Management.Automation.Language.Parser]::ParseFile($scriptFile.FullName, [ref]$scriptTokens, [ref]$scriptErrors)
@@ -256,6 +259,7 @@ if (Test-Path -LiteralPath $suiteRegistry -PathType Container) {
         Assert-True ($relativeSuite -match '^(?:scripts|global)[\\/][^:]+\.ps1$' -and $relativeSuite -notmatch '\.\.') "Invalid suite registration: $($registration.Name)"
         $suitePath = Join-Path $packageRoot $relativeSuite
         Assert-True (Test-Path -LiteralPath $suitePath -PathType Leaf) "Registered suite is missing: $relativeSuite"
+        if ($relativeSuite.Replace('\','/') -eq 'scripts/Test-InstallCore.ps1') { continue } # Already checked before generated evidence.
         & $suitePath -PackageRoot $packageRoot
     }
 }
