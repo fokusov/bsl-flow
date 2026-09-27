@@ -20,7 +20,7 @@ if (-not (Test-Path -LiteralPath $root -PathType Container)) { throw "Package ro
 $negationPattern = '(?i)\b(never|must not|do not|does not|cannot|remains BLOCKED)\b'
 # Directories whose content is never part of the measured surface: version control internals
 # and the framework's own git worktree bookkeeping. Everything else in the package is in scope.
-$excludedTopSegments = @('.git', '.claude')
+$excludedTopSegments = @('.git', '.claude', '.bsl-flow', '.build', 'work', 'outputs')
 
 function ConvertTo-RelativePath {
     param([string]$FullPath)
@@ -35,9 +35,13 @@ function Test-ExcludedRelativePath {
 }
 
 function Get-AllFiles {
-    # A single recursive enumeration, filtered once, reused by every area/metric below so the
-    # measurement is internally consistent and does not re-walk the tree per area.
-    Get-ChildItem -LiteralPath $root -Recurse -File -Force |
+    # Prune generated roots before recursion: they can contain protected worker state.
+    $entries = @(Get-ChildItem -LiteralPath $root -Force | Where-Object { $_.Name -notin $excludedTopSegments })
+    $files = @($entries | Where-Object { -not $_.PSIsContainer })
+    foreach ($directory in @($entries | Where-Object { $_.PSIsContainer })) {
+        $files += @(Get-ChildItem -LiteralPath $directory.FullName -Recurse -File -Force)
+    }
+    $files |
         ForEach-Object {
             $relative = ConvertTo-RelativePath $_.FullName
             if (-not (Test-ExcludedRelativePath $relative)) {

@@ -1,26 +1,44 @@
 ---
 name: 1c-task
-description: Start, inspect, or resume a BSL Flow managed development task whose stages and acceptance are controlled by the installed task CLI.
+description: Start, inspect or resume an explicitly requested BSL Flow managed task, with controller-owned stages, evidence and acceptance. Use when the user requests managed execution or continuation of a registered task.
 ---
 
-# Managed BSL Flow task
+# 1c-task
 
-Use for a request to let BSL Flow carry a registered task through its required stages. The six existing skills remain available in assisted mode. Do not call a managed task complete from a worker message, an OpenSpec `ready` state, or a test exit code.
+## When to use
 
-Read [the task contract](references/task-contract.md) to prepare a request or relay a user update. Reuse actual user authorization; do not ask again for reversible work it already covers. Record questions and scope changes through `Update`. Worker output cannot authorize itself.
+- The user explicitly requests a managed task.
+- Inspect or resume an existing registered task by its exact ID.
+- Otherwise use the assisted skills for the requested scope.
 
-1. At the confirmed clean Git project root, derive a concise request and observable acceptance criteria from the user's task. Honor project `AGENTS.md` and model routing. Preserve the original request text and its provenance. An ambiguity in business identity, grouping, replacement, or partial success requires a focused question, not an invented rule.
-2. Generate a UUID before `Start`; retain it for retries. Write the request outside the worker checkout. Use the installed [entrypoint](scripts/Invoke-BSLFlowTask.ps1) with `-Action Start -ProjectPath <root> -InputFile <request.json>`.
-3. Call `-Action Run -ProjectPath <root> -TaskId <uuid>` once. The controller owns stage sequencing, isolated worktree, reviews, verification and acceptance. A strict `native_1c` integration criterion may use the managed Windows FILE adapter for its exact authorized target; every other runtime gate requiring an unconfirmed adapter or target remains `BLOCKED`.
-4. Read the JSON envelope. Show the specific pending question/blocker, or hand off the accepted worktree and receipt. Acceptance does not merge, publish, deploy, or authorize new database changes. An explicitly authorized publication uses the separate Publish/PublishResume contract and exact acceptance identity.
-5. After interruption use `Status` and `Resume` with the exact task ID. Do not start a duplicate worker or repeat an uncertain business write. After `Cancel`, explicit user `Update` is required to continue.
+## Inputs
 
-The worker adapter supports the verified Windows native Codex CLI version and explicit source permissions described in the contract. It blocks source-controlled execution configuration. Do not silently relax isolation or substitute an unavailable reviewer. M spec review uses the configured single reviewer (`review.reviewer.provider`); L and high-risk spec review always uses the PS council [Invoke-CouncilReview.ps1](../1c-spec-review/scripts/Invoke-CouncilReview.ps1). Neither route downgrades to the other. The task's Codex reviewer applies to code and requirement-coverage review.
+Read [task-contract.md](references/task-contract.md), project `AGENTS.md`, model routing, the original request and current authorization. Repository planning commands and the installed [wrapper](scripts/bsl-flow.ps1) are described in [registry.md](references/registry.md).
 
-The Experience Ledger is an optional extension and defaults off. It is read, updated, and bound to attempts only when project policy explicitly sets `features.self_learning_memory.enabled: true`. Disabling it does not disable or weaken the controller-owned task journal, context, recovery, evidence, or acceptance gates, and it does not delete an existing ledger.
+## Steps
 
-## Repository task registry
+1. At the confirmed clean Git root, derive the request and observable acceptance criteria; preserve the original text and provenance. Keep an analysis-only request within analysis.
+2. Generate a UUID before `Start`, retain it for retries and write the request outside the worker checkout. Call [the controller](scripts/Invoke-BSLFlowTask.ps1) with `-Action Start -ProjectPath <root> -InputFile <request.json>`.
+3. Call `-Action Run -ProjectPath <root> -TaskId <uuid>` once. The controller owns stages, isolation, review, verification and acceptance; use its current gates. Adapter capability and target authorization are separate checks.
+4. Read the JSON envelope: relay the specific question/blocker or hand off the accepted worktree and receipt. Acceptance covers the bound task and source; publication requires explicit authorization and the separate Publish/PublishResume contract.
+5. After interruption inspect `Status` and use `Resume` with the same ID. Inspect actual state before repeating an uncertain business write. After `Cancel`, an explicit user `Update` is needed to continue. Record scope changes through trusted `Update`.
 
-Planned tasks live in one clone-local repository store at `<git common dir>/bsl-flow/tasks/<uuid>/revisions` (schema/store version v1), shared by every worktree of the clone and never committed to Git. The entry point exposes `-Action Create|EditRegistry|List|Show|History|Overview|ArchiveTask|UnarchiveTask` with `-Format Human|Json` (exit codes: 0 success, 2 `BF_INVALID`, 11 `BF_BLOCKED`/`BF_CONFLICT`). New tasks are `planned` metadata only — required `-Title`, optional `-Description -Priority -Labels -DependsOn` (missing dependency targets are stored as-is; self-reference, duplicate ids, and cycles are rejected) — and edits require optimistic `-ExpectedRevision`. `Run`/`Resume`/`Next` refuse planned repository tasks: there is no controller action to move a task out of `planned`; that write slice is not declared yet. Checkout-local `.bsl-flow/tasks` journals stay readable through `List` (`source=legacy`) and are never rewritten; the same UUID in both stores with diverging history is a visible conflict and blocks `Show`/`History` until resolved. A thin CLI wrapper, [scripts/bsl-flow.ps1](scripts/bsl-flow.ps1), maps `bsl-flow task <create|edit|list|show|history|overview|archive|unarchive>` (`--project <worktree>` → `-ProjectPath`) onto the same controller actions.
+## Outputs
 
-The first managed 1C runtime adapter is intentionally narrow: one authorized FILE target, one extension snapshot and exact YAxUnit tests declared by `native_1c`. Supply credentials only through `--runtime-auth stdin`; they stay in controller memory. New native requests declare trusted requirements and coverage mapping. The earlier BSLFlowPilot 5/5 acceptance proves the native adapter; the new coverage gate has separate source-only model and offline native integration evidence. These results do not prove arbitrary 1C, server, UI, EPF/ERF or production behavior.  Keep the temporary Unica durable-job restriction; do not substitute Unica runtime jobs for the native adapter.
+The task ID, controller status, current question/blocker or accepted worktree and bound receipt. Worker messages, OpenSpec readiness and process exit codes are evidence inputs; the controller decides acceptance.
+
+## Checks
+
+- M specification review uses the configured single reviewer; L/high risk uses Council. Preserve the selected route when its provider is unavailable.
+- Confirm adapter isolation and supported capabilities before execution. Runtime requires the exact authorized route and target; historical `native_1c` FILE/YAxUnit evidence covers only its narrow profile. Active runtime restrictions remain in force, including the temporary Unica durable-job restriction.
+- Experience Ledger is an optional extension and defaults off. Enable it only via `features.self_learning_memory.enabled: true`; controller journals and acceptance gates remain independent.
+
+## Stop and ask when
+
+- Business identity, grouping, replacement or partial-success rules remain ambiguous.
+- The next action exceeds existing authorization, requires publication or needs an unconfirmed runtime route.
+- Isolation, reviewer or required evidence is unavailable: report BLOCKED with the concrete gap.
+
+## Managed mode
+
+Inside a dispatched stage follow [stage-contract.md](references/stage-contract.md) and return its payload. The controller owns further dispatch and state changes.

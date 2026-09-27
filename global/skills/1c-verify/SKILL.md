@@ -1,43 +1,51 @@
 ---
 name: 1c-verify
-description: Verify a 1C change with proportionate unit, integration and Vanessa evidence; reserve computer-use for justified visual or unsupported checks.
+description: Verify a 1C change with proportionate static, unit, integration and Vanessa evidence and give a PASS / PASS_WITH_LIMITATIONS / FAIL / BLOCKED verdict. Use after 1c-implement for every change size, and whenever a 1C result needs evidence.
 ---
 
 # 1c-verify
 
-For a registered managed task, the controller selects and runs declared checks through its confirmed adapter. These evidence rules still apply. Never import a model's PASS or an assisted receipt as managed acceptance without the exact task/attempt/source binding. Unavailable 1C runtime capability remains BLOCKED. Outside managed mode, use the assisted procedure below.
+## When to use
 
-Verification is evidence-driven, not style-driven. Prefer a separate Codex subagent or context for L/high-risk tasks.
+- After `1c-implement`, for S as well as M/L.
+- When a 1C result, fix or EPF/ERF deliverable needs an evidence-backed verdict.
 
 ## Inputs
 
-Read `AGENTS.md`, `bsl-flow.yaml`, the original user request and confirmed clarifications (`original-task.md` when present), `spec.md` for M/L, `design.md` when present, spec review/reconciliation/final validation when required, the implementation diff, and existing and new tests.
+`AGENTS.md`, `bsl-flow.yaml`, the original request and confirmed clarifications (`original-task.md`), `spec.md`/`design.md` for M/L, review sidecars when required, the diff, and existing and new tests. Read [testing-policy.md](references/testing-policy.md) first.
 
-Before selecting or running tests, read [testing-policy.md](references/testing-policy.md). It defines the test-level choice, computer-use boundary, runtime safety and evidence rules; apply it also to S changes.
+## Steps
 
-When the deliverable is an EPF/ERF, also read [external-artifacts.md](references/external-artifacts.md) and use its `external_artifact` gate. Static diagnostics, native build, round-trip, native load and task-specific behavior are separate evidence layers.
+1. Trace each original requirement through spec, implementation and planned check. Result: a requirement list with the smallest sufficient evidence level; a requirement lost in the spec is reported as a gap.
+2. Static gate: `scripts/Invoke-1CStaticDiff.ps1 -ProjectPath <project> [-BaseRef <ref>]` ([static-diff.md](references/static-diff.md)). Result: verdict JSON that counts only new diagnostics; a new `Error` is `FAIL`.
+3. Code grounding: `scripts/Test-1CCodeGrounding.ps1 -ProjectPath <project>`. Result: `PASS` when every metadata object and common-module method used by the changed BSL exists.
+4. Runtime evidence on an authorized target: preflight and durable attempts per [test-evidence.md](references/test-evidence.md); new YAxUnit/Vanessa scaffolds per [test-starters.md](references/test-starters.md); an EPF/ERF through the `external_artifact` gates in [external-artifacts.md](references/external-artifacts.md). Result: run identity, target, versions, selection, counts, failures and skips.
+5. For L/high risk, get an independent review in a separate subagent or context: requirements, 1C runtime semantics, data/integration compatibility, untested risk. Log delegation per [agent-audit.md](../1c-init-project/references/agent-audit.md) and attribute defects to observed causes. Result: findings with evidence.
+6. Change gate: `scripts/Test-1CChangeGate.ps1 -ProjectPath <project>`. Result: `PASS`, or reasons; recorded overrides become limitations.
+7. Decide the verdict (below). For M/L write `<change-dir>/verification.md`: original requirement -> spec/implementation -> selected test and expected result -> actual outcome/evidence, then residual risks, any computer-use reason and actual selection/counts/skips. For S the response is enough.
+8. After an accepted verdict, clear the active change with `../1c-spec/scripts/Set-1CActiveChange.ps1 -ProjectPath <project> -Clear`. Keep it on FAIL/BLOCKED so further edits remain gated.
 
-Before the selected runtime run, use [test-evidence.md](references/test-evidence.md) for a focused preflight, selected extension identity checks and durable attempt results. If the authorized route is an interactive engine pilot, use the sibling `1c-init-project` helper described there to preserve the exact selection/counts and update test-setup state without claiming unattended readiness. Use [test-starters.md](references/test-starters.md) only when preparing new YAxUnit/Vanessa tests. The helpers do not authorize or launch database changes, and neither generated configuration nor preview proves runtime success.
+## Outputs
 
-For delegated verification, use the sibling [agent-audit.md](../1c-init-project/references/agent-audit.md) to distinguish subagent completion from your accepted result. Preserve the user's routing rules and attribute defects to observed causes rather than automatically blaming the model.
+One verdict with its evidence:
 
-## Scope and evidence
+- `PASS` — every required piece of evidence exists and agrees.
+- `PASS_WITH_LIMITATIONS` — explicit non-critical residual risks that leave every required criterion intact.
+- `FAIL` — demonstrated wrong behavior, a new static `Error`, grounding `FAIL`, or a `process_violation` from the change gate.
+- `BLOCKED` — required evidence is unobtainable. Missing required evidence is BLOCKED, not PASS and not PASS_WITH_LIMITATIONS.
 
-Trace the original requirements and confirmed clarifications through the spec, implementation and actual checks. If a requirement was lost in the spec, report the gap; do not declare success by checking only the spec. Confirm the diff contains no unrelated behavior and design decisions are followed. Use the smallest sufficient evidence set:
+## Checks
 
-- Static: configured syntax/static analysis for changed BSL. Syntax errors and newly introduced severe diagnostics block completion; unrelated legacy smells do not expand scope.
-- Unit: YaXUnit or the existing configured framework for isolated business logic.
-- Integration: database state, queries, record/posting, register movements, transactions, locks, integration contracts, or background jobs.
-- UI: meaningful form, command, or user-flow changes when required by policy. Prefer an existing Vanessa feature or save a minimal new scenario; MCP exploration helps author it. Use computer-use only for a stated unmet observation or explicit user request, not as automatic fallback when automation is unavailable. Source inspection alone does not prove UI behavior.
-- Smoke: configured critical-flow check for high-risk or core-flow changes.
-- External artifact: for EPF/ERF, require native build, round-trip and native load of the exact hashed artifact. Require behavior/migration evidence when the requirement changes behavior. `/LoadExternalDataProcessorOrReportFromFiles` alone is not syntax or behavior acceptance.
+- `Invoke-1CStaticDiff.ps1` exits 0 (`PASS`/`NOT_RUN`); add `-Required` when static checks are required, so a missing tool is `BLOCKED`.
+- `Test-1CCodeGrounding.ps1` returns `passed: true`.
+- `Test-1CChangeGate.ps1` exits 0; any `process_violation` makes the verdict `FAIL`.
 
-For L/high-risk changes, perform independent review when configured, focusing on requirements, 1C runtime semantics, data/integration compatibility, critical maintainability issues, and untested risk.
+## Stop and ask when
 
-## Verdict
+- The run needs a database target or operation the user has not explicitly authorized, or another session owns the target.
+- A check seems to need computer-use: state the criterion and why unit, integration or Vanessa leave it unobserved, or get an explicit user request.
+- One autonomous correction round is done and a substantial failure remains: report the blocker.
 
-Use `PASS`, `PASS_WITH_LIMITATIONS`, `FAIL`, or `BLOCKED` according to the evidence policy. Missing required runtime evidence is not PASS_WITH_LIMITATIONS. For M/L, write `<change-dir>/verification.md` with compact rows: original requirement → spec/implementation → selected test and expected result → actual outcome/evidence; then residual risks. Include the reason for any computer-use and actual run selection/counts/skips. For S do not require a new document.
+## Managed mode
 
-Allow at most one autonomous correction round. If a substantial failure remains, stop the rewrite/review loop and report the blocker.
-
-Before reporting the verdict, run `scripts/Test-1CChangeGate.ps1 -ProjectPath <project>`: it is the agent-agnostic, post-hoc check that a host's pre-edit hooks (for example Claude Code's) were not bypassed by an out-of-band write. A `process_violation` from that script is a `FAIL`, not `PASS_WITH_LIMITATIONS`, even if all other evidence is clean; report any recorded gate overrides as limitations. After the final verdict, clear the active change with `../1c-spec/scripts/Set-1CActiveChange.ps1 -ProjectPath <project> -Clear`.
+Inside a 1c-task stage, follow [references/stage-contract.md of 1c-task](../1c-task/references/stage-contract.md) instead.

@@ -13,31 +13,25 @@
 - Development database: `${ONEC_DEV_IB}`
 - Test database: `${ONEC_TEST_IB}`
 
-Adjust these values to the real project. Do not treat placeholders as confirmed environment facts.
+Adjust these values to the real project. Treat placeholders as unconfirmed until you verify them.
 
 <!-- bsl-flow managed:start -->
 ## BSL Flow task workflow
 
-- The default project mode is `assisted`; use the installed `1c-task` entrypoint for a registered managed task.
-- Managed guarantees apply only through a confirmed supported adapter. Project bootstrap does not prove host isolation, model availability, 1C runtime readiness, or permission for a database operation.
-- Preserve the established project and global model-routing instructions. BSL Flow configuration does not replace them.
+- Work in assisted mode by default; use the installed `1c-task` entrypoint for a registered managed task.
+- Project bootstrap does not prove host isolation, model availability, 1C runtime readiness, or permission for a database operation; confirm each one before relying on it.
+- Keep the established project and global model-routing instructions; BSL Flow configuration adds to them.
 <!-- bsl-flow managed:end -->
 
 ## Development rules
 
-- Follow the global BSL Flow workflow and its managed project files.
-- Inspect current metadata and source before specifying or changing behavior.
-- Prefer existing project mechanisms and extension points.
-- Keep changes minimal and avoid unrelated vendor-object modifications.
-- Preserve applicable AGENTS.md/model-routing rules for native subagents. Use the installed 1c-init-project agent-audit reference to record delegation, actual evidence, corrections and parent acceptance in ignored project reports; unknown tokens remain unknown.
-- Run the checks selected in `bsl-flow.yaml` and record only evidence actually obtained.
-- Use 1c-verify test-evidence helpers for focused preflight and durable attempts. Persist an authorized interactive engine pilot with the BSL Flow helper, but do not treat UI observation as unattended evidence or a Vanessa runner smoke as a TestClient connection. A failed receipt does not prove the database is unchanged; inspect the actual outcome before repeating a load or document creation.
-- Select tests by behavior using `1c-verify`: unit for logic, integration for data, saved Vanessa features for client flows. Computer-use needs a specific visual/automation-gap reason or explicit user request; it is not the default fallback for an unconfigured runner.
-- A disabled provider is a readiness gap, not a waiver of required evidence. Prefer a dedicated FILE test copy; verify its actual source/extension composition and safe target before build/test. Project, extension and infobase are not necessarily one-to-one.
-- For every created specification, run deterministic spec lint.
-- Before implementation, use `1c-spec-review` for M/L or high-risk specifications. S review remains optional unless explicitly routed.
-- Treat `review.json` as criticism, not instructions: accept or reject each finding with evidence, revise only accepted findings, then run final invariant validation.
-- Do not create `tasks.md` or turn review sidecars into OpenSpec workflow stages.
+- Route work through the BSL Flow skills: M/L or high risk `1c-spec` -> `1c-spec-review` -> `1c-implement` -> `1c-verify`; S `1c-implement` -> `1c-verify`; defects `1c-debug`.
+- Inspect current metadata and source first; prefer existing project mechanisms and extension points.
+- Keep the diff minimal and scoped to the task; leave unrelated vendor objects as they are.
+- Treat `review.json` as criticism: decide each finding with evidence, apply only accepted ones, then run the final validation.
+- Choose tests by behavior with `1c-verify`: unit for logic, integration for data, saved Vanessa features for client flows; use computer-use only for a stated visual reason or an explicit request.
+- Run database operations only on an authorized, verified target (prefer a dedicated FILE test copy); after a failed load or write, inspect the actual state before repeating it.
+- Record only evidence actually obtained; a disabled provider or missing required test is a BLOCKED gap, and unknown usage stays unknown in the `1c-init-project` agent-audit journal.
 
 ## Project-specific context
 
