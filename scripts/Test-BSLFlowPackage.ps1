@@ -449,6 +449,22 @@ secret-folder/
     Assert-True ($projectConfig -match '(?m)^\s{4}timeout_seconds:\s*600\s*$') 'Default reviewer timeout is not 600 seconds.'
     . $commonScript
     . (Join-Path $reviewSkill 'scripts\Council.Common.ps1')
+    $unboundModelsBlocked = $false
+    try { Get-BSLFlowCouncilPolicy $projectConfig | Out-Null }
+    catch { $unboundModelsBlocked = $_.Exception.Message -match 'unknown model profile: review-fast' }
+    Assert-True $unboundModelsBlocked 'Portable defaults silently supplied concrete Council model bindings.'
+    # Bind synthetic ids only in this offline fixture, as an operator would.
+    $fixtureModels = @'
+llm:
+  models:
+    review-fast:
+      provider: openai
+      model: fixture-critic
+    review-chair:
+      provider: openai
+      model: fixture-chair
+'@
+    $projectConfig = [regex]::Replace($projectConfig, '(?m)^llm:\s*$', $fixtureModels)
     $defaultCouncil = Get-BSLFlowCouncilPolicy $projectConfig
     Assert-True ([bool]$defaultCouncil.enabled -and [string]$defaultCouncil.legacy_mode -eq 'block') 'Portable project default council policy is not migration-blocking.'
     # The remaining package fixture exercises the explicitly selected legacy
