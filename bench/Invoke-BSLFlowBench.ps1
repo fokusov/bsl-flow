@@ -301,6 +301,12 @@ function Invoke-BenchStaticDiffGate {
     if (-not (Test-Path -LiteralPath $outputPath -PathType Leaf)) { return [pscustomobject]@{ Verdict = 'NOT_RUN'; Reason = 'static_diff_no_output'; New = @() } }
     $report = Get-Content -Raw -LiteralPath $outputPath -Encoding UTF8 | ConvertFrom-Json
     Remove-Item -LiteralPath $outputPath -Force -ErrorAction SilentlyContinue
+    $changedBsl = @(Invoke-BenchGit @('diff', '--name-only', $BaselineRef, '--', 'src') $RepoPath | Where-Object { $_ -match '\.(bsl|os)$' }).Count -gt 0
+    if ($changedBsl -and $report.verdict -eq 'PASS' -and $report.reason -eq 'no_changed_files') {
+        # A clean verdict without observing the changed BSL input is not evidence.  Keep the
+        # attempt runnable, but expose the missing observation instead of crediting a PASS.
+        return [pscustomobject]@{ Verdict = 'NOT_RUN'; Reason = 'static_diff_did_not_observe_changed_bsl'; New = @() }
+    }
     return [pscustomobject]@{ Verdict = $report.verdict; Reason = $report.reason; New = @($report.new) }
 }
 
@@ -350,9 +356,12 @@ function Invoke-BenchAcceptanceCheck {
             $groundingScript = Join-Path $RepoRoot 'global/skills/1c-verify/scripts/Test-1CCodeGrounding.ps1'
             if (-not (Test-Path -LiteralPath $groundingScript -PathType Leaf)) { return [pscustomobject]@{ Kind = $kind; Verdict = 'NOT_RUN'; Detail = 'Test-1CCodeGrounding.ps1 not present in this checkout' } }
             $stdoutFile = [IO.Path]::GetTempFileName(); $stderrFile = [IO.Path]::GetTempFileName()
-            $proc = Start-Process -FilePath 'pwsh' -ArgumentList (ConvertTo-BenchArgumentString @('-NoProfile', '-File', $groundingScript, '-ProjectPath', $RepoPath)) -NoNewWindow -PassThru -Wait -RedirectStandardOutput $stdoutFile -RedirectStandardError $stderrFile
+            $proc = Start-Process -FilePath 'pwsh' -ArgumentList (ConvertTo-BenchArgumentString @('-NoProfile', '-File', $groundingScript, '-ProjectPath', $RepoPath, '-BaseRef', $BaselineRef)) -NoNewWindow -PassThru -Wait -RedirectStandardOutput $stdoutFile -RedirectStandardError $stderrFile
             $detail = (Get-Content -Raw -LiteralPath $stderrFile -ErrorAction SilentlyContinue)
             Remove-Item -LiteralPath $stdoutFile, $stderrFile -Force -ErrorAction SilentlyContinue
+            if ($proc.ExitCode -ne 0 -and $detail -match "warning: unable to access '.+git\\ignore'") {
+                return [pscustomobject]@{ Kind = $kind; Verdict = 'NOT_RUN'; Detail = 'grounding_tool_unavailable_due_to_host_git_excludesfile' }
+            }
             return [pscustomobject]@{ Kind = $kind; Verdict = $(if ($proc.ExitCode -eq 0) { 'PASS' } else { 'FAIL' }); Detail = $detail }
         }
         default { return [pscustomobject]@{ Kind = $kind; Verdict = 'NOT_RUN'; Detail = "unhandled kind: $kind" } }

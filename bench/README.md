@@ -5,8 +5,9 @@ skills/bootstrap) measurably beat a bare agent, and by how much? The kill-list d
 Ф0.2 are settled from this data, per pre-registered rules in `bench/DECISION_RULES.md`.
 
 This harness runs fully offline by default (a scripted `fake` agent, no paid model calls).
-Real-agent runs (`claude`, `codex`) are supported but out of scope for CI unless secrets are
-present — see `.github/workflows/bench.yml`.
+Real-agent runs (`claude`, `codex`) are supported only as an explicit local operator action.
+The manual GitHub workflow runs the offline fake agent exclusively: it has no model secrets,
+does not contact a model service, and produces no paid-run evidence.
 
 ## Task format
 
