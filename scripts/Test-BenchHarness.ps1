@@ -25,6 +25,17 @@ function Assert-True {
     if (-not $Condition) { throw "ASSERT: $Message" }
 }
 
+function Remove-BenchHarnessTestRoot {
+    param([Parameter(Mandatory)][string]$Path)
+    $fullPath = [IO.Path]::GetFullPath($Path)
+    $tempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
+    if (-not $fullPath.StartsWith($tempRoot, [StringComparison]::OrdinalIgnoreCase) -or
+        -not ([IO.Path]::GetFileName($fullPath).StartsWith('bslflow-bench-harness-test-', [StringComparison]::OrdinalIgnoreCase))) {
+        throw "Unsafe benchmark test cleanup target: $fullPath"
+    }
+    if (Test-Path -LiteralPath $fullPath -PathType Container) { Remove-Item -LiteralPath $fullPath -Recurse -Force }
+}
+
 $testRoot = Join-Path ([IO.Path]::GetTempPath()) "bslflow-bench-harness-test-$([guid]::NewGuid().ToString('N'))"
 $oldVariant = $env:BENCH_FAKE_VARIANT
 try {
@@ -66,5 +77,5 @@ try {
 }
 finally {
     if ($null -eq $oldVariant) { Remove-Item Env:BENCH_FAKE_VARIANT -ErrorAction SilentlyContinue } else { $env:BENCH_FAKE_VARIANT = $oldVariant }
-    if (Test-Path -LiteralPath $testRoot) { Remove-Item -LiteralPath $testRoot -Recurse -Force }
+    Remove-BenchHarnessTestRoot -Path $testRoot
 }
