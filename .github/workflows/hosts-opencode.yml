@@ -1,0 +1,19 @@
+name: Host OpenCode
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  hosts-opencode:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Offline adapter contracts, no model calls
+        shell: pwsh
+        run: |
+          foreach ($suite in @('Test-OpenCodeAdapter','Test-BSLFlowOpenCodeTransport','Test-BSLFlowOpenCodeEvents','Test-BSLFlowOpenCodeWorker')) {
+            & pwsh -NoProfile -File "./scripts/$suite.ps1" -PackageRoot (Get-Location).Path
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
