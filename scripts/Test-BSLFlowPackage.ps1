@@ -472,6 +472,7 @@ llm:
     # opt in only inside this isolated test project, so no live council dispatch
     # can be triggered by an environment credential during the OpenCode checks.
     $projectConfig = [regex]::Replace($projectConfig, '(?m)^(\s*legacy_mode:\s*)block\s*$', '${1}opencode_compat')
+    $projectConfig = [regex]::Replace($projectConfig, '(?m)^review:\s*$', "review:`n  reviewer:`n    provider: opencode`n    model: fixture/reviewer")
     Set-Content -LiteralPath (Join-Path $project 'bsl-flow.yaml') -Value $projectConfig -Encoding utf8
     $compatCouncil = Get-BSLFlowCouncilPolicy (Get-Content -Raw (Join-Path $project 'bsl-flow.yaml'))
     Assert-True ([bool]$compatCouncil.enabled -and [string]$compatCouncil.legacy_mode -eq 'opencode_compat') 'Legacy OpenCode compatibility fixture was not explicitly selected.'
