@@ -50,7 +50,7 @@
 
 Допустимые `event_type`: `delegated`, `started`, `completed`, `failed`, `interrupted`, `cancelled`, `corrected`, `escalated`, `acceptance`, `task_changed`, `unknown`. `completed` означает заявление/результат дочернего агента, но не принятие родителем. Для решения родителя используется отдельное `acceptance` с `acceptance_actor` и состоянием `accepted`, `rejected`, `blocked` или `cancelled`; после исправления допускается новое решение родителя с новым `event_id`, и в сводке учитывается последнее.
 
-`corrected` требует `correction_of`, `correction_actor`, `correction_action`, `correction_result`; `escalated` — `from_model`, `to_model`, `escalation_reason`; `task_changed` — `task_change_reason`; `unknown` — `unknown_reason`. Ошибка требует `error_class` (`model`, `tool`, `environment`, `decomposition` или `unknown`) и ссылки на свидетельство либо причины недоступности. Изменение требований пользователем не записывается как ошибка субагента.
+`corrected` требует `correction_of`, `correction_actor`, `correction_action`, `correction_result`; `escalated` — `from_model`, `to_model`, `escalation_reason`; `task_changed` — `task_change_reason`; `unknown` — `unknown_reason`. Ошибка требует `error_class` (`model`, `tool`, `environment`, `decomposition` или `unknown`) и ссылки на свидетельство либо причины недоступности. Изменение требований пользователем не записывается как ошибка субагента. Пробел в телеметрии — это неполные данные, а не отказ продукта и не повод дописать успех. Журнал дополняет, а не заменяет действующие правила `AGENTS.md` и `.ai/model-routing.md`: BSL Flow не выбирает модель и не требует делегирования.
 
 ## Usage и время
 
