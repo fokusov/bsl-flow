@@ -62,42 +62,17 @@ try {
     Assert-C ($script:probeCalls.Count -eq 2 -and -not $probe.os_sandbox) 'Capability probe did not remain read-only.'
     $script:omitFlag=$true
     Assert-C ((Failure-C {Test-BFClaudeCodeCapability $state (Join-Path $root 'bad-probe') $adapter}) -match 'required flag') 'Missing capability flag accepted.'
-    # Exercise the complete adapter with a local process double, including
-    # cached dispatch reuse and integrity failure, without launching a CLI.
-    function Get-BFExecutionDependencies { param($State) return @{fixture='fixed'} }
-    function Get-BFToolsetPrompt { param($State) return '' }
-    & git -C $root init -q
-    if($LASTEXITCODE -ne 0){throw 'Could not initialize the offline worker fixture.'}
-    $script:omitFlag=$false;$script:workerCalls=0;$script:tamper=$false
-    function Invoke-BFProcess {
-        param($Executable,$Arguments,$WorkingDirectory,$InputText,$OutputDirectory,$TimeoutSeconds,$Cancelled,$Environment,[switch]$CleanEnvironment,$MaxOutputBytes)
-        [void][IO.Directory]::CreateDirectory($OutputDirectory)
-        $out=Join-Path $OutputDirectory 'stdout.txt'
-        if($Arguments[0] -eq '--version'){$value='2.1.142 (Claude Code)'}
-        elseif($Arguments[0] -eq '--help'){$value=$adapter.required_help_flags -join ' '}
-        else{
-            $script:workerCalls++
-            $value=[IO.File]::ReadAllText((Join-Path $fixture 'success.jsonl'))
-            if($script:tamper){[IO.File]::WriteAllText((Join-Path $state.project_path ('.bsl-flow/tasks/'+$state.task_id+'/forged.json')),'{}')}
-        }
-        [IO.File]::WriteAllText($out,$value)
-        $process=@{exit_code=0;stop_reason=$null;stdout=$out}
-        Write-BFJson (Join-Path $OutputDirectory 'exit.json') $process
-        return $process
+    # Fail closed before process launch, runtime probes or budget admission.
+    $script:dispatchCalls=0
+    function Invoke-BFProcess { $script:dispatchCalls++;throw 'Unexpected process dispatch.' }
+    function Test-BFRuntimePreflight { $script:dispatchCalls++;throw 'Unexpected runtime preflight.' }
+    function Assert-BFBudgetAdmission { $script:dispatchCalls++;throw 'Unexpected budget admission.' }
+    $state=@{request=@{execution_profile=@{provider='claude-code';denied_read_roots=@($root)}}}
+    Assert-C ((Failure-C {Invoke-BFClaudeCodeWorker -State $state -Stage 'inspect' -Directory $root}) -match 'private-path isolation is not verified') 'Direct Claude dispatch bypassed privacy blocker.'
+    foreach($stage in @('inspect','implement','code_review')){
+        Assert-C ((Failure-C {Invoke-BFManagedWorker -State $state -Stage $stage -Directory $root}) -match 'private-path isolation is not verified') "Managed $stage dispatch bypassed privacy blocker."
     }
-    $state=@{project_path=$root;worker_path=$root;task_id=[guid]::NewGuid().ToString();request=@{models=@{worker='claude-fixture-1';reviewer='claude-fixture-1';worker_effort='high';reviewer_effort='high'};execution_profile=@{provider='claude-code';executable='fixture.exe';executable_sha256=('a'*64);toolset=@{root=$root}}}}
-    $dispatchRoot=Join-Path $root ('.bsl-flow/tasks/'+$state.task_id+'/attempts/one/raw/worker')
-    $workerArgs=@{State=$state;Stage='inspect';Prompt='Fixture prompt';Directory=$dispatchRoot;CodexPath='';Cancelled={return $false}}
-    $result=Invoke-BFClaudeCodeWorker @workerArgs
-    Assert-C ($result.status -eq 'completed' -and $script:workerCalls -eq 1) 'Worker did not materialize a result.'
-    $cached=Invoke-BFClaudeCodeWorker @workerArgs
-    Assert-C ($cached.status -eq 'completed' -and $script:workerCalls -eq 1) 'Worker repeated a retained model call.'
-    $workerArgs.Prompt='Different prompt'
-    Assert-C ((Failure-C {Invoke-BFClaudeCodeWorker @workerArgs}) -match 'binding differs') 'Cached dispatch ignored changed prompt.'
-    $workerArgs.Directory=Join-Path $root ('.bsl-flow/tasks/'+$state.task_id+'/attempts/two/raw/worker')
-    $script:tamper=$true
-    Assert-C ((Failure-C {Invoke-BFClaudeCodeWorker @workerArgs}) -match 'controller state modified by worker') 'Worker integrity check accepted forged state.'
-    Assert-C ($script:workerCalls -eq 2) 'Blocked worker was unexpectedly retried.'
+    Assert-C ($script:dispatchCalls -eq 0) 'Privacy-blocked dispatch started a process or spent a budget reservation.'
     Write-Output "CLAUDE_CODE_ADAPTER_OK checks=$script:checks; fixture-only; paid calls=0"
 } finally {
     if(-not ([IO.Path]::GetFullPath($root)).StartsWith([IO.Path]::GetFullPath([IO.Path]::GetTempPath()),[StringComparison]::OrdinalIgnoreCase)){throw 'Unsafe fixture cleanup path.'}
