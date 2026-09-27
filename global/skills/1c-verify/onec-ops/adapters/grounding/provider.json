@@ -1,0 +1,8 @@
+{
+  "name": "grounding",
+  "contract": "onec-ops/v1",
+  "capabilities": {
+    "metadata.inspect": { "entry": "Invoke-GroundingInspect.ps1", "mode": "script" }
+  },
+  "detect": "Test-GroundingAvailable.ps1"
+}

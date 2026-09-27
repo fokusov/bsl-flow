@@ -1,0 +1,13 @@
+{
+  "name": "native-1cv8",
+  "contract": "onec-ops/v1",
+  "capabilities": {
+    "build.cf": { "entry": "Invoke-NativeBuild.ps1", "mode": "script" },
+    "build.cfe": { "entry": "Invoke-NativeBuild.ps1", "mode": "script" },
+    "extension.list": { "entry": "Invoke-NativeExtensionList.ps1", "mode": "script" },
+    "extension.load": { "entry": "Invoke-NativeExtensionLoad.ps1", "mode": "script", "requires_authorization": true },
+    "config.update": { "entry": "Invoke-NativeConfigUpdate.ps1", "mode": "script", "requires_authorization": true },
+    "test.yaxunit": { "entry": "Invoke-NativeYaxunit.ps1", "mode": "script", "requires_authorization": true }
+  },
+  "detect": "Test-Native1CV8Available.ps1"
+}

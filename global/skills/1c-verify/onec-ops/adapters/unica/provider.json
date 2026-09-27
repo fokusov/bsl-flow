@@ -1,0 +1,10 @@
+{
+  "name": "unica",
+  "contract": "onec-ops/v1",
+  "capabilities": {
+    "extension.load": { "entry": "Invoke-UnicaOp.ps1", "mode": "agent_tool" },
+    "test.yaxunit": { "entry": "Invoke-UnicaOp.ps1", "mode": "agent_tool" },
+    "test.vanessa": { "entry": "Invoke-UnicaOp.ps1", "mode": "agent_tool" }
+  },
+  "detect": "Test-UnicaAvailable.ps1"
+}
