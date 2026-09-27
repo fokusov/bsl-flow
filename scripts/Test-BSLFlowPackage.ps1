@@ -388,7 +388,7 @@ try {
         $knownActionsMatch = [regex]::Match((Get-Content -Raw -LiteralPath $installedTaskCli), '(?m)^\$script:BFKnownActions=@\((?<list>[^)]*)\)')
         Assert-True $knownActionsMatch.Success 'Installed 1c-task CLI does not declare its known action set.'
         $actionSet = @([regex]::Matches($knownActionsMatch.Groups['list'].Value, "'([A-Za-z]+)'") | ForEach-Object { $_.Groups[1].Value })
-        $expectedActions = @('Start','Status','Next','Context','Run','Record','Update','Accept','Resume','Cancel','Deliver','Serve','Publish','PublishResume','Create','EditRegistry','List','Show','History','Overview','ArchiveTask','UnarchiveTask')
+        $expectedActions = @('Start','Status','Next','Context','Run','Record','Update','Accept','Resume','Cancel','Deliver','Serve','Publish','PublishResume','Create','EditRegistry','List','Show','History','Overview','ArchiveTask','UnarchiveTask','Submit')
         Assert-True ($actionSet.Count -eq $expectedActions.Count) 'Installed 1c-task CLI exposes an unexpected action set.'
         foreach ($action in $expectedActions) { Assert-True ($action -in $actionSet) "Installed 1c-task CLI omitted action: $action" }
     }

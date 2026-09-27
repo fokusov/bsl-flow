@@ -33,6 +33,15 @@ try {
     $codex.execution_profile|Add-Member codex_skills_sha256 ('f'*64)
     Assert-E ((Failure-E {Assert-BFRequest $codex}) -eq '') 'Profiled Codex Luna request rejected.'
     Assert-E (Test-Json -Json (ConvertTo-Json $codex -Depth 100) -SchemaFile $schema) 'Profiled Codex schema rejected.'
+    $claude=Copy-E $request;$claude.execution_profile.provider='claude-code'
+    $claude.models=[pscustomobject]@{worker='claude-fixture-1';worker_effort='medium';reviewer='claude-fixture-2';reviewer_effort='high'}
+    Assert-E ((Failure-E {Assert-BFRequest $claude}) -eq '') 'Claude Code request rejected.'
+    Assert-E (Test-Json -Json (ConvertTo-Json $claude -Depth 100) -SchemaFile $schema) 'Claude Code schema rejected.'
+    foreach($field in @('worker','worker_effort')){
+        $bad=Copy-E $claude;$bad.models.$field=if($field -eq 'worker'){'sonnet'}else{'xhigh'}
+        Assert-E ((Failure-E {Assert-BFRequest $bad}) -like 'BF_INVALID:*') 'Unsupported Claude model/effort accepted.'
+        Assert-E (-not(Test-Json -Json (ConvertTo-Json $bad -Depth 100) -SchemaFile $schema -ErrorAction SilentlyContinue)) 'Schema accepted unsupported Claude model/effort.'
+    }
     $unica=Copy-E $request;$unica.execution_profile.toolset.name='unica'
     $unica.execution_profile.PSObject.Properties.Remove('runtime')
     $unica.execution_profile|Add-Member unica ([pscustomobject]@{plugin_root=(Join-Path $testRoot 'unica');bootstrap_sha256=('b'*64);manifest_sha256=('c'*64);runtime_cache=(Join-Path $testRoot 'runtime');allowed_tools=@('unica.code.search','unica.form.edit','unica.project.map','unica.code.patch')})

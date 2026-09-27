@@ -121,6 +121,9 @@ function Assert-BFRequest {
     if($null -ne $profile -and $profile.provider -eq 'opencode'){
         foreach($field in @('worker','reviewer')){if($Request.models.$field -cne 'deepseek/deepseek-v4-flash'){throw "BF_INVALID: invalid OpenCode model $field."}}
         foreach($field in @('worker_effort','reviewer_effort')){if($null -ne $Request.models.$field){throw "BF_INVALID: OpenCode effort $field must be null."}}
+    } elseif($null -ne $profile -and $profile.provider -eq 'claude-code') {
+        foreach($field in @('worker','reviewer')){if($Request.models.$field -cnotmatch '^claude-[A-Za-z0-9._-]+$'){throw "BF_INVALID: invalid Claude Code model $field; use an explicit Claude model id."}}
+        foreach($field in @('worker_effort','reviewer_effort')){if($Request.models.$field -cnotin @('low','medium','high')){throw "BF_INVALID: invalid Claude Code effort $field."}}
     } else {
         foreach ($field in @('worker','reviewer')) { if ($Request.models.$field -notmatch '^[A-Za-z0-9._:-]+$') { throw "BF_INVALID: invalid model $field." } }
         foreach ($field in @('worker_effort','reviewer_effort')) { if ($Request.models.$field -notin @('low','medium','high','xhigh')) { throw "BF_INVALID: invalid effort $field." } }
