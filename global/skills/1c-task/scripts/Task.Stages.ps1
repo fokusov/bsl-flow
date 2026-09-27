@@ -334,8 +334,33 @@ function Assert-BFProtectedTests {
     if((Get-BFHash $before) -ne (Get-BFHash $after)){throw 'BF_BLOCKED: automatic repair changed protected test inputs; a trusted test-contract revision is required.'}
 }
 
+function Get-BFWorkerStagePrompt {
+    # The exact worker prompt for a dispatched attempt. Headless adapters and
+    # the current-agent Next/Submit route share it byte for byte.
+    param($State,$Attempt,[string]$ContextRoot='')
+    $stage=$Attempt.stage;$extra=''
+    if($stage -eq 'implement' -and $State.correction_rounds -gt 0){
+        $review=@($State.evidence|Where-Object{$_.stage -eq 'code_review'})[-1]
+        $relative='attempts/'+$review.attempt_id+'/result.json'
+        if([string]::IsNullOrWhiteSpace($ContextRoot)){$extra=[IO.File]::ReadAllText((Join-Path (Get-BFTaskDirectory $State.project_path $State.task_id) $relative))}
+        else{$extra=Get-BFStageContextArtifactText -State $State -ContextRoot $ContextRoot -RelativePath $relative}
+    }
+    if($stage -eq 'diagnose'){
+        Assert-BFStageRepairFailure $State $State.repair.pending_failure $ContextRoot
+        $relative='attempts/'+$State.repair.pending_failure+'/result.json'
+        if([string]::IsNullOrWhiteSpace($ContextRoot)){$extra=[IO.File]::ReadAllText((Join-Path (Get-BFTaskDirectory $State.project_path $State.task_id) $relative))}
+        else{$extra=Get-BFStageContextArtifactText -State $State -ContextRoot $ContextRoot -RelativePath $relative}
+    }
+    if($stage -eq 'implement' -and $null -ne (Get-BFValue (Get-BFValue $State 'repair') 'diagnosis_attempt')){
+        $relative='attempts/'+$State.repair.diagnosis_attempt+'/result.json'
+        $diagnosis=if([string]::IsNullOrWhiteSpace($ContextRoot)){[IO.File]::ReadAllText((Join-Path (Get-BFTaskDirectory $State.project_path $State.task_id) $relative))}else{Get-BFStageContextArtifactText -State $State -ContextRoot $ContextRoot -RelativePath $relative}
+        $extra+="`nRetained source repair diagnosis (criteria remain fixed):`n"+$diagnosis
+    }
+    return Get-BFStagePrompt $State $stage $extra $Attempt $ContextRoot
+}
+
 function Invoke-BFStageObservation {
-    param($Run,[string]$CodexPath,[scriptblock]$StageExecutor,$RecoveredResult,[object]$ProviderContext=$null)
+    param($Run,[string]$CodexPath,[scriptblock]$StageExecutor,$RecoveredResult,[object]$ProviderContext=$null,[switch]$ExternalDispatch)
     $state=$Run.state; $stage=$Run.attempt.stage; $directory=$Run.directory
     $raw=Join-Path $directory 'raw'; [void][IO.Directory]::CreateDirectory($raw)
     $contextRoot=if($null -ne $ProviderContext){[string](Get-BFValue $ProviderContext 'context_root' '')}else{''}
@@ -352,31 +377,17 @@ function Invoke-BFStageObservation {
     $result=$null
     try {
         if ($null -eq $RecoveredResult -and (& $cancelled)) { throw 'BF_BLOCKED: cancelled before dispatch.' }
-        if((Get-BFHash (Get-BFDependencies $state $stage $null)) -ne (Get-BFHash $Run.attempt.dependencies)){throw 'BF_BLOCKED: inputs changed before dispatch.'}
+        $preDispatch=Get-BFDependencies $state $stage $null
+        # An externally dispatched implement attempt (current agent) already
+        # wrote its declared output; every other input must still be identical.
+        if($ExternalDispatch -and $stage -eq 'implement'){$preDispatch['source']=Get-BFValue $Run.attempt.dependencies 'source'}
+        if((Get-BFHash $preDispatch) -ne (Get-BFHash $Run.attempt.dependencies)){throw 'BF_BLOCKED: inputs changed before dispatch.'}
         if ($null -ne $RecoveredResult) { $result=$RecoveredResult }
         elseif ($null -ne $StageExecutor) { $result=& $StageExecutor $Run }
         elseif($stage -eq 'verify'){ $result=Invoke-BFVerification $state $raw $CodexPath $cancelled $ProviderContext }
         elseif($stage -eq 'spec_review'){ $result=Invoke-BFSpecReviewStage $state $raw $CodexPath $cancelled $ProviderContext }
         else {
-            $extra=''
-            if($stage -eq 'implement' -and $state.correction_rounds -gt 0){
-                $review=@($state.evidence|Where-Object{$_.stage -eq 'code_review'})[-1]
-                $relative='attempts/'+$review.attempt_id+'/result.json'
-                if([string]::IsNullOrWhiteSpace($contextRoot)){$extra=[IO.File]::ReadAllText((Join-Path (Get-BFTaskDirectory $state.project_path $state.task_id) $relative))}
-                else{$extra=Get-BFStageContextArtifactText -State $state -ContextRoot $contextRoot -RelativePath $relative}
-            }
-            if($stage -eq 'diagnose'){
-                Assert-BFStageRepairFailure $state $state.repair.pending_failure $contextRoot
-                $relative='attempts/'+$state.repair.pending_failure+'/result.json'
-                if([string]::IsNullOrWhiteSpace($contextRoot)){$extra=[IO.File]::ReadAllText((Join-Path (Get-BFTaskDirectory $state.project_path $state.task_id) $relative))}
-                else{$extra=Get-BFStageContextArtifactText -State $state -ContextRoot $contextRoot -RelativePath $relative}
-            }
-            if($stage -eq 'implement' -and $null -ne (Get-BFValue (Get-BFValue $state 'repair') 'diagnosis_attempt')){
-                $relative='attempts/'+$state.repair.diagnosis_attempt+'/result.json'
-                $diagnosis=if([string]::IsNullOrWhiteSpace($contextRoot)){[IO.File]::ReadAllText((Join-Path (Get-BFTaskDirectory $state.project_path $state.task_id) $relative))}else{Get-BFStageContextArtifactText -State $state -ContextRoot $contextRoot -RelativePath $relative}
-                $extra+="`nRetained source repair diagnosis (criteria remain fixed):`n"+$diagnosis
-            }
-            $result=Invoke-BFManagedWorker -State $state -Stage $stage -Prompt (Get-BFStagePrompt $state $stage $extra $Run.attempt $contextRoot) -Directory (Join-Path $raw 'worker') -CodexPath $CodexPath -Cancelled $cancelled -ProviderContext $ProviderContext
+            $result=Invoke-BFManagedWorker -State $state -Stage $stage -Prompt (Get-BFWorkerStagePrompt $state $Run.attempt $contextRoot) -Directory (Join-Path $raw 'worker') -CodexPath $CodexPath -Cancelled $cancelled -ProviderContext $ProviderContext
         }
         $summary=$result.summary
         switch($result.status){
@@ -447,6 +458,9 @@ function Invoke-BFStageObservation {
         $summary=$_.Exception.Message
         $outcome=if($summary.StartsWith('BF_FAIL:')){'FAIL'}else{'BLOCKED'}
         $sideEffects=if($stage -in @('implement','verify')){'unknown'}else{'none'}
+        # The current agent had unsandboxed write access during a read-only
+        # stage: a changed source manifest is an unknown effect, not 'none'.
+        if($ExternalDispatch -and $sideEffects -eq 'none'){try{if((Get-BFSourceManifest $state).sha256 -ne $Run.attempt.source_manifest.sha256){$sideEffects='unknown'}}catch{$sideEffects='unknown'}}
         if($stage -eq 'verify' -and $_.Exception.Data['BF_NativeNotDispatched'] -eq $true -and @($state.request.criteria | Where-Object { $_.kind -ne 'file_assertion' -and $null -eq (Get-BFValue $_ 'native_1c') }).Count -eq 0){
             if((Get-BFHash (Get-BFDependencies $state $stage $null)) -eq (Get-BFHash $Run.attempt.dependencies)){$sideEffects='none'}
         }
@@ -484,8 +498,8 @@ function Invoke-BFStageObservation {
 }
 
 function Invoke-BFStage {
-    param($Run,[string]$CodexPath,[scriptblock]$StageExecutor,$RecoveredResult)
-    $terminal=Invoke-BFStageObservation $Run $CodexPath $StageExecutor $RecoveredResult
+    param($Run,[string]$CodexPath,[scriptblock]$StageExecutor,$RecoveredResult,[switch]$ExternalDispatch)
+    $terminal=Invoke-BFStageObservation $Run $CodexPath $StageExecutor $RecoveredResult -ExternalDispatch:$ExternalDispatch
     Write-BFJson -Path (Join-Path $Run.directory 'result.json') -Value $terminal
     return Record-BFAttempt $Run.state.project_path $Run.state.task_id $Run.attempt.attempt_id
 }
@@ -502,7 +516,11 @@ function Invoke-BFRun {
         if($next.action -ne 'dispatch'){return $state}
         if($state.status -eq 'blocked' -and @($state.evidence).Count -and $state.evidence[-1].outcome -eq 'BLOCKED'){return $state}
         if($watch.Elapsed.TotalSeconds -gt (Get-BFValue $state.request 'timeout_seconds' 1800)){throw 'BF_BLOCKED: task wall-time limit reached.'}
-        if(-not $checked -and $null -eq $StageExecutor){
+        # A legacy verify stage whose criteria are all literal file assertions
+        # launches no process, so it needs no worker/sandbox host. This is what
+        # lets a current-agent task (Next/Submit) finish without a headless host.
+        $processFreeVerify=$next.stage -eq 'verify' -and $null -eq (Get-BFValue $state.request 'execution_profile') -and @($state.request.criteria|Where-Object{$_.kind -ne 'file_assertion'}).Count -eq 0
+        if(-not $checked -and $null -eq $StageExecutor -and -not $processFreeVerify){
             $profile=Get-BFValue $state.request 'execution_profile'
             if($null -ne $profile){
                 $sandbox=Assert-BFSafePath $profile.sandbox.executable

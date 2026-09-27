@@ -1,0 +1,13 @@
+{
+  "name": "codex",
+  "contract": "worker-adapter/v1",
+  "status": "supported",
+  "isolation": "os_sandbox",
+  "stages": ["inspect", "spec", "spec_review", "spec_reconcile", "implement", "code_review", "code_reconcile", "diagnose"],
+  "observed_identity": false,
+  "entry": "ProfiledCodex.ps1",
+  "capability_function": "Test-BFExecutionCapability",
+  "worker_function": "Invoke-BFProfiledCodexWorker",
+  "version": {"policy": "codex_host"},
+  "profile_required": ["codex_skills_sha256"]
+}

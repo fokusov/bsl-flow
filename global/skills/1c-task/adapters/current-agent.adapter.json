@@ -1,0 +1,11 @@
+{
+  "name": "current-agent",
+  "contract": "worker-adapter/v1",
+  "status": "experimental",
+  "isolation": "current_agent",
+  "stages": ["inspect", "spec", "implement", "code_review", "diagnose"],
+  "observed_identity": false,
+  "entry": "CurrentAgent.ps1",
+  "capability_function": null,
+  "worker_function": "Submit-BFCurrentAgentResult"
+}

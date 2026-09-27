@@ -1,6 +1,7 @@
 #Requires -Version 7.0
 Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot 'Task.Toolsets.ps1')
+. (Join-Path (Split-Path $PSScriptRoot -Parent) 'adapters/Adapter.Registry.ps1')
 
 function Assert-BFRuntimePin {
     param($Runtime)
@@ -21,10 +22,12 @@ function Assert-BFRuntimePin {
 function Assert-BFExecutionProfile {
     param($Profile)
     Assert-BFFields $Profile @('provider','executable','executable_sha256','sandbox','toolset','denied_read_roots') @('unica','codex_skills_sha256','runtime') 'execution_profile'
-    if($Profile.provider -cnotin @('codex','opencode')){throw 'BF_INVALID: unsupported managed provider.'}
-    if($Profile.provider -eq 'codex'){
+    if($Profile.provider -isnot [string]){throw 'BF_INVALID: unsupported managed provider.'}
+    $adapter=Get-BFWorkerAdapter $Profile.provider
+    if($adapter.isolation -ceq 'current_agent'){throw 'BF_INVALID: the current-agent adapter is Submit-only and cannot be an execution profile provider.'}
+    if(@(Get-BFValue $adapter 'profile_required' @()) -ccontains 'codex_skills_sha256'){
         if((Get-BFValue $Profile 'codex_skills_sha256') -cnotmatch '^[0-9a-f]{64}$'){throw 'BF_INVALID: Codex requires a pinned automatic skill inventory.'}
-    }elseif(Test-BFCoverageProperty $Profile 'codex_skills_sha256'){throw 'BF_INVALID: OpenCode cannot use a Codex skill inventory.'}
+    }elseif(Test-BFCoverageProperty $Profile 'codex_skills_sha256'){throw 'BF_INVALID: only the Codex adapter can use a Codex skill inventory.'}
     Assert-BFText $Profile.executable 'execution_profile.executable'
     if(-not [IO.Path]::IsPathRooted($Profile.executable) -or [IO.Path]::GetExtension($Profile.executable) -cne '.exe' -or $Profile.executable_sha256 -cnotmatch '^[0-9a-f]{64}$'){throw 'BF_INVALID: provider requires an absolute native executable and SHA-256.'}
     Assert-BFFields $Profile.sandbox @('executable','sha256') @() 'sandbox'
@@ -507,12 +510,7 @@ function Test-BFExecutionCapability {
     $version=Invoke-BFProcess $profile.executable @('--version') $State.worker_path '' (Join-Path $Directory 'provider-version') 30
     if($version.exit_code -ne 0){throw 'BF_BLOCKED: provider version probe failed.'}
     $providerVersion=[IO.File]::ReadAllText($version.stdout).Trim()
-    if($profile.provider -eq 'opencode'){
-        if($providerVersion -cne '1.18.30'){throw 'BF_BLOCKED: unverified provider version.'}
-    }else{
-        [void](Assert-BFCodexHostVersion $providerVersion)
-        if($providerVersion -cne $sandboxVersion){throw 'BF_BLOCKED: Codex provider and sandbox versions differ.'}
-    }
+    [void](Assert-BFAdapterVersion (Get-BFWorkerAdapter $profile.provider) $providerVersion $sandboxVersion)
     $configSentinel=Join-Path $Config 'sentinel.txt'
     [IO.File]::WriteAllText($configSentinel,'config')
     $source=Assert-BFSafePath (Join-Path $State.worker_path '.bsl-flow-worker/host-probe.txt')
@@ -574,6 +572,12 @@ function Invoke-BFManagedWorker {
     param($State,[string]$Stage,[string]$Prompt,[string]$Directory,[string]$CodexPath,[scriptblock]$Cancelled,[int]$MaxOutputBytes=16777216,[object]$ProviderContext=$null)
     $profile=Get-BFValue $State.request 'execution_profile'
     if($null -eq $profile){return Invoke-BFCodexWorker $State $Stage $Prompt $Directory $CodexPath $Cancelled}
+    # Registry dispatch: stage/isolation policy is checked before any
+    # preflight, budget reservation or process launch.
+    $adapter=Get-BFWorkerAdapter $profile.provider
+    Assert-BFAdapterStagePolicy $adapter $Stage
+    $worker=Get-Command $adapter.worker_function -CommandType Function -ErrorAction SilentlyContinue
+    if($null -eq $worker){throw "BF_BLOCKED: worker adapter $($adapter.name) is not loaded."}
     # BFI-003/BFI-005 pre-dispatch gates live on the shared path so both
     # providers receive the same runtime and budget contract.
     $runtimeRoot=if($null -ne $ProviderContext){Join-Path (Assert-BFSafePath $ProviderContext.artifact_root) 'runtime'}else{''}
@@ -584,8 +588,7 @@ function Invoke-BFManagedWorker {
         if($null -ne $ProviderContext){[void](Assert-BFProviderBudgetAdmission $State $ProviderContext $Directory);[void](Add-BFProviderBudgetReservation $State $ProviderContext $Directory $profile.provider $Stage $requestedModel)}
         else{[void](Assert-BFBudgetAdmission $State $Directory);[void](Add-BFBudgetReservation $State $Directory $profile.provider $Stage $requestedModel)}
     }
-    if($profile.provider -eq 'opencode'){$result=Invoke-BFOpenCodeWorker $State $Stage $Prompt $Directory $CodexPath $Cancelled $MaxOutputBytes}
-    else{$result=Invoke-BFProfiledCodexWorker $State $Stage $Prompt $Directory $CodexPath $Cancelled $MaxOutputBytes}
+    $result=& $worker $State $Stage $Prompt $Directory $CodexPath $Cancelled $MaxOutputBytes
     if($hasBudget){if($null -ne $ProviderContext){[void](Complete-BFProviderBudgetDispatch $State $ProviderContext $Directory $profile.provider $Stage $requestedModel)}else{[void](Complete-BFBudgetDispatch $State $Directory $profile.provider $Stage $requestedModel)}}
     return $result
 }

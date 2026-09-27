@@ -212,12 +212,13 @@ function Set-BFClassification {
 }
 
 function New-BFAttempt {
-    param([string]$ProjectPath,[string]$TaskId,[string]$CodexPath)
+    param([string]$ProjectPath,[string]$TaskId,[string]$CodexPath,[string]$Isolation='',$Dispatch=$null)
     $directory=Get-BFTaskDirectory $ProjectPath $TaskId; $lock=Enter-BFLock $directory
     try {
         $state=Read-BFTask $ProjectPath $TaskId
         $next=Get-BFNext $state
         if ($next.action -ne 'dispatch') { throw "BF_CONFLICT: cannot dispatch: $($next.action)." }
+        if ($null -ne $Dispatch -and $next.stage -cnotin @($Dispatch.stages)) { throw "BF_BLOCKED: stage $($next.stage) is controller-owned or unsupported by adapter $($Dispatch.adapter); use Run with a headless host." }
         if (@($state.attempts).Count -ge (Get-BFValue $state.request 'max_attempts' 16)) { throw 'BF_BLOCKED: finite task attempt limit reached.' }
         if ($next.stage -in @('implement','code_review','verify')) { Assert-BFVerificationCoverage $state }
         if((Get-BFValue (Get-BFValue $state 'repair') 'rounds' 0) -gt 0){Assert-BFProtectedTests $state}
@@ -229,6 +230,12 @@ function New-BFAttempt {
         $memory=Add-BFMemoryAttemptBinding $state $next.stage
         $attempt=[ordered]@{schema_version=1;task_id=$state.task_id;attempt_id=$id;stage=$next.stage;intent_revision=$state.intent_revision;authorization_revision=$state.authorization_revision;dependencies=Get-BFDependencies $state $next.stage $manifest;source_manifest=$manifest;worker_path=$state.worker_path;executable=$CodexPath;requested_models=$state.request.models;started_at=[DateTime]::UtcNow.ToString('o');operation_id=$id;memory=$memory}
         $attempt.controller_process=[ordered]@{pid=$PID;start_time_utc=(Get-Process -Id $PID).StartTime.ToUniversalTime().ToString('o')}
+        if ($null -ne $Dispatch) {
+            # External dispatch: no controller process owns the attempt; the
+            # one-time dispatch record is written with the attempt, under lock.
+            $attempt.controller_process=$null;$attempt.adapter=$Dispatch.adapter;$attempt.isolation=$Isolation
+            Write-BFJson -Path (Join-Path $attemptPath 'dispatch.json') -Value ([ordered]@{schema_version=1;dispatch_id=$Dispatch.dispatch_id;adapter=$Dispatch.adapter;isolation=$Isolation;stage=$next.stage;attempt_id=$id;issued_at_utc=[DateTime]::UtcNow.ToString('o')})
+        }
         Write-BFJson -Path (Join-Path $attemptPath 'start.json') -Value $attempt
         $state.active_attempt=$id; $state.stage=$next.stage; $state.status='running'; $state.blockers=@(); $state.attempts+=,$id
         $state=Save-BFTask $state $state.revision
@@ -330,20 +337,26 @@ function Accept-BFTask {
         Assert-BFVerificationCoverage $state
         Assert-BFCoverageAccepted $state
         $manifest=Get-BFSourceManifest $state
-        $gates=@()
+        $gates=@();$limited=@()
         foreach ($stage in @(Get-BFRoute $state | Where-Object { $_ -ne 'acceptance' })) {
             $gate=@($state.evidence | Where-Object { $_.stage -eq $stage })[-1]
             if (-not (Test-BFEvidenceFresh $state $gate $manifest)) { throw "BF_BLOCKED: stale $stage evidence at acceptance." }
             $gates+=,[ordered]@{stage=$stage;attempt_id=$gate.attempt_id;result_sha256=$gate.result_sha256}
+            $gateStart=Join-Path $directory ('attempts/'+$gate.attempt_id+'/start.json')
+            if ((Test-Path -LiteralPath $gateStart -PathType Leaf) -and (Get-BFValue (Read-BFJson $gateStart) 'isolation') -ceq 'current_agent') { $limited+=$stage }
         }
         $receipt=[ordered]@{schema_version=1;task_id=$TaskId;intent_revision=$state.intent_revision;mode=$state.request.mode;intent_hash=$state.intent_hash;policy_hash=$state.policy_hash;baseline=$state.baseline;source_manifest=$manifest;gates=$gates;verdict='PASS';scope=if ($state.request.mode -eq 'analysis_only') {'analysis'} else {'source-and-declared-checks'} }
+        # Current-agent gates had no worker isolation; the receipt says so.
+        if ($limited.Count) { $receipt.isolation='current_agent';$receipt.isolation_limited_stages=@($limited) }
         $id=Get-BFHash $receipt; $receiptPath=Join-Path $directory ('acceptance/'+$id+'.json')
         if (-not (Test-Path -LiteralPath $receiptPath)) { Write-BFJson -Path $receiptPath -Value $receipt }
         if ($state.status -eq 'completed' -and @($state.acceptances).Count -and $state.acceptances[-1].sha256 -eq $id) {
             [void](Add-BFMemoryFromAcceptance $state $receipt $id)
             return $state
         }
-        $state.acceptances+=,[ordered]@{sha256=$id;path=$receiptPath;verdict='PASS';mode=$state.request.mode;intent_revision=$state.intent_revision}
+        $entry=[ordered]@{sha256=$id;path=$receiptPath;verdict='PASS';mode=$state.request.mode;intent_revision=$state.intent_revision}
+        if ($limited.Count) { $entry.isolation='current_agent' }
+        $state.acceptances+=,$entry
         $state.stage='acceptance'; $state.status='completed'; $state.blockers=@()
         $state=Save-BFTask $state $state.revision
         [void](Add-BFMemoryFromAcceptance $state $receipt $id)
