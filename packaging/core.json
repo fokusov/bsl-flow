@@ -1,0 +1,41 @@
+{
+  "package": "core",
+  "description": "BSL Flow Core: assisted (non-managed) skills, OpenSpec schemas, deterministic checks, host integrations. Cross-platform: Windows, Linux, macOS with pwsh 7 from PATH.",
+  "requires_core": null,
+  "include": [
+    "LICENSE",
+    "VERSION",
+    "README.md",
+    "README.en.md",
+    "INSTALL.md",
+    "CHANGELOG.md",
+    "docs/ARCHITECTURE_RU.md",
+    "docs/architecture/**",
+    "docs/FRAMEWORK_GUIDE_RU.md",
+    "docs/NATIVE_RUNTIME_RU.md",
+    "docs/hosts/**",
+    "docs/MIGRATION_0.9_RU.md",
+    ".claude-plugin/**",
+    "hosts/**",
+    "global/AGENTS.bootstrap.md",
+    "global/openspec/**",
+    "global/skills/1c-init-project/**",
+    "global/skills/1c-spec/**",
+    "global/skills/1c-spec-review/**",
+    "global/skills/1c-implement/**",
+    "global/skills/1c-verify/**",
+    "global/skills/1c-debug/**",
+    "global/skills/1c-estimate/**",
+    "scripts/Install-BSLFlowCore.ps1",
+    "scripts/New-BSLFlowUserConfig.ps1",
+    "scripts/Test-CorePackage.ps1",
+    "scripts/Test-InstallCore.ps1",
+    "scripts/suites.d/**"
+  ],
+  "exclude": [
+    "global/skills/1c-spec-review/scripts/Council.*.ps1",
+    "global/skills/1c-spec-review/scripts/Invoke-CouncilReview.ps1",
+    "global/skills/1c-spec-review/scripts/Test-Council*.ps1",
+    "global/skills/1c-spec-review/references/council-*"
+  ]
+}

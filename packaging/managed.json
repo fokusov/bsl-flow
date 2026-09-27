@@ -1,0 +1,25 @@
+{
+  "package": "managed",
+  "description": "BSL Flow Managed: 1c-task controller, registry, publication, native FILE adapter, Council engine, managed review/coverage/gates. Windows-only; requires the matching Core version installed first.",
+  "requires_core": "$VERSION",
+  "include": [
+    "LICENSE",
+    "VERSION",
+    "README.md",
+    "README.en.md",
+    "docs/managed-host-contract.md",
+    "docs/PUBLICATION_RU.md",
+    "docs/REQUIREMENT_COVERAGE_RU.md",
+    "docs/COUNCIL_REVIEW_RECOVERY_KNOWN_ISSUES_RU.md",
+    "docs/TEST_ENVIRONMENT_GUIDE_RU.md",
+    "global/OPENCODE.delegation.md",
+    "global/skills/1c-task/**",
+    "global/skills/1c-spec-review/scripts/Council.*.ps1",
+    "global/skills/1c-spec-review/scripts/Invoke-CouncilReview.ps1",
+    "global/skills/1c-spec-review/scripts/Test-Council*.ps1",
+    "global/skills/1c-spec-review/references/council-*",
+    "scripts/Install-BSLFlowManaged.ps1",
+    "scripts/Install-BSLFlowForOpenCode.ps1"
+  ],
+  "exclude": []
+}
