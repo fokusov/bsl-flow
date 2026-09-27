@@ -19,8 +19,6 @@
     "do_not_change",
     "confidence",
     "reviewer",
-    "reviewer_model",
-    "same_model_as_author",
     "inputs",
     "gate"
   ],

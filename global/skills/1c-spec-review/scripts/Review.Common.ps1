@@ -153,8 +153,10 @@ function Assert-BSLFlowReviewPayload {
     param([Parameter(Mandatory)]$Review, [switch]$Completed)
 
     $rawProperties = @('schema_version', 'reviewer_verdict', 'summary', 'scores', 'overengineering', 'findings', 'do_not_change', 'confidence')
-    $completedProperties = @($rawProperties + @('reviewed_at_utc', 'review_iteration', 'verdict', 'weighted_score', 'blocking_findings', 'reviewer', 'inputs', 'gate', 'reviewer_model', 'same_model_as_author'))
-    $allowedTop = if ($Completed) { $completedProperties } else { $rawProperties }
+    $completedProperties = @($rawProperties + @('reviewed_at_utc', 'review_iteration', 'verdict', 'weighted_score', 'blocking_findings', 'reviewer', 'inputs', 'gate'))
+    # Reviews published before 0.9 lack the provenance fields; they stay valid.
+    $optionalProvenance = @('reviewer_model', 'same_model_as_author') | Where-Object { $null -ne $Review.PSObject -and $null -ne $Review.PSObject.Properties[$_] }
+    $allowedTop = if ($Completed) { @($completedProperties + @($optionalProvenance)) } else { $rawProperties }
     Assert-BSLFlowObjectProperties $Review 'review' $allowedTop
 
     if ((Get-BSLFlowJsonNumber $Review.schema_version 'review.schema_version' -Integer) -ne 1) { throw 'review.schema_version must be 1.' }
@@ -230,8 +232,8 @@ function Assert-BSLFlowReviewPayload {
         Assert-BSLFlowObjectProperties $Review.reviewer 'reviewer' @('provider', 'agent', 'model')
         if ($Review.reviewer.provider -notin @('opencode', 'claude_cli', 'codex_exec', 'api', 'claude_subagent')) { throw 'Invalid reviewer.provider.' }
         foreach ($name in @('agent', 'model')) { Assert-BSLFlowText $Review.reviewer.$name "reviewer.$name" }
-        Assert-BSLFlowText $Review.reviewer_model 'reviewer_model'
-        if ($null -ne $Review.same_model_as_author -and $Review.same_model_as_author -isnot [bool]) { throw 'same_model_as_author must be a boolean or null.' }
+        if ('reviewer_model' -in $optionalProvenance) { Assert-BSLFlowText $Review.reviewer_model 'reviewer_model' }
+        if ('same_model_as_author' -in $optionalProvenance -and $null -ne $Review.same_model_as_author -and $Review.same_model_as_author -isnot [bool]) { throw 'same_model_as_author must be a boolean or null.' }
         Assert-BSLFlowObjectProperties $Review.inputs 'inputs' @('original_task_sha256', 'spec_sha256', 'design_sha256')
         foreach ($name in @('original_task_sha256', 'spec_sha256')) {
             if ($Review.inputs.$name -isnot [string] -or $Review.inputs.$name -notmatch '^[a-f0-9]{64}$') { throw "Invalid input hash: $name" }
