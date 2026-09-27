@@ -87,7 +87,8 @@ try {
     $env = Register-BSLFlowCouncilMemberResult -RunRoot $tempRun -Attempt $a1 -Payload $payload -Status 'completed' -Summary 'fixture member result' -Observed $observed -ExecutionMode 'direct_api'
     Assert-True ($env.requested.model -eq 'deepseek-flash' -and $env.payload_sha256 -match '^[a-f0-9]{64}$') 'member envelope built by controller'
 
-    $policyText = Get-Content -Raw -LiteralPath (Join-Path $PackageRoot 'global\skills\1c-init-project\assets\project\bsl-flow.yaml')
+    # The packaged template names symbolic profiles; bind them inline.
+    $policyText = (Get-Content -Raw -LiteralPath (Join-Path $PackageRoot 'global\skills\1c-init-project\assets\project\bsl-flow.yaml')).TrimEnd() + "`nllm:`n  models:`n    review-fast:`n      provider: deepseek`n      model: deepseek-flash`n    review-strong:`n      provider: openai`n      model: gpt-6-astra`n    review-chair:`n      provider: openai`n      model: gpt-5.6-sol`n"
     $policy = Get-BSLFlowCouncilPolicy $policyText
     $readiness = Get-BSLFlowCouncilReadiness -PolicyRoles $policy.roles -RunRoot $tempRun
     Assert-True (-not $readiness.chair_allowed) 'chair blocked while required roles miss terminal results'
@@ -198,6 +199,77 @@ try {
     # Third content blocks.
     [System.IO.File]::WriteAllText((Join-Path $tempChange 'spec.md'), 'third content', $utf8)
     Assert-Throws { Resume-BSLFlowCouncilPublication -ChangeDir $tempChange -RunRoot $tempRun -Review $review } 'third live content gives BLOCKED without overwrite'
+
+    # --- Chair anchors (spec-lint anchors[], id refs, legacy compatibility). ---
+    function Get-ThrowMessage([scriptblock]$Block) { try { & $Block; return $null } catch { return [string]$_.Exception.Message } }
+    function Copy-Review($Value) { return ($Value | ConvertTo-Json -Depth 20 | ConvertFrom-Json) }
+    $anchors = @(Get-BSLFlowSpecAnchors -SpecText $finalSpecText)
+    $reqAnchors = @($anchors | Where-Object { $_.id -like 'REQ-*' })
+    Assert-True ($reqAnchors.Count -eq @($manifest.requirements).Count -and [string]$reqAnchors[0].id -ceq 'REQ-1') 'REQ anchors follow the requirement manifest numbering'
+    Assert-True (@($anchors | Where-Object { $_.id -like 'AC-*' }).Count -ge 1 -and @($anchors | Where-Object { $_.id -like 'NG-*' }).Count -ge 1) 'acceptance criteria and non-goals items get AC/NG anchors'
+    Assert-True ([string]$reqAnchors[0].section -ceq 'Требуемое поведение' -and [int]$reqAnchors[0].item -eq 1 -and [string]$reqAnchors[0].text_sha256 -match '^[a-f0-9]{64}$') 'anchor carries section, item and text hash'
+    $lintDir = Join-Path $tempProject 'lint-anchors'
+    New-Item -ItemType Directory -Path $lintDir -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $lintDir 'spec.md'), $finalSpecText, $utf8)
+    $lintResult = & (Join-Path $skill 'scripts\Test-1CSpec.ps1') -ChangePath $lintDir -NoThrow
+    $lintJson = Get-Content -Raw -LiteralPath (Join-Path $lintDir 'spec-lint.json') | ConvertFrom-Json
+    Assert-True (@($lintJson.anchors).Count -eq $anchors.Count -and [string]$lintJson.anchors[0].id -ceq 'REQ-1' -and (@($lintJson.anchors[0].PSObject.Properties.Name) -join ',') -ceq 'id,section,item,text_sha256') 'spec-lint.json emits additive anchors[] {id, section, item, text_sha256}'
+    Assert-True ([bool]$lintResult.passed -eq [bool]$lintJson.passed) 'anchors do not change the lint verdict'
+
+    $req6 = @($manifest.requirements)[5].id
+    # Regression (execution-contract-v01 review-blocked.md): an invented heading
+    # anchor must be rejected with an actionable message naming the id space.
+    $invented = Copy-Review $review
+    @($invented.chair.requirement_refs | Where-Object { $_.id -ceq $req6 })[0].final_refs = @('Форматы файлов / Evidence/T-NNN.json')
+    $inventedError = Get-ThrowMessage { Assert-BSLFlowCouncilReview $invented }
+    Assert-True ($inventedError -match [regex]::Escape("$req6 -> Форматы файлов / Evidence/T-NNN.json") -and $inventedError -match 'anchor ids of the final specification \(available: REQ-1\.\.REQ-[0-9]+, AC-1') 'invented anchor REQ-006 -> Форматы файлов / Evidence/T-NNN.json is rejected with the available anchor ids'
+    $idBased = Copy-Review $review
+    $index = 0
+    foreach ($ref in @($idBased.chair.requirement_refs)) { $index++; $ref.final_refs = @("REQ-$index") }
+    @($idBased.chair.requirement_refs | Where-Object { $_.id -ceq $req6 })[0].final_refs = @('REQ-6', 'AC-1', 'REQ-006')
+    $idBased.reconciliation.review_sha256 = Get-BSLFlowCouncilReviewDigest $idBased
+    Assert-True ($null -eq (Get-ThrowMessage { Assert-BSLFlowCouncilReview $idBased })) 'id-based refs (REQ-N, AC-N, zero-padded manifest spelling) resolve against the final specification'
+    $missingId = Copy-Review $idBased
+    @($missingId.chair.requirement_refs)[0].final_refs = @('REQ-999')
+    Assert-True ((Get-ThrowMessage { Assert-BSLFlowCouncilReview $missingId }) -match 'REQ-999; refs must be anchor ids') 'a non-existent anchor id never falls back to substring matching'
+    $verbatim = Copy-Review $review
+    @($verbatim.chair.requirement_refs)[0].final_refs = @([string]$reqAnchors[0].text)
+    Assert-True ($null -eq (Get-ThrowMessage { Assert-BSLFlowCouncilReview $verbatim })) 'legacy verbatim and "Требуемое поведение / N" refs of published reviews stay valid'
+    . (Join-Path $skill 'scripts\Invoke-CouncilReview.ps1')
+    $chairSchema = Get-BSLFlowCouncilRoleOutputSchema -Role 'chair' -AnchorIds @($anchors | ForEach-Object { $_.id }) -RequirementIds @($manifest.requirements | ForEach-Object { $_.id })
+    $finalRefEnum = @($chairSchema.properties.requirement_refs.items.properties.final_refs.items.enum)
+    Assert-True ($finalRefEnum.Count -eq $anchors.Count -and 'REQ-6' -cin $finalRefEnum -and 'Форматы файлов / Evidence/T-NNN.json' -cnotin $finalRefEnum) 'structured chair schema pins final_refs to the actual anchor ids'
+    Assert-True (@($chairSchema.properties.decisions.items.properties.resolution_refs.items.enum).Count -eq $anchors.Count -and [int]$chairSchema.properties.decisions.maxItems -eq 0) 'structured chair schema pins resolution_refs and allows no decisions without findings'
+    $chairPrompt = New-BSLFlowCouncilPrompt -Role 'chair' -View ([pscustomobject]@{ original_task = 'o'; spec = $finalSpecText; anchors = $anchors; aggregates = '{}' })
+    Assert-True ($chairPrompt -match '(?m)^REQ-1 \[Требуемое поведение #1\]: ' -and $chairPrompt -match 'MUST be exactly one anchor id') 'chair prompt lists the controller-computed anchors and demands id refs'
+
+    # --- Council limitations: PASS_WITH_LIMITATIONS never passes as a clean PASS. ---
+    $limited = Copy-Review $review
+    $limited.verdict = 'PASS_WITH_LIMITATIONS'
+    $limited | Add-Member -NotePropertyName limitations -NotePropertyValue @('single_model_council')
+    Assert-True ($null -eq (Get-ThrowMessage { Assert-BSLFlowCouncilReview $limited })) 'PASS_WITH_LIMITATIONS with single_model_council is a valid v2 review'
+    $cleanWithLimit = Copy-Review $limited
+    $cleanWithLimit.verdict = 'PASS'
+    Assert-True ((Get-ThrowMessage { Assert-BSLFlowCouncilReview $cleanWithLimit }) -match 'cannot be a clean PASS') 'limitations forbid a clean PASS'
+    $noLimit = Copy-Review $review
+    $noLimit.verdict = 'PASS_WITH_LIMITATIONS'
+    Assert-True ((Get-ThrowMessage { Assert-BSLFlowCouncilReview $noLimit }) -match 'requires review.limitations') 'PASS_WITH_LIMITATIONS needs recorded limitations'
+    $upgraded = Copy-Review $limited
+    $upgraded.chair.verdict = 'REVISE'
+    Assert-True ((Get-ThrowMessage { Assert-BSLFlowCouncilReview $upgraded }) -match 'cannot exceed the chair verdict') 'PASS_WITH_LIMITATIONS cannot upgrade a non-PASS chair'
+    $emptyLimit = Copy-Review $limited
+    $emptyLimit.limitations = @()
+    Assert-True ((Get-ThrowMessage { Assert-BSLFlowCouncilReview $emptyLimit }) -match 'omitted when empty') 'empty limitations are rejected'
+    $unknownLimit = Copy-Review $limited
+    $unknownLimit.limitations = @('trust_me')
+    Assert-True ((Get-ThrowMessage { Assert-BSLFlowCouncilReview $unknownLimit }) -match 'Unknown review limitation') 'unknown limitations are rejected'
+    $degradedLimited = Copy-Review $limited
+    $degradedLimited.diversity = 'degraded'
+    $gateLint = [pscustomobject]@{ passed = $true }
+    $degradedGate = Test-BSLFlowCouncilFinalGate -Review $degradedLimited -OriginalTaskPath (Join-Path $tempChange 'original-task.md') -SpecPath (Join-Path $tempChange 'spec.md') -Lint $gateLint
+    Assert-True ('Degraded council cannot PASS.' -cin @($degradedGate.errors)) 'final gate treats PASS_WITH_LIMITATIONS as a PASS-family verdict'
+    $limitedGate = Test-BSLFlowCouncilFinalGate -Review $limited -OriginalTaskPath (Join-Path $tempChange 'original-task.md') -SpecPath (Join-Path $tempChange 'spec.md') -Lint $gateLint
+    Assert-True (@($limitedGate.errors | Where-Object { $_ -match 'non-PASS council review must contain' }).Count -eq 0) 'a limited PASS without findings needs no reconciled decision'
 }
 finally {
     Remove-Item -LiteralPath $tempProject -Recurse -Force -ErrorAction SilentlyContinue

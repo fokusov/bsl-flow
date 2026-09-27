@@ -70,6 +70,8 @@ if ($peekVersion -eq 2) {
         review_schema = 2
         verdict = if ($null -ne $councilReview) { [string]$councilReview.verdict } else { $null }
         diversity = if ($null -ne $councilReview) { [string]$councilReview.diversity } else { $null }
+        # PASS_WITH_LIMITATIONS is carried verbatim; limitations explain it.
+        limitations = @(if ($null -ne $councilReview -and $null -ne $councilReview.PSObject.Properties['limitations']) { @($councilReview.limitations | ForEach-Object { [string]$_ }) })
         inputs = [ordered]@{
             review_sha256 = $v2ReviewHash
             reconciliation_sha256 = $v2ReconciliationHash

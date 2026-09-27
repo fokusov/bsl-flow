@@ -21,6 +21,7 @@ function Get-BSLFlowKnownProviderEndpoint {
     switch ($Name.ToLowerInvariant()) {
         'openai' { return 'https://api.openai.com/v1' }
         'deepseek' { return 'https://api.deepseek.com' }
+        'anthropic' { return 'https://api.anthropic.com' }
         default { return $null }
     }
 }
@@ -80,7 +81,7 @@ function Assert-BSLFlowCouncilNoUnknownKeys {
     param([Parameter(Mandatory)][AllowEmptyString()][string]$Text)
     $allowed = @{
         'llm' = @('providers', 'models')
-        'review.council' = @('enabled', 'max_parallel', 'allow_local_http', 'legacy_mode', 'roles', 'budget', 'request_timeout_seconds')
+        'review.council' = @('enabled', 'max_parallel', 'allow_local_http', 'legacy_mode', 'roles', 'budget', 'request_timeout_seconds', 'independence')
     }
     foreach ($path in @(@('llm'), @('review', 'council'))) {
         $name = ($path -join '.')
@@ -173,6 +174,13 @@ function Get-BSLFlowCouncilPolicy {
     $allowLocalHttp = ConvertTo-BSLFlowBoolean (Get-BSLFlowYamlValue $ConfigText @('review', 'council', 'allow_local_http') 'false') 'review.council.allow_local_http'
     $legacyMode = Get-BSLFlowYamlValue $ConfigText @('review', 'council', 'legacy_mode') 'block'
     if ($legacyMode -notin @('block', 'opencode_compat')) { throw "Invalid review.council.legacy_mode: $legacyMode" }
+    # Council independence is project-owned. An absent key means the fail-closed
+    # default distinct_models; the parsed policy carries the key only when it is
+    # explicit, so canonical hashes of configs without it stay byte-compatible.
+    $independenceRaw = Get-BSLFlowYamlValue $ConfigText @('review', 'council', 'independence') ''
+    if (-not [string]::IsNullOrWhiteSpace($independenceRaw) -and $independenceRaw -cnotin @('distinct_models', 'distinct_providers', 'any')) {
+        throw "Invalid review.council.independence: $independenceRaw. Use distinct_models, distinct_providers or any."
+    }
     Assert-BSLFlowCouncilNoUnknownKeys $ConfigText
 
     # Committed config must never carry a literal secret. Local overlay is a separate ignored file.
@@ -187,9 +195,11 @@ function Get-BSLFlowCouncilPolicy {
     foreach ($providerName in @(Get-BSLFlowYamlChildren $ConfigText @('llm', 'providers'))) {
         if ($providerName -cnotmatch '^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$') { throw "Unsafe provider id: $providerName" }
         $protocol = Get-BSLFlowYamlValue $ConfigText @('llm', 'providers', $providerName, 'protocol') ''
-        if ($protocol -notin @('openai_responses', 'openai_compatible')) { throw "Invalid protocol for llm.providers.$providerName." }
+        if ($protocol -cnotin @('openai_responses', 'openai_compatible', 'anthropic_messages')) { throw "Invalid protocol for llm.providers.$providerName." }
         $baseUrl = Get-BSLFlowYamlValue $ConfigText @('llm', 'providers', $providerName, 'base_url') ''
         $tokenEnv = Get-BSLFlowYamlValue $ConfigText @('llm', 'providers', $providerName, 'token_env') ''
+        # The Anthropic Messages protocol has a conventional credential variable.
+        if ($protocol -ceq 'anthropic_messages' -and [string]::IsNullOrWhiteSpace($tokenEnv)) { $tokenEnv = 'ANTHROPIC_API_KEY' }
         if ($tokenEnv -and $tokenEnv -cnotmatch '^[A-Za-z_][A-Za-z0-9_]*$') { throw "Invalid token_env for llm.providers.$providerName." }
         $knownDefault = Get-BSLFlowKnownProviderEndpoint $providerName
         if ([string]::IsNullOrWhiteSpace($baseUrl)) {
@@ -269,7 +279,7 @@ function Get-BSLFlowCouncilPolicy {
     if ($null -eq $requestTimeout) { $requestTimeout = 300 }
     if ([double]$requestTimeout -lt 60 -or [double]$requestTimeout -gt 900) { throw 'review.council.request_timeout_seconds must be between 60 and 900.' }
 
-    return [ordered]@{
+    $policy = [ordered]@{
         council_schema_version = $versions.council_schema_version
         transport_capability_version = $versions.transport_capability_version
         enabled = $councilEnabled; max_parallel = $maxParallel
@@ -277,6 +287,8 @@ function Get-BSLFlowCouncilPolicy {
         request_timeout_seconds = [int]$requestTimeout
         providers = $providers; models = $models; roles = $roles; budget = $budget
     }
+    if (-not [string]::IsNullOrWhiteSpace($independenceRaw)) { $policy.independence = $independenceRaw }
+    return $policy
 }
 
 function Get-BSLFlowLocalProviderOverlay {

@@ -26,8 +26,21 @@ function New-TempProject {
         $text = [IO.File]::ReadAllText($source)
         [System.IO.File]::WriteAllText((Join-Path $change $name), ($text -replace "`r`n", "`n"), [System.Text.UTF8Encoding]::new($false))
     }
-    [System.IO.File]::WriteAllText((Join-Path $root 'bsl-flow.yaml'), (Get-Content -Raw -LiteralPath (Join-Path $PackageRoot 'global\skills\1c-init-project\assets\project\bsl-flow.yaml')))
+    [System.IO.File]::WriteAllText((Join-Path $root 'bsl-flow.yaml'), (ConvertTo-BoundCouncilFixture (Get-Content -Raw -LiteralPath (Join-Path $PackageRoot 'global\skills\1c-init-project\assets\project\bsl-flow.yaml'))))
     return $root
+}
+
+function ConvertTo-BoundCouncilFixture([string]$Text) {
+    # The packaged template names symbolic profiles only; the fixture binds
+    # them inline (project-local llm.models) instead of a user profile. Council
+    # independence (default distinct_models) also needs two distinct critic
+    # models, so one critic is rebound to a second critic profile on the same
+    # provider as the others (credential routing stays unchanged).
+    $pattern = '(?m)^(?<head>[ ]+architecture_critic:[ ]*\r?\n(?:[ ]+(?!model:)[A-Za-z_]+:.*\r?\n)*?[ ]+model:)[ ]*\S+'
+    $updated = [regex]::new($pattern).Replace($Text, { param($m) $m.Groups['head'].Value + ' review-alt' }, 1)
+    if ($updated -ceq $Text) { throw 'Fixture role model binding not found: architecture_critic' }
+    if (-not $updated.EndsWith("`n")) { $updated += "`n" }
+    return ($updated + "llm:`n  models:`n    review-fast:`n      provider: deepseek`n      model: deepseek-flash`n      effort: medium`n    review-alt:`n      provider: deepseek`n      model: deepseek-alt`n      effort: medium`n    review-strong:`n      provider: openai`n      model: gpt-6-astra`n      effort: high`n    review-chair:`n      provider: openai`n      model: gpt-5.6-sol`n      effort: medium`n")
 }
 
 # Stub dispatcher: deterministic role payloads without network. One critic asks
@@ -170,8 +183,19 @@ try {
     }
     $capabilities = @{}
     foreach ($role in @('brainstorm', 'intent_critic', 'architecture_critic', 'executability_critic', 'chair')) { $capabilities[$role] = $capability }
+    # Every tokenless role resolves to the one host model: the default
+    # distinct_models policy refuses the cycle before any fallback dispatch.
+    $blocked3 = $null
+    try { $null = Invoke-BSLFlowCouncilReview -ProjectPath $proj3 -ChangeName 'demo' -AllowLiveDispatch -FallbackRunner $fallbackRunner -Capabilities $capabilities }
+    catch { $blocked3 = [string]$_.Exception.Message }
+    Assert-True ($blocked3 -match "BF_BLOCKED: council independence 'distinct_models' violated: chair and intent_critic share model 'current-model'") 'single host model council is refused under the default independence policy'
+    Assert-True (@($script:fallbackCalls).Count -eq 0) 'independence refusal happens before any fallback dispatch'
+    $config3 = [regex]::new('(?m)^  council:[ ]*\r?\n').Replace((Get-Content -Raw -LiteralPath (Join-Path $proj3 'bsl-flow.yaml')), "  council:`n    independence: any`n", 1)
+    [System.IO.File]::WriteAllText((Join-Path $proj3 'bsl-flow.yaml'), $config3, [System.Text.UTF8Encoding]::new($false))
     $result3 = Invoke-BSLFlowCouncilReview -ProjectPath $proj3 -ChangeName 'demo' -AllowLiveDispatch -FallbackRunner $fallbackRunner -Capabilities $capabilities
-    Assert-True ([string]$result3.review.verdict -eq 'PASS') 'tokenless default route completes through fresh current-agent contexts'
+    Assert-True ([string]$result3.review.verdict -ceq 'PASS_WITH_LIMITATIONS') 'tokenless default route completes through fresh current-agent contexts as a limited PASS'
+    Assert-True ((@($result3.review.limitations) -join ',') -ceq 'single_model_council' -and [string]$result3.review.chair.verdict -ceq 'PASS') 'independence any publishes single_model_council and keeps the raw chair PASS'
+    Assert-True ([string]$result3.final_validation.verdict -ceq 'PASS_WITH_LIMITATIONS' -and (@($result3.final_validation.limitations) -join ',') -ceq 'single_model_council') 'final validation carries the limited verdict and its limitations'
     Assert-True ([string]$result3.review.diversity -eq 'multi_role_single_model') 'fallback diversity is never multi_model'
     Assert-True ([bool]$result3.review.fallback_visible) 'fallback stays visible in the report'
     Assert-True (@($script:fallbackCalls).Count -eq 4) 'all four required roles ran as fresh fallback contexts'
@@ -179,6 +203,34 @@ try {
     Assert-True ([string]$fallbackEnvelope.execution_mode -eq 'current_agent_fallback' -and [string]$fallbackEnvelope.observed.model -eq 'receipt-model' -and [string]$fallbackEnvelope.observed.effort -eq 'receipt-effort') 'fallback envelope keeps receipt-observed provenance, not requested values'
 }
 finally { Remove-Item -LiteralPath $proj3 -Recurse -Force -ErrorAction SilentlyContinue }
+
+# 3a. An anthropic_messages chair receives a structured schema whose ref enums
+# are the actual draft anchors; openai-compatible critics receive none. The
+# published review of a distinct-model council carries no limitations.
+$proj3a = New-TempProject
+. (Join-Path $skill 'scripts\Council.Validation.ps1')
+try {
+    $config3a = (Get-Content -Raw -LiteralPath (Join-Path $proj3a 'bsl-flow.yaml')) -replace "`r`n", "`n"
+    $config3a = [regex]::new('(?m)^(?<head>[ ]+chair:[ ]*\n(?:[ ]+(?!model:)[A-Za-z_]+:.*\n)*?[ ]+model:)[ ]*\S+').Replace($config3a, { param($m) $m.Groups['head'].Value + ' review-claude' }, 1)
+    $config3a = $config3a.Replace("llm:`n  providers:`n", "llm:`n  providers:`n    anthropic:`n      protocol: anthropic_messages`n")
+    $config3a = $config3a.TrimEnd() + "`n    review-claude:`n      provider: anthropic`n      model: claude-chair-fixture`n      effort: high`n"
+    [System.IO.File]::WriteAllText((Join-Path $proj3a 'bsl-flow.yaml'), $config3a, [System.Text.UTF8Encoding]::new($false))
+    $schemaBox = @{}
+    $schemaStub = {
+        param($Attempt, $PromptText, $Route)
+        $schemaBox[[string]$Attempt.role] = $Route['output_schema']
+        return & $stub $Attempt $PromptText $Route
+    }.GetNewClosure()
+    foreach ($name in @('DEEPSEEK_API_KEY', 'ANTHROPIC_API_KEY')) { [System.Environment]::SetEnvironmentVariable($name, 'test-token') }
+    try { $result3a = Invoke-BSLFlowCouncilReview -ProjectPath $proj3a -ChangeName 'demo' -AllowLiveDispatch -Dispatcher $schemaStub }
+    finally { foreach ($name in @('DEEPSEEK_API_KEY', 'ANTHROPIC_API_KEY')) { [System.Environment]::SetEnvironmentVariable($name, $null) } }
+    $chairSchema3a = $schemaBox['chair']
+    $draftAnchorIds = @(Get-BSLFlowSpecAnchors -SpecText ([IO.File]::ReadAllText((Join-Path $proj3a 'openspec\changes\demo\spec.md'))) | ForEach-Object { [string]$_.id })
+    Assert-True ($null -ne $chairSchema3a -and (@($chairSchema3a.properties.requirement_refs.items.properties.final_refs.items.enum) -join ',') -ceq ($draftAnchorIds -join ',')) 'anthropic chair dispatch carries the anchor-id enum built at dispatch time'
+    Assert-True ($null -eq $schemaBox['intent_critic']) 'openai-compatible critics dispatch without a tool schema'
+    Assert-True ($null -eq $result3a.review.PSObject.Properties['limitations'] -and [string]$result3a.review.verdict -ceq 'needs_input') 'distinct-model council publishes no limitations'
+}
+finally { Remove-Item -LiteralPath $proj3a -Recurse -Force -ErrorAction SilentlyContinue }
 
 # 4. A timeout after dispatch is persisted once and never blindly repeated.
 $proj4 = New-TempProject
@@ -302,7 +354,7 @@ try {
     $configText8 = $configText8.Replace($budgetAnchor, $budgetBlock)
     # Give each model profile an explicit per-dispatch estimate so the cycle
     # admission is a real number, then the resume leg clamps the limit.
-    foreach ($modelName in @('sol', 'astra', 'flash')) {
+    foreach ($modelName in @('review-fast', 'review-alt', 'review-strong', 'review-chair')) {
         $modelAnchor = '    ' + $modelName + ":" + "`n" + '      provider:'
         $modelReplacement = '    ' + $modelName + ":" + "`n" + '      cost_estimate_usd: 0.01' + "`n" + '      provider:'
         $configText8 = $configText8.Replace($modelAnchor, $modelReplacement)

@@ -26,7 +26,8 @@ $src = Join-Path $PackageRoot 'openspec\changes\api-specification-council'
 Copy-Item -LiteralPath (Join-Path $src 'original-task.md') -Destination (Join-Path $tempChange 'original-task.md')
 Copy-Item -LiteralPath (Join-Path $src 'spec.md') -Destination (Join-Path $tempChange 'spec.md')
 try {
-    $policyText = Get-Content -Raw -LiteralPath (Join-Path $PackageRoot 'global\skills\1c-init-project\assets\project\bsl-flow.yaml')
+    # The packaged template names symbolic profiles; bind them inline.
+    $policyText = (Get-Content -Raw -LiteralPath (Join-Path $PackageRoot 'global\skills\1c-init-project\assets\project\bsl-flow.yaml')).TrimEnd() + "`nllm:`n  models:`n    review-fast:`n      provider: deepseek`n      model: deepseek-flash`n    review-strong:`n      provider: openai`n      model: gpt-6-astra`n    review-chair:`n      provider: openai`n      model: gpt-5.6-sol`n"
     $policy = Get-BSLFlowCouncilPolicy $policyText
     Assert-True ([bool]$policy.enabled) 'lifecycle uses enabled council policy'
     $policyHash = Get-BSLFlowBytesSha256 ([System.Text.Encoding]::UTF8.GetBytes($policyText))
