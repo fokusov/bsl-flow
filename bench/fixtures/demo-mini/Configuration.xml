@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Minimal stub. Nothing in BSL Flow's tooling parses this file's content today (see
+  Test-Confirmed1CProject in global/skills/1c-init-project/scripts/Initialize-BSLFlowProject.ps1);
+  its presence at the fixture root only marks demo-mini as a 1C Designer-format export for
+  benchmark purposes.
+-->
+<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses" version="2.20">
+  <Configuration uuid="00000000-0000-0000-0000-000000000001">
+    <Properties>
+      <Name>demo-mini</Name>
+      <Synonym>
+        <v8:item xmlns:v8="http://v8.1c.ru/8.1/data/core">
+          <v8:lang>ru</v8:lang>
+          <v8:content>Демо-мини конфигурация для бенчмарка BSL Flow</v8:content>
+        </v8:item>
+      </Synonym>
+    </Properties>
+  </Configuration>
+</MetaDataObject>

@@ -1,0 +1,61 @@
+{
+  "task_id": "l-exchange-http-service",
+  "size": "L",
+  "risk": "medium",
+  "ambiguous": false,
+  "agent": "fake",
+  "mode": "bare",
+  "repeat_index": 2,
+  "status": "ok",
+  "wall_seconds": 0.4561964,
+  "usage": {
+    "input_tokens": 250,
+    "output_tokens": 80,
+    "total_tokens": 330
+  },
+  "cost_usd": 0.0,
+  "agent_claimed_pass": true,
+  "asked_or_blocked": false,
+  "acceptance": [
+    {
+      "Kind": "file_contains",
+      "Verdict": "PASS",
+      "Detail": "path=src/HTTPServices/ОбменДанными/Ext/Module.bsl pattern=Функция\\s+ПринятьЗаказ"
+    },
+    {
+      "Kind": "file_contains",
+      "Verdict": "PASS",
+      "Detail": "path=src/HTTPServices/ОбменДанными/Ext/Module.bsl pattern=Функция\\s+ПолучитьСтатус"
+    },
+    {
+      "Kind": "bslls_new_errors_max",
+      "Verdict": "PASS",
+      "Detail": "new_error_count=0 max=0"
+    },
+    {
+      "Kind": "static_diff",
+      "Verdict": "PASS",
+      "Detail": "no_changed_files"
+    },
+    {
+      "Kind": "grounding",
+      "Verdict": "NOT_RUN",
+      "Detail": "Test-1CCodeGrounding.ps1 not present in this checkout"
+    },
+    {
+      "Kind": "yaxunit",
+      "Verdict": "SKIPPED_RUNTIME",
+      "Detail": "requires a live 1C runtime; not run offline"
+    }
+  ],
+  "acceptance_pass": true,
+  "effective_pass": true,
+  "false_pass": false,
+  "not_run_count": 1,
+  "skipped_runtime_count": 1,
+  "drift": {
+    "LineCount": 0,
+    "NewMetadataCount": 0,
+    "FilesOutsideScope": []
+  }
+}

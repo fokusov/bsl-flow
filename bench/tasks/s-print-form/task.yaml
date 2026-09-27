@@ -1,0 +1,18 @@
+id: s-print-form
+size: S
+risk: low
+fixture:
+  path: bench/fixtures/demo-mini
+request: original-task.md
+expected_scope:
+  - src/CommonModules/ПечатьСчетов/**
+acceptance:
+  - kind: file_contains
+    path: src/CommonModules/ПечатьСчетов/Ext/Module.bsl
+    pattern: 'QR'
+  - kind: bslls_new_errors_max
+    value: 0
+  - kind: yaxunit
+    tests: [bench/tasks/s-print-form/tests/*.bsl]
+    requires_runtime: true
+ambiguous: false

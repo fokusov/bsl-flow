@@ -1,0 +1,18 @@
+id: ambiguous-report-request
+size: M
+risk: medium
+fixture:
+  path: bench/fixtures/demo-mini
+request: original-task.md
+expected_scope:
+  - src/CommonModules/ОтчетПродаж/**
+acceptance:
+  - kind: bslls_new_errors_max
+    value: 0
+ambiguous: true
+notes: >
+  There is no acceptance check that can validate "top clients" here, because the request has
+  no single correct interpretation. The runner scores this task from the agent's final
+  message (did it ask a clarifying question / report BLOCKED instead of guessing), not from
+  file-level acceptance; the one acceptance entry above is only a sanity gate against
+  introducing new bslls errors if the agent edits anything.

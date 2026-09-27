@@ -1,0 +1,22 @@
+id: m-attribute-and-form
+size: M
+risk: medium
+fixture:
+  path: bench/fixtures/demo-mini
+request: original-task.md
+expected_scope:
+  - src/Catalogs/Номенклатура/**
+acceptance:
+  - kind: file_contains
+    path: src/Catalogs/Номенклатура/Ext/ObjectModule.bsl
+    pattern: 'ШтрихКод'
+  - kind: file_contains
+    path: src/Catalogs/Номенклатура/Forms/ФормаЭлемента/Ext/Form/Module.bsl
+    pattern: 'ШтрихКод'
+  - kind: bslls_new_errors_max
+    value: 0
+  - kind: static_diff
+  - kind: yaxunit
+    tests: [bench/tasks/m-attribute-and-form/tests/*.bsl]
+    requires_runtime: true
+ambiguous: false

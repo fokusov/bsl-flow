@@ -1,0 +1,23 @@
+id: l-exchange-http-service
+size: L
+risk: medium
+fixture:
+  path: bench/fixtures/demo-mini
+request: original-task.md
+expected_scope:
+  - src/HTTPServices/ОбменДанными/**
+acceptance:
+  - kind: file_contains
+    path: src/HTTPServices/ОбменДанными/Ext/Module.bsl
+    pattern: 'Функция\s+ПринятьЗаказ'
+  - kind: file_contains
+    path: src/HTTPServices/ОбменДанными/Ext/Module.bsl
+    pattern: 'Функция\s+ПолучитьСтатус'
+  - kind: bslls_new_errors_max
+    value: 0
+  - kind: static_diff
+  - kind: grounding
+  - kind: yaxunit
+    tests: [bench/tasks/l-exchange-http-service/tests/*.bsl]
+    requires_runtime: true
+ambiguous: false
