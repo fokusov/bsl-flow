@@ -44,8 +44,25 @@ function Resolve-N1PlatformBin {
     return $null
 }
 
+function Get-N1PreviewArguments {
+    # Return a copy for display only. ProcessStartInfo always receives the original argv.
+    param([Parameter(Mandatory)][AllowEmptyString()][string[]]$Argv)
+    $redactNext = $false
+    foreach ($argument in $Argv) {
+        if ($redactNext) { '[REDACTED]'; $redactNext = $false; continue }
+        if ($argument -match '^(?i:/P|/N|--password|--pwd|--db-pwd|--user|--username|--db-user)$') {
+            $argument
+            $redactNext = $true
+        }
+        elseif ($argument -match '^(?<flag>--(?i:password|pwd|db-pwd|user|username|db-user))=') {
+            $Matches.flag + '=[REDACTED]'
+        }
+        else { $argument }
+    }
+}
+
 function Invoke-N1Process {
-    # Runs the configured executable and records the exact argument list and log path, without
+    # Runs with the original argv and returns a redacted display copy and log path, without
     # ever starting the process when $DryRun is set - used by mutating-capability callers to
     # prove (in tests) that a missing/invalid authorization never reaches this function.
     param(
@@ -55,7 +72,8 @@ function Invoke-N1Process {
         [switch]$DryRun
     )
     [void][IO.Directory]::CreateDirectory((Split-Path -Parent $LogPath))
-    if ($DryRun) { return [pscustomobject]@{ Started = $false; ExitCode = $null; Argv = $Argv } }
+    $previewArguments = @(Get-N1PreviewArguments -Argv $Argv)
+    if ($DryRun) { return [pscustomobject]@{ Started = $false; ExitCode = $null; Argv = $previewArguments } }
 
     $isScript = $ExecutablePath.ToLowerInvariant().EndsWith('.ps1')
     $psi = [Diagnostics.ProcessStartInfo]::new()
@@ -81,7 +99,7 @@ function Invoke-N1Process {
     Set-Content -LiteralPath $LogPath -Value $combined -Encoding UTF8
     $exitCode = $process.ExitCode
     $process.Dispose()
-    return [pscustomobject]@{ Started = $true; ExitCode = $exitCode; Argv = $Argv; Log = $combined }
+    return [pscustomobject]@{ Started = $true; ExitCode = $exitCode; Argv = $previewArguments; Log = $combined }
 }
 
 function Get-N1Param {

@@ -1,3 +1,5 @@
 # Instruction budgets are byte-based; keep their line endings identical on every host.
 global/AGENTS.bootstrap.md text eol=lf
 global/skills/*/SKILL.md text eol=lf
+# Example sidecars bind exact source/review bytes, including line endings.
+examples/** text eol=lf
