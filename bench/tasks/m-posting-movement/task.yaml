@@ -1,0 +1,22 @@
+id: m-posting-movement
+size: M
+risk: medium
+fixture:
+  path: bench/fixtures/demo-mini
+request: original-task.md
+expected_scope:
+  - src/Documents/РеализацияТоваровУслуг/**
+acceptance:
+  - kind: file_contains
+    path: src/Documents/РеализацияТоваровУслуг/Ext/ObjectModule.bsl
+    pattern: 'Движения\.Продажи'
+  - kind: file_contains
+    path: src/Documents/РеализацияТоваровУслуг/Ext/ObjectModule.bsl
+    pattern: 'Движения\.ОстаткиТоваров'
+  - kind: bslls_new_errors_max
+    value: 0
+  - kind: static_diff
+  - kind: yaxunit
+    tests: [bench/tasks/m-posting-movement/tests/*.bsl]
+    requires_runtime: true
+ambiguous: false

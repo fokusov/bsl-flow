@@ -1,0 +1,35 @@
+name: Benchmark harness
+
+on:
+  workflow_dispatch:
+    inputs:
+      fake_variant:
+        description: Scripted offline evidence case
+        required: true
+        default: good
+        type: choice
+        options: [good, bad, drift]
+
+permissions:
+  contents: read
+
+jobs:
+  fake-benchmark:
+    runs-on: windows-2025
+    timeout-minutes: 2
+    env:
+      BENCH_FAKE_VARIANT: ${{ inputs.fake_variant }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run public offline fake benchmark
+        shell: pwsh
+        run: |
+          $run = Join-Path $env:RUNNER_TEMP 'bsl-flow-bench'
+          ./bench/Invoke-BSLFlowBench.ps1 -Agent fake -Mode bare -Tasks 'bench/tasks/*' -Repeat 1 -OutputDir $run -TimeoutSeconds 30
+          ./bench/Measure-BenchResults.ps1 -RunDir $run -OutputDir $run -Date 'workflow'
+      - name: Upload aggregate evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-fake-${{ inputs.fake_variant }}
+          path: ${{ runner.temp }}/bsl-flow-bench/workflow.*
+          if-no-files-found: error
