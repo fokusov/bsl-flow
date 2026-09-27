@@ -20,7 +20,7 @@ jobs:
       - name: Deterministic Core contracts
         shell: pwsh
         run: |
-          foreach ($suite in @('Test-1CMetadataIndex','Test-1CSpecGrounding','Test-1CStaticDiff','Test-OnboardingExamples')) {
+          foreach ($suite in @('Test-1CMetadataIndex','Test-1CSpecGrounding','Test-1CStaticDiff','Test-OnboardingExamples','Test-InstructionBudget','Test-InstructionConsistency','Test-ChangeGovernance','Test-SurfaceBudget')) {
             & pwsh -NoProfile -File "./scripts/$suite.ps1" -PackageRoot (Get-Location).Path
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }

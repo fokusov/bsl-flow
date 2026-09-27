@@ -69,6 +69,15 @@ try {
     # --- Ф2.2: L/high-risk review must fail closed, not crash, when Council is absent ---
     $extractRoot = Join-Path $testRoot 'core-extract'
     [IO.Compression.ZipFile]::ExtractToDirectory($coreZip, $extractRoot)
+    $installedSkillRoot=Join-Path $extractRoot 'global/skills'
+    foreach ($file in Get-ChildItem $installedSkillRoot -File -Recurse -Filter '*.md') {
+        foreach ($match in [regex]::Matches((Get-Content -Raw $file.FullName),'\]\(([^)\s]+)\)')) {
+            $target=$match.Groups[1].Value.Split('#')[0]
+            if (-not $target -or $target -match '^(https?|mailto):') { continue }
+            $resolved=[IO.Path]::GetFullPath((Join-Path $file.DirectoryName $target))
+            Assert-True ($resolved.StartsWith($installedSkillRoot+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase) -and (Test-Path $resolved -PathType Leaf)) "Broken Core skill link: $($file.Name) -> $target"
+        }
+    }
     $reviewScript = Join-Path $extractRoot 'global\skills\1c-spec-review\scripts\Invoke-1CSpecReview.ps1'
     Assert-True (Test-Path -LiteralPath $reviewScript -PathType Leaf) "Extracted Core package is missing Invoke-1CSpecReview.ps1: $reviewScript"
 
@@ -177,7 +186,10 @@ The fixture has no business uncertainty.
     Assert-True ($fullOne.Sha256 -eq $fullTwo.Sha256) 'Default and explicit full packages differ.'
 }
 finally {
-    if (Test-Path -LiteralPath $testRoot) { Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue }
+    $resolved=[IO.Path]::GetFullPath($testRoot)
+    $tempPrefix=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\','/')+[IO.Path]::DirectorySeparatorChar
+    if (-not $resolved.StartsWith($tempPrefix,[StringComparison]::OrdinalIgnoreCase) -or (Split-Path $resolved -Leaf) -notlike 'bsl-flow-core-package-test-*') { throw "Unsafe package-test cleanup: $resolved" }
+    if (Test-Path -LiteralPath $resolved) { Remove-Item -LiteralPath $resolved -Recurse -Force -ErrorAction SilentlyContinue }
 }
 
 Write-Host 'Test-CorePackage: OK'

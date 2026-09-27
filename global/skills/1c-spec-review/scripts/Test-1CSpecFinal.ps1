@@ -42,6 +42,7 @@ if (-not (Test-Path $reviewPath -PathType Leaf) -and -not (Test-Path (Join-Path 
     . (Join-Path $PSScriptRoot 'Review.Override.ps1')
     $ownerOverride = Get-BSLFlowOwnerOverride -ChangeRoot $changeRoot
     if ($null -ne $ownerOverride) {
+        if (Test-Path (Join-Path $projectRoot ('.bsl-flow/reports/spec-review/' + $ChangeName + '.council/publication/prepared.json'))) { throw 'BF_BLOCKED: prepared council publication requires Managed recovery; an override cannot replace it.' }
         $overrideSpec = Get-Content -Raw $specPath
         if ($overrideSpec -notmatch '(?im)^\s*-\s*(?:Complexity|Сложность):\s*L\s*$' -and $overrideSpec -notmatch '(?im)^\s*-\s*(?:Risk|Риск):\s*high\s*$') { $errors.Add('Owner override without Council applies only to L/high-risk.') }
         $lint = & (Join-Path $PSScriptRoot 'Test-1CSpec.ps1') -ChangePath $changeRoot -NoThrow
