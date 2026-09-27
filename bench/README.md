@@ -112,6 +112,11 @@ scope-drift detection).
 mean scope drift, wall time, tokens/cost (`null` when the agent's own JSON output doesn't
 report them — never estimated), and a bare-vs-core comparison table.
 
+Each attempt distinguishes `acceptance_pass` (all checks that actually ran passed) from
+`acceptance_complete` (no `NOT_RUN` or `SKIPPED_RUNTIME`). `effective_pass` requires both for
+ordinary tasks. A claimed PASS remains a false PASS when any executed hidden check fails, even
+if a separate required runtime check was skipped.
+
 ## Privacy for client projects
 
 The public tasks in this repo run only against `bench/fixtures/demo-mini` and other public

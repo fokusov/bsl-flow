@@ -52,7 +52,9 @@ try {
     }
 
     $good = @($runs['good'])
-    Assert-True -Condition (@($good | Where-Object { -not $_.effective_pass }).Count -eq 0) -Message 'Good fake variant did not satisfy all offline-scored tasks.'
+    Assert-True -Condition (@($good | Where-Object { -not $_.acceptance_pass }).Count -eq 0) -Message 'Good fake variant did not satisfy all executed offline checks.'
+    Assert-True -Condition (@($good | Where-Object { $_.acceptance_complete }).Count -eq 0) -Message 'Offline fixture unexpectedly treated a required runtime check as complete.'
+    Assert-True -Condition (@($good | Where-Object { $_.effective_pass }).Count -eq 0) -Message 'Incomplete offline acceptance was reported as an effective pass.'
     Assert-True -Condition (@($good | Where-Object { $_.false_pass }).Count -eq 0) -Message 'Good fake variant was classified as false PASS.'
     Assert-True -Condition (@($good | Where-Object { $_.skipped_runtime_count -gt 0 }).Count -gt 0) -Message 'Runtime checks were not explicitly recorded as skipped.'
 
@@ -61,7 +63,7 @@ try {
     Assert-True -Condition (@($bad | Where-Object { -not $_.effective_pass }).Count -eq 1) -Message 'Bad fake variant unexpectedly passed hidden acceptance.'
 
     $drift = @($runs['drift'])
-    Assert-True -Condition (@($drift | Where-Object { $_.effective_pass -and $_.drift.LineCount -gt 0 }).Count -eq 1) -Message 'Drift fake variant did not preserve functional success while recording out-of-scope lines.'
+    Assert-True -Condition (@($drift | Where-Object { $_.acceptance_pass -and $_.drift.LineCount -gt 0 }).Count -eq 1) -Message 'Drift fake variant did not preserve executed-check success while recording out-of-scope lines.'
     Assert-True -Condition (@($drift | Where-Object { $_.drift.FilesOutsideScope.Count -gt 0 }).Count -eq 1) -Message 'Drift fake variant did not record changed files outside expected_scope.'
 
     $aggregateDir = Join-Path $testRoot 'aggregate'

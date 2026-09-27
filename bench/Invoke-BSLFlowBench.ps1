@@ -467,13 +467,19 @@ foreach ($taskDir in $taskDirs) {
             $claimed = Get-BenchClaimedOutcome -FinalMessage $agentResult.FinalMessage -Ambiguous $ambiguous
             $acceptanceResults = @($acceptanceChecks | ForEach-Object { Invoke-BenchAcceptanceCheck -Check $_ -RepoPath $fixtureRepo.RepoPath -BaselineRef $fixtureRepo.BaselineRef })
             $scored = @($acceptanceResults | Where-Object { $_.Verdict -notin @('NOT_RUN', 'SKIPPED_RUNTIME') })
+            # `acceptance_pass` says that every check which actually ran passed.  It is not a
+            # completion claim: an unavailable static tool or required runtime check is carried
+            # separately in `acceptance_complete`, and cannot produce `effective_pass`.
             $acceptancePass = ($scored.Count -eq 0) -or (-not ($scored | Where-Object { $_.Verdict -ne 'PASS' }))
             $notRunCount = @($acceptanceResults | Where-Object { $_.Verdict -eq 'NOT_RUN' }).Count
             $skippedRuntimeCount = @($acceptanceResults | Where-Object { $_.Verdict -eq 'SKIPPED_RUNTIME' }).Count
+            $acceptanceComplete = ($notRunCount -eq 0 -and $skippedRuntimeCount -eq 0)
             $drift = Get-BenchScopeDrift -RepoPath $fixtureRepo.RepoPath -BaselineRef $fixtureRepo.BaselineRef -ExpectedScope $expectedScope
 
-            $effectivePass = if ($ambiguous) { [bool]$claimed.AskedOrBlocked } else { $acceptancePass }
-            $falsePass = ($claimed.ClaimedPass -eq $true) -and (-not $effectivePass)
+            $effectivePass = if ($ambiguous) { [bool]$claimed.AskedOrBlocked } else { $acceptanceComplete -and $acceptancePass }
+            # A skipped requirement never fabricates a false PASS.  A concrete observed FAIL
+            # still counts even when another required check was skipped.
+            $falsePass = ($claimed.ClaimedPass -eq $true) -and (-not $acceptancePass)
 
             Write-BTJsonAtomic ([ordered]@{
                     task_id              = $taskId
@@ -491,6 +497,7 @@ foreach ($taskDir in $taskDirs) {
                     asked_or_blocked     = $claimed.AskedOrBlocked
                     acceptance           = $acceptanceResults
                     acceptance_pass      = $acceptancePass
+                    acceptance_complete  = $acceptanceComplete
                     effective_pass       = $effectivePass
                     false_pass           = $falsePass
                     not_run_count        = $notRunCount
