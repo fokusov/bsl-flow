@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "checked_at_utc": "2026-09-27T09:15:15.7938609Z",
+  "passed": true,
+  "errors": [],
+  "warnings": [],
+  "stats": { "characters": 2121, "lines": 38 },
+  "anchors": [
+    { "id": "REQ-1", "section": "Требуемое поведение", "item": 1, "text_sha256": "b253162c72c1807ec3c023ac51c90153df80d60694749ee05638485b69376cc7" },
+    { "id": "REQ-2", "section": "Требуемое поведение", "item": 2, "text_sha256": "a055eefd6b41808f7a05f094b187980150ca80a8130e0678ce3f8b88f46e9f46" },
+    { "id": "REQ-3", "section": "Требуемое поведение", "item": 3, "text_sha256": "7fe445b7398c9f2853e18bfbe0355a2bc24f0de5a26e3a459e3f51c65f2d232d" },
+    { "id": "AC-1", "section": "Критерии приёмки", "item": 1, "text_sha256": "b853a3e59c3f5fd1c8150d21d55bdb636a9922ccc6765c1141aa80504fad8839" },
+    { "id": "AC-2", "section": "Критерии приёмки", "item": 2, "text_sha256": "c63c74731dcd4c7a81b3a3413666d26f946b9a223dda59b59f38ab3826fc49d4" },
+    { "id": "NG-1", "section": "Не делать", "item": 1, "text_sha256": "483cef81980e7799513d01e46726cec203ca2c988ec637421208b52e8d074371" },
+    { "id": "NG-2", "section": "Не делать", "item": 2, "text_sha256": "d626fa46315d0fb9990a951a871fc32645d417b6a0acc369936c1df3588904d4" }
+  ]
+}

@@ -42,10 +42,7 @@ try {
 
         # End-to-end: a project that only references the symbolic profiles
         # (no llm section of its own) must resolve every enabled role once
-        # this profile is applied — unless the provider's protocol
-        # (anthropic_messages) is not yet accepted by the transport, which is
-        # landing in a parallel change; that specific, named gap is tolerated
-        # so this suite does not hard-fail on a sibling change's timing.
+        # this profile is applied, including the Anthropic transport.
         $project = Join-Path $tempRoot ($template + '-project')
         $change = Join-Path $project 'openspec\changes\demo'
         New-Item -ItemType Directory -Path $change -Force | Out-Null
@@ -76,21 +73,12 @@ try {
         $projectText += "`n"
         [System.IO.File]::WriteAllText((Join-Path $project 'bsl-flow.yaml'), $projectText, [System.Text.UTF8Encoding]::new($false))
 
-        $effective = $null
-        $protocolGapMessage = $null
-        try { $effective = Get-BSLFlowCouncilEffectivePolicy -ProjectRoot $project -UserProfilePath $outPath }
-        catch { $protocolGapMessage = [string]$_.Exception.Message }
-
-        if ($null -ne $effective) {
-            Assert-True ([string]$effective.policy.roles.intent_critic.model -ceq 'review-fast') "$template profile resolves critics to review-fast"
-            Assert-True ([string]$effective.policy.roles.chair.model -ceq 'review-chair') "$template profile resolves the chair to review-chair"
-            $criticModelId = [string]$effective.policy.models.'review-fast'.model
-            $chairModelId = [string]$effective.policy.models.'review-chair'.model
-            Assert-True ($criticModelId -cne $chairModelId) "$template keeps critics on a model distinct from the chair"
-        }
-        else {
-            Assert-True ($protocolGapMessage -match '(?i)protocol' -and $protocolGapMessage -match '(?i)anthropic') "$template only fails on the pending anthropic_messages transport protocol, not on profile shape: $protocolGapMessage"
-        }
+        $effective = Get-BSLFlowCouncilEffectivePolicy -ProjectRoot $project -UserProfilePath $outPath
+        Assert-True ([string]$effective.policy.roles.intent_critic.model -ceq 'review-fast') "$template profile resolves critics to review-fast"
+        Assert-True ([string]$effective.policy.roles.chair.model -ceq 'review-chair') "$template profile resolves the chair to review-chair"
+        $criticModelId = [string]$effective.policy.models.'review-fast'.model
+        $chairModelId = [string]$effective.policy.models.'review-chair'.model
+        Assert-True ($criticModelId -cne $chairModelId) "$template keeps critics on a model distinct from the chair"
     }
 
     # -Force / overwrite protection.

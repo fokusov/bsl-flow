@@ -23,6 +23,8 @@ Read [task-contract.md](references/task-contract.md), project `AGENTS.md`, model
 4. Read the JSON envelope: relay the specific question/blocker or hand off the accepted worktree and receipt. Acceptance covers the bound task and source; publication requires explicit authorization and the separate Publish/PublishResume contract.
 5. After interruption inspect `Status` and use `Resume` with the same ID. Inspect actual state before repeating an uncertain business write. After `Cancel`, an explicit user `Update` is needed to continue. Record scope changes through trusted `Update`.
 
+For a current-session worker, use `Next -Format Prompt`, then `Submit -Stage <stage> -DispatchId <id> -ResultFile <file outside the worktree>`. Each dispatch is single-use and records `isolation: current_agent`. Required independent review and acceptance stay controller-owned.
+
 ## Outputs
 
 The task ID, controller status, current question/blocker or accepted worktree and bound receipt. Worker messages, OpenSpec readiness and process exit codes are evidence inputs; the controller decides acceptance.

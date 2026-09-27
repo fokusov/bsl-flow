@@ -2,130 +2,77 @@
 
 [English](README.en.md)
 
-**Лёгкий инженерный процесс и контроллер задач для разработки на BSL.**
+BSL Flow помогает AI-агентам выполнять доработки 1С/BSL: выбрать достаточный маршрут, проверить спецификацию и собрать доказательства результата. Core даёт отдельные skills и проверки; Managed добавляет контроллер этапов для явно запрошенных задач.
 
-BSL Flow — публичный workflow-проект для AI coding agents, работающих с BSL и проектами 1С:Предприятие. Его цель — оставить минимальный инженерный процесс, который реально снижает риск ошибок, но не превращать каждую доработку в тяжёлый SDD-процесс.
+## Быстрый старт
 
-Базовая схема:
+Нужны PowerShell 7, Git, Node.js 20.19+ и OpenSpec CLI. Рабочая версия — **0.9.0-dev.1**; это development-версия. Исходники содержат **8 skills**: шесть основных, опциональный `1c-estimate` и Managed-скилл `1c-task`.
 
-```text
-задача
-  -> минимально достаточная спецификация
-  -> независимое ревью спецификации
-  -> реализация
-  -> проверка и тесты
-  -> опциональное накопление знаний проекта
-```
-
-## Зачем нужен BSL Flow
-
-AI coding agents хорошо помогают в разработке на BSL, но часто:
-
-- переусложняют спецификации;
-- добавляют лишние архитектурные сущности;
-- расширяют scope задачи;
-- создают implementation plans, которые сложнее самой задачи;
-- делают вывод о корректности кода без фактической проверки.
-
-BSL Flow строится на нескольких принципах:
-
-- **Minimal Sufficient Design** вместо архитектуры «на будущее».
-- **Risk-based workflow** вместо обязательного процесса для каждой задачи.
-- **Независимое review спецификаций** для поиска scope drift, assumptions и overengineering.
-- **Evidence-driven verification** вместо «код выглядит корректно».
-- **BSL/1С-специфика**: объекты метаданных, управляемые формы, клиент/сервер, регистры, проведение документов, интеграции и тестовые базы.
-- **Два режима работы**: существующие skills помогают в assisted-режиме; в managed-режиме `1c-task` передаёт последовательность этапов и проверку доказательств детерминированному контроллеру.
-
-## Маршруты по размеру и риску
-
-```text
-S / low-risk
-inspect -> implement -> verify
-
-M
-inspect -> spec -> independent review -> targeted revision -> implement -> verify
-
-L / high-risk
-inspect -> spec/design -> independent review -> targeted revision
-        -> implement -> independent code review -> verify
-```
-
-## Core и Managed
-
-По умолчанию BSL Flow работает в assisted-режиме (**Core**): агент применяет отдельные skills `1c-init-project`, `1c-spec`, `1c-spec-review`, `1c-implement`, `1c-verify` и `1c-debug`, а пользователь и агент сохраняют контроль над последовательностью и точками остановки.
-
-**Managed** — отдельный opt-in режим для зарегистрированной задачи. Он активируется только явным запросом пользователя и запуском `1c-task`; после этого controller владеет порядком этапов, журналом, recovery и evidence gates этой задачи. Установка пакета, наличие `bsl-flow.yaml`, bootstrap sentinel или доступность `1c-task` сами по себе Managed не включают и готовность host/runtime не доказывают.
-
-Реестр планируемых задач, машиночитаемые execution-артефакты, оценка, публикация и self-learning memory — дополнительные явные возможности. Они не являются обязательной частью Core и не запускаются автоматически при bootstrap или принятии managed-задачи. Experience Ledger выключен по умолчанию и включается только через `features.self_learning_memory.enabled: true`; обязательный журнал и resume-состояние managed controller от него не зависят.
-
-Фреймворк рассчитан на совместную работу с:
-
-- OpenAI Codex и другими coding agents;
-- OpenSpec для lightweight specification artifacts;
-- API-совместимыми LLM-провайдерами (OpenAI, DeepSeek и другие) для независимого совета ревью;
-- BSL Language Server для статического анализа;
-- YAxUnit для unit/integration тестов;
-- Vanessa Automation / TestClient для UI и end-to-end сценариев.
-
-## Актуальная версия
-
-Рабочая версия — **BSL Flow 0.8.0-dev.4**. В ней 8 skills, включая `1c-task`: контроллер сохраняет историю задачи, выбирает обязательные этапы, запускает изолированных Codex workers, проверяет актуальность исходников и доказательств и останавливается при неопределённом результате. S по умолчанию получает lint, M — одного независимого reviewer, L/high-risk — API-совет (`review.council`).
-
-Единственный пользовательский вход — `global/skills/1c-task/scripts/Invoke-BSLFlowTask.ps1`; нужны PowerShell 7 из стандартной машинной установки `C:\Program Files\PowerShell\7\pwsh.exe` и Git; fallback на Windows PowerShell 5.1 не поддерживается. По решению владельца (2026-09-16) проект не выпускает Go-бинарник и не поддерживает Linux/macOS в ближайших релизах — история решения в [CHANGELOG.md](CHANGELOG.md).
-
-Ключевые возможности поверх базового контура: локальный реестр задач клона (`planned`-задачи, `bsl-flow task list/show/history/overview`, общий store для всех worktree); настройки совета ревью в профиле пользователя (`~/.bsl-flow/config.yaml`) с приоритетом «профиль → проект → локальный оверлей»; опциональные машиночитаемые артефакты изменения (`contract/execution/verification.yaml`) с детерминированным линтом. Это development-версия: managed native FILE-адаптер расширения прошёл публичный пилот с оригинальным JUnit 5/5 PASS, но это не подтверждает готовность полного автономного 1С SDLC.
-
-Начни с [руководства по фреймворку](docs/FRAMEWORK_GUIDE_RU.md). В [описании архитектуры](docs/ARCHITECTURE_RU.md) разобраны выбранные решения и компромиссы, а в [контракте CLI](global/skills/1c-task/references/task-contract.md) — входные JSON, команды и восстановление.
-
-## Установка
-
-Требования и полный порядок описаны в [INSTALL.md](INSTALL.md). На Windows сначала посмотри план, затем выполни установку:
+Из распакованного Core-пакета или клона репозитория сначала посмотри план установки:
 
 ```powershell
-Set-ExecutionPolicy -Scope Process Bypass
-.\scripts\Install-BSLFlow.ps1 -WhatIf
-.\scripts\Install-BSLFlow.ps1
+# Codex: общий каталог ~/.agents/skills
+./scripts/Install-BSLFlowCore.ps1 -Host codex -WhatIf
+./scripts/Install-BSLFlowCore.ps1 -Host codex
+
+# Claude Code: skills, read-only reviewers и hooks
+./scripts/Install-BSLFlowCore.ps1 -Host claude -WhatIf
+./scripts/Install-BSLFlowCore.ps1 -Host claude
 ```
 
-Skills ставятся одной копией в общий `%USERPROFILE%\.agents\skills`, доступный Codex и другим агентам; установщик не меняет model routing, providers и credentials.
+В Windows общий каталог — `%USERPROFILE%\.agents\skills`. Для OpenCode используй `-Host opencode`, для общего набора skills — `-Host agents`. Установка сохраняет резервную копию изменяемых файлов; переход с 0.8 описан в [миграции](docs/MIGRATION_0.9_RU.md).
 
-## Как находятся YAxUnit и Vanessa
+Claude Code также может открыть локальный плагин из корня клона; установка и проверка описаны в [руководстве хоста](docs/hosts/CLAUDE_CODE_RU.md). До публикации версии локальная копия точнее отражает development-код, чем marketplace.
 
-BSL Flow не сканирует диски рекурсивно и не скачивает тестовые инструменты молча. Однократный workstation profile хранит точные общие каталоги для всех явно зарегистрированных файловых баз разработки. Если пути не указаны, используются `C:\YAxUnit` и `C:\vanessa-automation`. Другое расположение нужно зарегистрировать явно:
+В проекте начни с запроса: «Инициализируй этот проект 1С через `1c-init-project`, сохрани мои настройки». Затем опиши доработку и ожидаемый результат. [Полная установка](INSTALL.md) описывает зависимости и провайдеров ревью; конкретные модели задаются в пользовательском профиле, а не в шаблоне проекта.
 
-```powershell
-& "$env:USERPROFILE\.agents\skills\1c-init-project\scripts\Enable-BSLFlowWorkstationProfile.ps1" `
-  -DevelopmentDatabasePath "C:\BASES\DEMO\bp1" `
-  -PlatformBin "C:\Program Files\1cv8\8.3.27.2074\bin" `
-  -YaxunitDirectory "D:\1c-tools\YAxUnit" `
-  -VanessaDirectory "D:\1c-tools\vanessa-automation"
+## Маршрут S / M / L
+
+```text
+S, низкий риск:  inspect -> implement -> verify
+M:              inspect -> spec -> single review -> reconcile -> implement -> verify
+L / высокий:    inspect -> spec + design -> Council -> reconcile
+                        -> implement -> independent code review -> verify
 ```
 
-Инвентаризация проверяет только верхний уровень этих каталогов по точным маскам: `YAxUnit*.cfe`, `vanessa-automation*.epf`, `VAExtension*.cfe` и `client_mcp.cfe`. Отсутствующий каталог или файл получает состояние `not_configured`; несколько кандидатов или пустой файл — `blocked`. Найденный файл означает только `files_found`: установку в базе, совместимость и готовность ещё нужно подтвердить инвентаризацией базы и минимальным runtime-пилотом. Подробности — в [руководстве по тестовому окружению](docs/TEST_ENVIRONMENT_GUIDE_RU.md).
+Для S отдельная спецификация нужна по запросу или политике проекта. M получает одного независимого reviewer, по умолчанию нативного для выбранного хоста. L/high требует Council из Managed либо явно записанный override владельца с принятыми рисками; отсутствие обязательного провайдера означает `BLOCKED`.
 
-На машине без этих инструментов BSL Flow всё равно устанавливается, но проверки, которым нужен отсутствующий provider, остаются `BLOCKED`. Framework не скачивает сторонние релизы молча. Vanessa Automation — внешний EPF-runner; YAxUnit и необязательный `VAExtension` имеют отдельные требования к установке в базу.
+Проверки выбираются по поведению: unit для логики, integration для данных и проведения, Vanessa для пользовательского сценария, визуальная проверка для внешнего вида. Grounding проверяет ссылки на реальные метаданные, BSL LS diff — новые статические ошибки. Они не заменяют runtime-проверку.
 
-## Структура репозитория
+## Примеры
 
-- `global/skills/` — устанавливаемые agent skills;
-- `global/openspec/` — OpenSpec schema и шаблоны;
-- `scripts/` — установщики и offline regression checks;
-- `docs/` — руководство по фреймворку, архитектура, контракты runtime/публикации/покрытия;
-- [CHANGELOG.md](CHANGELOG.md) — история версий и принятые решения;
-- [TEST_ENVIRONMENT_GUIDE_RU.md](docs/TEST_ENVIRONMENT_GUIDE_RU.md) — постоянное окружение YAxUnit/Vanessa.
+- [S: печатная форма](examples/s-print-form/) — запрос, diff и границы проверки.
+- [M: реквизит и форма](examples/m-attribute-and-form/) — спецификация, review/reconciliation и проверяемые sidecar-файлы.
+- [Рецептник](docs/COOKBOOK_RU.md) — восемь типовых задач с критериями и тестами.
 
-## Для кого
+Примеры демонстрационные: синтетическое ревью и статическая валидация не доказывают выполнение сценария в базе 1С. [Бенчмарк](docs/BENCHMARK_RU.md) отдельно различает fake-проверку раннера и измерение поведения настоящих агентов.
 
-BSL Flow ориентирован на разработчиков и команды, которые используют AI-assisted development для BSL / 1С:Предприятие, особенно при работе с большим количеством клиентских проектов, расширениями, интеграциями и автоматизированным тестированием.
+## Managed
 
-## Ключевые слова
+Managed остаётся Windows-only. Он запускается только по явному запросу через `1c-task`; установка и bootstrap **Managed не включают**. Контроллер хранит состояние, связывает результаты с исходниками и авторизацией, управляет восстановлением и принимает задачу по доказательствам. Подробности: [руководство](docs/FRAMEWORK_GUIDE_RU.md), [архитектура](docs/ARCHITECTURE_RU.md), [контракт CLI](global/skills/1c-task/references/task-contract.md), [словарь](docs/GLOSSARY_RU.md).
 
-BSL, 1С:Предприятие, разработка 1С, AI coding agents, Codex, OpenSpec, spec-driven development, SDD, AI-assisted development, review спецификаций, YAxUnit, Vanessa Automation.
+Managed устанавливается поверх Core совместимой версии через `Install-BSLFlowManaged.ps1`; `Install-BSLFlow.ps1` сохраняет полную установку. `Next -Format Prompt` / `Submit` позволяют работать текущему агенту с одноразовым dispatch ID; такой receipt явно отмечает `isolation: current_agent`. Это другой уровень изоляции, чем отдельный worker.
 
-## Товарные знаки
+| Возможность | Codex | Claude Code | OpenCode | Агент с CLI/MCP |
+| --- | --- | --- | --- | --- |
+| Core skills | Общий каталог | Плагин / локальные skills | Общий каталог | Через доступный CLI |
+| Проверка порядка review → код | Post-hoc | Hooks + post-hoc | Post-hoc | Post-hoc |
+| M reviewer | `codex_exec` | `claude_subagent` / `claude_cli` | `opencode` | API provider |
+| Managed worker | Sandbox capability gate | Экспериментальный adapter, CLI probe | Adapter, нужен host pilot | Current-agent |
+| Runtime 1С | Только подтверждённый и авторизованный маршрут | То же | То же | То же |
 
-BSL Flow — независимый проект и не связан с фирмой «1С». Обозначения 1С и 1С:Предприятие упоминаются только для описания совместимости и целевой экосистемы разработки.
+Core рассчитан на Windows/Linux/macOS с pwsh 7; CI-матрица проверяет переносимость. Наличие workflow не является доказательством выполненного CI-прогона. Реальные host-пилоты и runtime-гейты учитываются отдельно от офлайн-контрактов.
 
-## Лицензия
+Реестр задач, оценка, execution contracts, публикация и Experience Ledger включаются отдельно. Ledger по умолчанию выключен (`features.self_learning_memory.enabled: false`); он не меняет обязательные журналы и гейты. Приёмка не разрешает push, merge, deploy или новые операции с базой.
 
-Проект распространяется по [лицензии MIT](LICENSE).
+## Тестовое окружение 1С
+
+BSL Flow инвентаризирует явно выбранные локальные каталоги YAxUnit и Vanessa, не скачивает их автоматически. Найденный файл не доказывает установку расширения: неизвестное состояние сохраняется как unknown. Отсутствующий provider получает `not_configured`; требующий его критерий остаётся `BLOCKED`. Настройка и отдельные разрешения описаны в [руководстве окружения](docs/TEST_ENVIRONMENT_GUIDE_RU.md).
+
+`onec-ops` задаёт общий контракт операций и авторизации. Его mock-тесты не подтверждают реальные флаги платформы, состояние базы или безопасный повтор load. Временное ограничение Unica runtime сохраняется.
+
+## Разработка и поставка
+
+`scripts/Build-BSLFlowPackage.ps1 -Package full|core|managed` собирает отдельные архивы; `-Test` проверяет собранный артефакт. Core и Managed имеют отдельные CI-наборы, OpenCode — host lane, бенчмарк запускается вручную. [CHANGELOG](CHANGELOG.md) хранит изменения и ограничения.
+
+BSL Flow — независимый проект, не связанный с фирмой «1С»; названия продуктов указывают совместимость. Распространяется по [лицензии MIT](LICENSE).
