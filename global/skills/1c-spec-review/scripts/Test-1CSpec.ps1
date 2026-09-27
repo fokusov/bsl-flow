@@ -1,4 +1,4 @@
-﻿#Requires -Version 7.0
+#Requires -Version 7.0
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$ChangePath,
@@ -127,7 +127,7 @@ if ($text -match '(?i)на будущее|future[- ]proof|универсальн
 
 # Stable anchors for council refs (additive): one entry per numbered/bulleted
 # item of the required behavior, acceptance criteria and non-goals sections.
-. (Join-Path $PSScriptRoot 'Council.Validation.ps1')
+. (Join-Path $PSScriptRoot 'Review.Anchors.ps1')
 $anchors = @(Get-BSLFlowSpecAnchors -SpecText $text | ForEach-Object {
         [ordered]@{ id = [string]$_.id; section = [string]$_.section; item = [int]$_.item; text_sha256 = [string]$_.text_sha256 }
     })

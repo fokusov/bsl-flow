@@ -101,13 +101,12 @@ if ($Complexity -notin @('S', 'M', 'L') -or $Risk -notin @('low', 'medium', 'hig
 
 $configText = if (Test-Path -LiteralPath $configPath -PathType Leaf) { Get-Content -Raw -LiteralPath $configPath } else { '' }
 $councilRouting = $null
-try {
+if (Test-Path (Join-Path $PSScriptRoot 'Review.Api.Profile.ps1') -PathType Leaf) {
     # The council route sees the effective policy: user profile merged under
     # the project config. Routing switches themselves stay project-owned.
-    . (Join-Path $PSScriptRoot 'Council.Profile.ps1')
+    . (Join-Path $PSScriptRoot 'Review.Api.Profile.ps1')
     $councilRouting = (Get-BSLFlowCouncilEffectivePolicy -ProjectRoot $projectRoot).policy
 }
-catch { throw }
 
 $enabled = ConvertTo-BSLFlowBoolean (Get-BSLFlowYamlValue $configText @('review', 'enabled') 'true') 'review.enabled'
 $route = if ($Risk -eq 'high') {
@@ -122,6 +121,17 @@ if ($policyRequired -and $route -ne 'required') {
 }
 $reviewRequired = $ForceReview -or ($route -eq 'required')
 $reviewMode = Get-BSLFlowSpecReviewMode -Complexity $Complexity -Risk $Risk -ReviewRequired $reviewRequired
+
+if ($reviewMode -ceq 'council' -and -not (Test-Path (Join-Path $PSScriptRoot 'Invoke-CouncilReview.ps1') -PathType Leaf)) {
+    if (Test-Path (Join-Path $projectRoot ('.bsl-flow/reports/spec-review/' + $ChangeName + '.council/publication/prepared.json'))) {
+        throw 'BF_BLOCKED: prepared council publication requires Managed recovery; an override cannot replace it.'
+    }
+    . (Join-Path $PSScriptRoot 'Review.Override.ps1')
+    $ownerOverride = Get-BSLFlowOwnerOverride -ChangeRoot $changeRoot
+    if ($null -eq $ownerOverride) { throw 'BF_BLOCKED: L/high-risk review requires Council (install bsl-flow-managed) or an owner override recorded in review-reconciliation.json' }
+    $final = & (Join-Path $PSScriptRoot 'Test-1CSpecFinal.ps1') -ProjectPath $projectRoot -ChangeName $ChangeName
+    return [pscustomobject]@{Complexity=$Complexity;Risk=$Risk;Route='owner_override';ReviewMode='owner_override';ReviewRequired=$true;LintPassed=$final.passed;ReviewPath=$null;Verdict='PASS_WITH_LIMITATIONS';Limitations=@('owner_override_without_council')}
+}
 
 # A prepared council publication is a durable recovery record. Resume it before
 # lint or any route can start another model call; Resume performs the final lint

@@ -420,8 +420,8 @@ function Invoke-BSLFlowApiSingleReview {
         [scriptblock]$HttpSend
     )
     if ($Model -cnotmatch '^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$') { throw "Unsafe or invalid reviewer model profile name: $Model" }
-    . (Join-Path $PSScriptRoot 'Council.Common.ps1')
-    . (Join-Path $PSScriptRoot 'Council.Transport.ps1')
+    . (Join-Path $PSScriptRoot 'Review.Api.Config.ps1')
+    . (Join-Path $PSScriptRoot 'Review.Api.Transport.ps1')
     $profileEntry = $CouncilRouting.models[$Model]
     if ($null -eq $profileEntry) { throw "BF_BLOCKED: model profile '$Model' is not bound; add llm.models.$Model to bsl-flow.yaml or ~/.bsl-flow/config.yaml." }
     $provider = $CouncilRouting.providers[[string]$profileEntry.provider]

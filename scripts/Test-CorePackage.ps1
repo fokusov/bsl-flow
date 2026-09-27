@@ -50,8 +50,8 @@ try {
     $version = (Get-Content -Raw -LiteralPath (Join-Path $root 'VERSION')).Trim()
     $coreZip = Join-Path $testRoot 'core.zip'
     $managedZip = Join-Path $testRoot 'managed.zip'
-    $coreBuild = & $buildScript -PackageRoot $root -Package core -OutputPath $coreZip
-    $managedBuild = & $buildScript -PackageRoot $root -Package managed -OutputPath $managedZip
+    $coreBuild = & $buildScript -PackageRoot $root -Package core -OutputPath $coreZip -Test
+    $managedBuild = & $buildScript -PackageRoot $root -Package managed -OutputPath $managedZip -Test
     Assert-True ($coreBuild.Package -eq 'core') 'Core build did not report Package=core.'
     Assert-True ($managedBuild.Package -eq 'managed') 'Managed build did not report Package=managed.'
 
@@ -60,7 +60,7 @@ try {
     Assert-True ($coreFiles.Count -gt 0) 'Core package is empty.'
     Assert-True ($managedFiles.Count -gt 0) 'Managed package is empty.'
 
-    $allowedSharedFiles = @('LICENSE', 'VERSION', 'README.md', 'README.en.md')
+    $allowedSharedFiles = @('LICENSE', 'VERSION', 'README.md', 'README.en.md', 'scripts/Install.Package.ps1')
     $overlap = @($coreFiles | Where-Object { $managedFiles -contains $_ })
     $unexpectedOverlap = @($overlap | Where-Object { $_ -notin $allowedSharedFiles })
     Assert-True ($unexpectedOverlap.Count -eq 0) "Core and Managed packages duplicate files outside LICENSE/VERSION/README: $($unexpectedOverlap -join ', ')"
@@ -68,7 +68,7 @@ try {
     $councilInCore = @($coreFiles | Where-Object { $_ -like '*/Council.*.ps1' -or $_ -like '*/Invoke-CouncilReview.ps1' -or $_ -like '*/Test-Council*.ps1' -or $_ -like '*/council-*' })
     Assert-True ($councilInCore.Count -eq 0) "Core package must not contain Council files: $($councilInCore -join ', ')"
 
-    $taskInCore = @($coreFiles | Where-Object { $_ -like 'global/skills/1c-task/*' })
+    $taskInCore = @($coreFiles | Where-Object { $_ -like 'global/skills/1c-task/*' -and $_ -notin @('global/skills/1c-task/references/stage-contract.md','global/skills/1c-task/references/task-contract.md') })
     Assert-True ($taskInCore.Count -eq 0) "Core package must not contain the 1c-task skill: $($taskInCore -join ', ')"
 
     $managedManifest = Get-BFZipJson -ZipPath $managedZip -EntryName 'package-manifest.json'
@@ -109,6 +109,9 @@ n/a
 
 ## Required verification
 - [x] Static: checks the specific catalog change end to end
+
+## Uncertainties / assumptions
+The fixture has no business uncertainty.
 '@
     Set-Content -LiteralPath (Join-Path $fixtureRoot 'openspec\changes\demo-l-change\spec.md') -Value $specText -Encoding utf8
     Set-Content -LiteralPath (Join-Path $fixtureRoot 'openspec\changes\demo-l-change\original-task.md') -Value 'Original task: do the big risky thing.' -Encoding utf8
@@ -128,6 +131,53 @@ n/a
     if (-not $isCleanBlocked) {
         throw "GAP CONFIRMED (Ф2.2, see report): Core-only L/high-risk review did not fail with a clean BF_BLOCKED message. Actual error type: $($caught.Exception.GetType().FullName); message: $message. Fix needed in global/skills/1c-spec-review/scripts/Invoke-1CSpecReview.ps1: guard the 'Council.Profile.ps1' dot-source (and the 'Invoke-CouncilReview.ps1' dot-source for reviewMode -eq 'council') with a file-existence check and throw 'BF_BLOCKED: L/high-risk review requires Council (install bsl-flow-managed) or an owner override recorded in review-reconciliation.json' when the Council engine files are not installed."
     }
+
+    # An explicit owner decision is bound to these exact inputs and remains limited.
+    $change = Join-Path $fixtureRoot 'openspec/changes/demo-l-change'
+    $override = @{owner_override=@{owner='Fixture owner';reason='Offline package boundary test';accepted_risks='No Council review';spec_sha256=(Get-FileHash (Join-Path $change 'spec.md')).Hash.ToLowerInvariant();original_task_sha256=(Get-FileHash (Join-Path $change 'original-task.md')).Hash.ToLowerInvariant();design_sha256=$null}}
+    $override | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $change 'review-reconciliation.json')
+    $limited = & $reviewScript -ProjectPath $fixtureRoot -ChangeName demo-l-change
+    Assert-True ($limited.Verdict -eq 'PASS_WITH_LIMITATIONS') 'Owner override produced an unlimited PASS.'
+    $final = Get-Content -Raw (Join-Path $change 'final-validation.json') | ConvertFrom-Json
+    Assert-True ($final.limitations -contains 'owner_override_without_council') 'Override limitation missing from final receipt.'
+    Copy-Item -Path (Join-Path $root 'scripts/fixtures/metadata/designer-mini/*') -Destination (Join-Path $fixtureRoot 'src') -Recurse -Force
+    Set-Content (Join-Path $change 'spec.md') ($specText.Replace('Touches core catalogs.','Touches Справочник.Наменклатура.'))
+    $override.owner_override.spec_sha256=(Get-FileHash (Join-Path $change 'spec.md')).Hash.ToLowerInvariant()
+    $override | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $change 'review-reconciliation.json')
+    $groundingFailure=$null
+    try { & $reviewScript -ProjectPath $fixtureRoot -ChangeName demo-l-change | Out-Null } catch { $groundingFailure=$_.Exception.Message }
+    $failedFinal=Get-Content -Raw (Join-Path $change 'final-validation.json') | ConvertFrom-Json
+    Assert-True ($null -ne $groundingFailure -and -not $failedFinal.passed -and -not $failedFinal.grounding.passed) 'Fresh grounding did not block a typo after earlier PASS.'
+    Add-Content (Join-Path $change 'spec.md') 'Changed after owner decision.'
+    $staleMessage = $null
+    try { & $reviewScript -ProjectPath $fixtureRoot -ChangeName demo-l-change | Out-Null } catch { $staleMessage=$_.Exception.Message }
+    Assert-True ($staleMessage -like '*not bound to current spec.md*') 'Stale owner override was accepted.'
+
+    # S lint works in the extracted Core without any Council module.
+    $sSpec=$specText.Replace('Complexity: L','Complexity: S').Replace('Risk: high','Risk: low')
+    Set-Content (Join-Path $change 'spec.md') $sSpec
+    $small=& $reviewScript -ProjectPath $fixtureRoot -ChangeName demo-l-change
+    Assert-True ($small.LintPassed -and $small.ReviewMode -eq 'lint') 'Core S lint is not standalone.'
+
+    # The API provider must work using only extracted Core files (mocked transport).
+    . (Join-Path $extractRoot 'global/skills/1c-spec-review/scripts/Review.Providers.ps1')
+    $routing=@{allow_local_http=$false;providers=@{fixture=@{protocol='openai_compatible';token_env='BSL_FLOW_CORE_TEST_TOKEN';endpoint=@{scheme='https';host='example.invalid';port=443;base_path='/'}}};models=@{'review-fast'=@{provider='fixture';model='fixture';effort='low'}}}
+    $previousToken=$env:BSL_FLOW_CORE_TEST_TOKEN
+    try {
+        $env:BSL_FLOW_CORE_TEST_TOKEN='fixture-token'
+        $mockSend={ param($u,$b,$t,$to,$m,$c) [pscustomobject]@{status=200;body='{"model":"fixture","choices":[{"finish_reason":"stop","message":{"content":"{\"reviewer_verdict\":\"PASS\"}"}}]}'}}
+        $api=Invoke-BSLFlowApiSingleReview -ProjectRoot $fixtureRoot -ContextEnvelope 'fixture' -Model 'review-fast' -CouncilRouting $routing -TimeoutSeconds 5 -MaxOutputBytes 4096 -RawResponsePath (Join-Path $testRoot 'api.txt') -AttemptDir (Join-Path $testRoot 'api') -HttpSend $mockSend
+        Assert-True (-not $api.Failed -and $api.RawReview.reviewer_verdict -eq 'PASS') 'Core API provider needs missing Council files.'
+    }
+    finally { $env:BSL_FLOW_CORE_TEST_TOKEN=$previousToken }
+
+    $managedExtract=Join-Path $testRoot 'managed-extract'
+    [IO.Compression.ZipFile]::ExtractToDirectory($managedZip,$managedExtract)
+    & (Join-Path $root 'scripts/Test-InstallCore.ps1') -PackageRoot $root -CorePackageRoot $extractRoot -ManagedPackageRoot $managedExtract
+
+    $fullOne=& $buildScript -PackageRoot $root -OutputPath (Join-Path $testRoot 'full-default.zip')
+    $fullTwo=& $buildScript -PackageRoot $root -Package full -OutputPath (Join-Path $testRoot 'full-explicit.zip')
+    Assert-True ($fullOne.Sha256 -eq $fullTwo.Sha256) 'Default and explicit full packages differ.'
 }
 finally {
     if (Test-Path -LiteralPath $testRoot) { Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue }
