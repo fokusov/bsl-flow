@@ -58,7 +58,7 @@ Managed устанавливается поверх Core совместимой 
 | Core skills | Общий каталог | Плагин / локальные skills | Общий каталог | Через доступный CLI |
 | Проверка порядка review → код | Post-hoc | Hooks + post-hoc | Post-hoc | Post-hoc |
 | M reviewer | `codex_exec` | `claude_subagent` / `claude_cli` | `opencode` | API provider |
-| Managed worker | Sandbox capability gate | Экспериментальный adapter, CLI probe | Adapter, нужен host pilot | Current-agent |
+| Managed worker | Sandbox capability gate | BLOCKED: path isolation не подтверждена | Adapter, нужен host pilot | Current-agent |
 | Runtime 1С | Только подтверждённый и авторизованный маршрут | То же | То же | То же |
 
 Core рассчитан на Windows/Linux/macOS с pwsh 7; CI-матрица проверяет переносимость. Наличие workflow не является доказательством выполненного CI-прогона. Реальные host-пилоты и runtime-гейты учитываются отдельно от офлайн-контрактов.

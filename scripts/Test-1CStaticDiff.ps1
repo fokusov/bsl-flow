@@ -209,7 +209,27 @@ try {
     Assert-SDTest ($result8.Verdict.verdict -eq 'PASS') 'crlf-lf: verdict must be PASS'
     Assert-SDTest ((@($result8.Verdict.new)).Count -eq 0) 'crlf-lf: identical logical line must match across CRLF/LF baseline vs current'
 
-    # --- Scenario 9 (optional): a real BSL LS run when one is actually available ---
+    # --- Scenario 9: invalid BaseRef is BLOCKED with an evidence report, never no-change PASS.
+    $repo9 = New-SDTestRepo (Join-Path $workRoot 'invalid-base-ref')
+    Write-SDFile $repo9 'src/Module.bsl' "Процедура Тест()`nКонецПроцедуры`n"
+    Save-SDCommit $repo9 'baseline'
+    $result9 = Invoke-SDMain @{ ProjectPath = $repo9; BaseRef = 'definitely-not-a-commit' }
+    Assert-SDTest ($result9.ExitCode -eq 11) 'invalid-base-ref: exit code must be 11'
+    Assert-SDTest ($result9.Verdict.verdict -eq 'BLOCKED' -and $result9.Verdict.reason -eq 'invalid_base_ref') 'invalid-base-ref: must return BLOCKED evidence'
+
+    # --- Scenario 10: a changed Cyrillic path is observed from stdout, not corrupted by Git stderr.
+    $repo10 = New-SDTestRepo (Join-Path $workRoot 'cyrillic-path')
+    $cyrillicPath = 'src/ОбщийМодуль.bsl'
+    Write-SDFile $repo10 $cyrillicPath "Процедура Тест()`nКонецПроцедуры`n"
+    Save-SDCommit $repo10 'baseline'
+Write-SDFile $repo10 $cyrillicPath "Процедура Тест()`n`tСообщить(""изменено"");`nКонецПроцедуры`n"
+    $baseline10 = New-SDDiagnosticReport @() (Join-Path $repo10 'baseline.json')
+    $current10 = New-SDDiagnosticReport @() (Join-Path $repo10 'current.json')
+    $result10 = Invoke-SDMain @{ ProjectPath = $repo10; BaselineReport = $baseline10; CurrentReport = $current10 }
+    Assert-SDTest ($result10.ExitCode -eq 0 -and $result10.Verdict.verdict -eq 'PASS') 'cyrillic-path: fixture reports must run without BSL LS'
+    Assert-SDTest (@($result10.Verdict.files) -contains $cyrillicPath) 'cyrillic-path: changed BSL file was not observed verbatim'
+
+    # --- Scenario 11 (optional): a real BSL LS run when one is actually available ---
     $realCommand = $null
     if (-not [string]::IsNullOrWhiteSpace($env:BSL_FLOW_BSLLS) -and (Test-Path -LiteralPath $env:BSL_FLOW_BSLLS -PathType Leaf)) { $realCommand = $env:BSL_FLOW_BSLLS }
     else { $onPath = Get-Command 'bsl-language-server' -ErrorAction SilentlyContinue; if ($onPath) { $realCommand = $onPath.Source } }

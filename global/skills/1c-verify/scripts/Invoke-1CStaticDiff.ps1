@@ -86,12 +86,25 @@ function Get-SDDefaultSourcePath {
 
 function Invoke-SDGit {
     param([Parameter(Mandatory)][string[]]$Arguments, [Parameter(Mandatory)][string]$WorkDir, [bool]$ThrowOnError = $true)
-    $allArgs = @('-C', $WorkDir) + $Arguments
-    $output = & git @allArgs 2>&1
-    $exit = $LASTEXITCODE
-    $text = (($output | ForEach-Object { $_.ToString() }) -join [Environment]::NewLine)
-    if ($ThrowOnError -and $exit -ne 0) { throw "git $($Arguments -join ' ') failed: $text" }
-    return [pscustomobject]@{ ExitCode = $exit; Output = $text }
+    # Keep warning/error stderr out of the parsed porcelain output. core.quotepath=false makes
+    # Cyrillic BSL paths usable as real paths instead of quoted octal escapes.
+    $psi = [Diagnostics.ProcessStartInfo]::new()
+    $psi.FileName = 'git'
+    $psi.WorkingDirectory = $WorkDir
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.UseShellExecute = $false
+    foreach ($argument in @('-c', 'core.quotepath=false', '-C', $WorkDir) + $Arguments) { [void]$psi.ArgumentList.Add($argument) }
+    $process = [Diagnostics.Process]::Start($psi)
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
+    $process.WaitForExit()
+    $stdout = $stdoutTask.GetAwaiter().GetResult()
+    $stderr = $stderrTask.GetAwaiter().GetResult()
+    $exit = $process.ExitCode
+    $process.Dispose()
+    if ($ThrowOnError -and $exit -ne 0) { throw "git $($Arguments -join ' ') failed (exit $exit): $stderr" }
+    return [pscustomobject]@{ ExitCode = $exit; Output = $stdout; Error = $stderr }
 }
 
 function Get-SDChangedFiles {
@@ -349,7 +362,11 @@ function Write-SDVerdict {
 
 $baseCommitProbe = Invoke-SDGit @('rev-parse', $BaseRef) $projectFull $false
 $baseCommit = if ($baseCommitProbe.ExitCode -eq 0) { $baseCommitProbe.Output.Trim() } else { $null }
-if ($null -eq $baseCommit) { throw "BaseRef does not resolve to a commit: $BaseRef" }
+if ($null -eq $baseCommit) {
+    $verdict = Write-SDVerdict @{ verdict = 'BLOCKED'; reason = 'invalid_base_ref'; base_ref = $BaseRef; base_commit = $null; files = @(); new = @(); resolved_count = 0; legacy_count = 0; tool = [ordered]@{ command = $null; version = $null } } $OutputPath
+    $verdict
+    exit 11
+}
 
 $changes = Get-SDChangedFiles $projectFull $BaseRef $sourceRel
 $files = @($changes | ForEach-Object { $_.RelPath } | Sort-Object -Unique)

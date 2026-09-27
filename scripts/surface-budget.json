@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "description": "Surface-area budget enforced by Test-SurfaceBudget.ps1, per docs/plans/2026-09-26-remediation-plan.md Ф0.1/Ф0.3/Ф3.4. `current` holds thresholds enforced today; `target` records the later, tighter thresholds from plan Ф3.4 that are not yet enforced.",
-  "measured_baseline_commit": "0962c77066d90b4892517cf05c235b3cc1af2c10",
+  "measured_baseline_commit": "3b2a5907d1c0995412bd4f613cfad7c26c74ada8",
   "how_to_update_the_baseline": "This file is a deliberate freeze, not an auto-generated snapshot. To move the baseline on purpose: (1) run `pwsh -NoProfile -File scripts/Measure-BSLFlowSurface.ps1 -PackageRoot <repo root> -OutputPath <tmp>.json`; (2) compare the new numbers against this file's `current` section and confirm every increase is an intended, reviewed change (Ф0.1 only allows bug fixes, deletions, moves between packages, or the recorded Ф4.7 controller-portability exception in ADR-11 -- never an unreviewed new feature); (3) update `current.managed_ps_lines_baseline` and the affected `current.skills[*]`/`current.bootstrap_bytes_max` entries to the new measured values, and `measured_baseline_commit` to the new HEAD sha; (4) say why in the commit message and, if it is a managed change, cite the ADR-11 exception it falls under.",
   "freeze": {
-    "managed_ps_lines_baseline": 15195,
+    "managed_ps_lines_baseline": 13906,
     "managed_ps_lines_growth_limit_pct": 2
   },
   "current": {

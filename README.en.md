@@ -52,7 +52,7 @@ Install with `Install-BSLFlowManaged.ps1` over a compatible Core version; `Insta
 | Core | Shared skills | Plugin / local skills | Shared skills | Available CLI |
 | Review-before-code checks | Post-hoc | Hooks + post-hoc | Post-hoc | Post-hoc |
 | M reviewer | `codex_exec` | `claude_subagent` / `claude_cli` | `opencode` | API provider |
-| Managed | Sandbox capability gate | Experimental, capability probe | Adapter; host pilot required | Current-agent |
+| Managed | Sandbox capability gate | BLOCKED pending path isolation | Adapter; host pilot required | Current-agent |
 
 Core targets Windows/Linux/macOS with pwsh 7 and a CI matrix; a workflow definition is not evidence that CI has run. Real host pilots and 1C runtime gates remain separate from offline contract tests.
 

@@ -259,6 +259,10 @@ try {
     Assert-Grd (@($codeResultFail.errors | Where-Object { $_.message -match 'Unknown metadata object: Справочник.Номенклатура2' }).Count -eq 1) 'Unknown metadata object was not reported by code grounding.'
     Assert-Grd (@($codeResultFail.errors | Where-Object { $_.message -match 'non-export common module method' }).Count -eq 1) 'Non-export module method call was not reported by code grounding.'
 
+    $codeResultInvalidBase = & $codeGroundingScript -ProjectPath $codeProjectRoot -BaseRef 'definitely-not-a-commit' -NoThrow
+    Assert-Grd ($codeResultInvalidBase.verdict -eq 'BLOCKED' -and -not $codeResultInvalidBase.passed) 'Invalid BaseRef must produce a BLOCKED code-grounding result.'
+    Assert-Grd ($codeResultInvalidBase.message -match 'unable to enumerate changed BSL files') 'Invalid BaseRef BLOCKED result must preserve Git enumeration evidence.'
+
     Write-Host "Spec grounding lint tests passed: $script:checks checks."
 }
 finally {

@@ -33,11 +33,25 @@ if (-not (Test-Path -LiteralPath $projectRoot -PathType Container)) { throw "Pro
 
 function Invoke-BSLFlowGit {
     param([Parameter(Mandatory)][string[]]$Arguments)
-    # -c core.quotepath=false: Cyrillic (and any non-ASCII) paths are otherwise
-    # printed quoted with octal byte escapes, which would not match real file paths.
-    $output = & git -c core.quotepath=false -C $projectRoot @Arguments 2>&1
-    if ($LASTEXITCODE -ne 0) { throw "git $($Arguments -join ' ') failed: $output" }
-    return @($output)
+    # Git diagnostics must never enter the file list: a global excludes-file warning used to be
+    # parsed as a changed path. Keep stdout/stderr separate and retain non-ASCII paths verbatim.
+    $psi = [Diagnostics.ProcessStartInfo]::new()
+    $psi.FileName = 'git'
+    $psi.WorkingDirectory = $projectRoot
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.UseShellExecute = $false
+    foreach ($argument in @('-c', 'core.quotepath=false', '-C', $projectRoot) + $Arguments) { [void]$psi.ArgumentList.Add($argument) }
+    $process = [Diagnostics.Process]::Start($psi)
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
+    $process.WaitForExit()
+    $stdout = $stdoutTask.GetAwaiter().GetResult()
+    $stderr = $stderrTask.GetAwaiter().GetResult()
+    $exitCode = $process.ExitCode
+    $process.Dispose()
+    if ($exitCode -ne 0) { throw "git $($Arguments -join ' ') failed (exit $exitCode): $stderr" }
+    return @($stdout -split "`r?`n" | Where-Object { $_ -ne '' })
 }
 
 $changedFiles = [System.Collections.Generic.List[string]]::new()
@@ -45,14 +59,18 @@ try {
     foreach ($line in (Invoke-BSLFlowGit -Arguments @('diff', '--name-only', '--diff-filter=ACMR', $BaseRef, '--', '*.bsl'))) {
         if ($line) { $changedFiles.Add($line) }
     }
-}
-catch { }
-try {
     foreach ($line in (Invoke-BSLFlowGit -Arguments @('ls-files', '--others', '--exclude-standard', '--', '*.bsl'))) {
         if ($line) { $changedFiles.Add($line) }
     }
 }
-catch { }
+catch {
+    $message = "BF_BLOCKED: unable to enumerate changed BSL files: $($_.Exception.Message)"
+    $result = [ordered]@{ schema_version = 1; verdict = 'BLOCKED'; passed = $false; errors = @(); files_checked = 0; references_checked = 0; index = $null; message = $message }
+    if (-not $OutputPath) { $OutputPath = Join-Path $projectRoot '.bsl-flow\cache\code-grounding.json' }
+    Write-BSLFlowJsonAtomic -Value $result -Path $OutputPath
+    if (-not $NoThrow) { throw $message }
+    return [pscustomobject]$result
+}
 $changedFiles = @($changedFiles | Select-Object -Unique | Where-Object { Test-Path -LiteralPath (Join-Path $projectRoot $_) -PathType Leaf })
 
 # ---------------------------------------------------------------------------
