@@ -13,13 +13,13 @@ pwsh -NoProfile -File scripts/Install-BSLFlowCore.ps1 -Host codex
 pwsh -NoProfile -File scripts/Install-BSLFlowManaged.ps1
 ```
 
-Хосты: `codex`, `claude`, `opencode`, `agents`. Core копирует скиллы в `~/.agents/skills` (Claude: `~/.claude/skills`), схему в путь `openspec schema which bsl-flow`, bootstrap в AGENTS.md хоста. Для первой установки используются платформенные OpenSpec config defaults. Claude получает offline-скиллы и субагентов; hooks включаются установкой плагина. Установщик не меняет `settings.json`. OpenCode использует packaged reviewer config внутри скилла; глобальная пользовательская конфигурация провайдера сохраняется.
+Хосты: `codex`, `claude`, `opencode`, `agents`. Core копирует скиллы в `~/.agents/skills` (Claude: `~/.claude/skills`), схему в путь `openspec schema which bsl-flow`, bootstrap в AGENTS.md хоста. Для первой установки используются платформенные OpenSpec config defaults. Claude получает offline-скиллы, субагентов и hooks в `~/.claude/bsl-flow/hooks`; установщик идемпотентно дополняет `settings.json`, сохраняя остальные ключи и пользовательские hooks. Файл настроек входит в backup и rollback. OpenCode использует packaged reviewer config внутри скилла; глобальная пользовательская конфигурация провайдера сохраняется.
 
 `~/.bsl-flow/installed-core.json` содержит версию и реальные каталоги установки. Managed читает `requires_core` своего ZIP, сверяет receipt и наличие Core-скиллов до записи. Поддельный или устаревший receipt не доказывает готовность runtime.
 
 ## Установка поверх 0.8
 
-Core распознаёт старый полный набор по `1c-task/SKILL.md` без нового receipt. Старый bootstrap заменяется внутри маркеров, внешний пользовательский текст сохраняется. Изменяемые файлы, включая прежний receipt, сохраняются в `~/.bsl-flow/backups/<id>/`; `restore.json` перечисляет точные пути и наличие файлов до установки. Сбой после записи автоматически восстанавливает прежние байты и удаляет созданные файлы. Пустые созданные каталоги могут остаться.
+Core распознаёт старый полный набор по `1c-task/SKILL.md` без нового receipt. Старый bootstrap заменяется внутри маркеров, внешний пользовательский текст сохраняется. Изменяемые файлы, включая прежний receipt, сохраняются в `~/.bsl-flow/backups/<id>/`; `restore.json` перечисляет точные пути и наличие файлов до установки. Извлечённый пакет до записи проверяется по inventory и SHA-256 `package-manifest.json`; изменённый пакет отклоняется. Установка из исходного checkout без package-manifest разрешена. Сбой после записи автоматически восстанавливает прежние байты и удаляет созданные файлы. Пустые созданные каталоги могут остаться.
 
 Старые Managed-файлы и пользовательские дополнительные файлы не удаляются: после миграции установи Managed совпадающей версии перед запуском контроллера. Core не запускает старый контроллер и не подтверждает его совместимость. Для полного отката успешной миграции используй `restore.json`: верни существовавшие файлы из указанного backup, удали только файлы с `existed: false`. Не смешивай backup разных установок.
 

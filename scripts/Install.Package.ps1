@@ -1,4 +1,24 @@
+#Requires -Version 7.0
 # Shared file transaction: snapshot every touched file before the first mutation.
+function Assert-BFPackageIntegrity {
+    param([string]$Root,[string]$Package)
+    $manifestPath=Join-Path $Root 'package-manifest.json'
+    if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) { return } # Source checkout installation.
+    $manifest=Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
+    if ($manifest.package -notin @($Package,'bsl-flow')) { throw 'Package manifest identity does not match installer.' }
+    $packageVersion=(Get-Content -Raw -LiteralPath (Join-Path $Root 'VERSION')).Trim()
+    if ($manifest.version -cne $packageVersion) { throw 'Package manifest VERSION mismatch.' }
+    $prefix=[IO.Path]::GetFullPath($Root).TrimEnd('\','/')+[IO.Path]::DirectorySeparatorChar
+    $expected=@($manifest.files | ForEach-Object { [string]$_.path })
+    if (@($expected | Select-Object -Unique).Count -ne $expected.Count) { throw 'Duplicate package manifest path.' }
+    foreach ($record in $manifest.files) {
+        $target=[IO.Path]::GetFullPath((Join-Path $Root ([string]$record.path)))
+        if (-not $target.StartsWith($prefix,[StringComparison]::OrdinalIgnoreCase)) { throw 'Package manifest path escapes package root.' }
+        if (-not (Test-Path -LiteralPath $target -PathType Leaf) -or (Get-FileHash -LiteralPath $target).Hash.ToLowerInvariant() -cne $record.sha256) { throw "Package integrity mismatch: $($record.path)" }
+    }
+    $actual=@(Get-ChildItem -LiteralPath $Root -Recurse -Force -File | Where-Object {$_.FullName -ne $manifestPath} | ForEach-Object {[IO.Path]::GetRelativePath($Root,$_.FullName).Replace('\','/')})
+    if (Compare-Object $expected $actual) { throw 'Package integrity inventory mismatch.' }
+}
 function Test-BFPackageMember {
     param([string]$Relative,$Definition)
     $included = @($Definition.include | Where-Object { $Relative -like ($_ -replace '\*\*','*') }).Count -gt 0
@@ -14,6 +34,7 @@ function Assert-BFInstallTarget {
     }
     $cursor = $full
     while ($cursor) {
+        if ($Isolated -and $cursor.TrimEnd('\','/') -eq $tempRoot.TrimEnd('\','/')) { break }
         if (Test-Path -LiteralPath $cursor) {
             if (((Get-Item -LiteralPath $cursor -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw "Installation target contains a reparse point: $cursor" }
         }

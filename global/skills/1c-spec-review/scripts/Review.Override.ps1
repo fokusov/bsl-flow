@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 function Get-BSLFlowOwnerOverride {
     param([string]$ChangeRoot)
     $path = Join-Path $ChangeRoot 'review-reconciliation.json'

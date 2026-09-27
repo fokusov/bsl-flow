@@ -6,6 +6,7 @@ $ErrorActionPreference = 'Stop'
 if (-not $IsWindows) { throw 'BSL Flow Managed supports Windows only.' }
 . (Join-Path $PSScriptRoot 'Install.Package.ps1')
 $root = Split-Path $PSScriptRoot -Parent
+Assert-BFPackageIntegrity -Root $root -Package managed
 $version = (Get-Content -Raw (Join-Path $root 'VERSION')).Trim()
 $isolated = [bool]$MarkerPath
 if (-not $MarkerPath) { $MarkerPath = Join-Path ([Environment]::GetFolderPath('UserProfile')) '.bsl-flow/installed-core.json' }
@@ -21,6 +22,11 @@ if (Test-Path $manifestPath) {
 if ($core.package -ne 'core' -or $core.version -cne $requires -or $requires -cne $version) { throw "BF_BLOCKED: requires_core $version; installed Core version is $($core.version)." }
 $skills = [string]$core.skills_root
 Assert-BFInstallTarget $skills -Isolated:$isolated
+if (-not $isolated) {
+    if ($core.host -notin @('claude','codex','opencode','agents')) { throw 'BF_BLOCKED: Core receipt has an unknown host.' }
+    $expectedSkills=Join-Path ([Environment]::GetFolderPath('UserProfile')) $(if ($core.host -eq 'claude') { '.claude/skills' } else { '.agents/skills' })
+    if ([IO.Path]::GetFullPath($skills).TrimEnd('\','/') -ne [IO.Path]::GetFullPath($expectedSkills).TrimEnd('\','/')) { throw 'BF_BLOCKED: Core receipt skills_root is outside the selected host installation.' }
+}
 foreach ($name in @('1c-init-project','1c-spec','1c-spec-review','1c-implement','1c-verify','1c-debug','1c-estimate')) {
     if (-not (Test-Path (Join-Path $skills "$name/SKILL.md") -PathType Leaf)) { throw "BF_BLOCKED: Core receipt points to incomplete installation ($name)." }
 }

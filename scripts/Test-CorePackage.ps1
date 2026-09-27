@@ -1,15 +1,5 @@
 #Requires -Version 7.0
-# Offline contract test for the Core/Managed package split (docs/plans/2026-09-26-remediation-plan.md
-# Ф2, ADR-12 in docs/ARCHITECTURE_RU.md). Builds both packages with
-# scripts/Build-BSLFlowPackage.ps1 -Package core|managed and asserts the package boundary:
-# no file duplication beyond LICENSE/VERSION/README, Core carries no Council engine and no
-# 1c-task, and Managed's manifest declares requires_core equal to the repo VERSION.
-#
-# It also reproduces the L/high-risk-without-Council path from an extracted Core-only package
-# (task Ф2.2 "L does not degrade"): Invoke-1CSpecReview.ps1 must fail closed with a clean
-# 'BF_BLOCKED: ...' message when the Council engine is absent, not a raw PowerShell error from a
-# missing dot-sourced file. See the final report for the exact gap found here and the recommended
-# fix to Invoke-1CSpecReview.ps1 (not edited by this change; that script is out of scope here).
+# Offline extracted-package boundaries, review gates, API transport and isolated installers.
 [CmdletBinding()]
 param([string]$PackageRoot)
 
@@ -174,6 +164,13 @@ The fixture has no business uncertainty.
     $managedExtract=Join-Path $testRoot 'managed-extract'
     [IO.Compression.ZipFile]::ExtractToDirectory($managedZip,$managedExtract)
     & (Join-Path $root 'scripts/Test-InstallCore.ps1') -PackageRoot $root -CorePackageRoot $extractRoot -ManagedPackageRoot $managedExtract
+
+    $tamperTarget=Join-Path $extractRoot 'global/skills/1c-spec/SKILL.md'
+    Add-Content $tamperTarget 'tampered'
+    $blockedTarget=Join-Path $testRoot 'tamper-install'
+    $tamperMessage=$null
+    try { & (Join-Path $extractRoot 'scripts/Install-BSLFlowCore.ps1') -Host agents -SkillsRoot (Join-Path $blockedTarget 'skills') -MarkerPath (Join-Path $blockedTarget 'installed-core.json') -OpenSpecSchemaRoot (Join-Path $blockedTarget 'schema') -SkipCliValidation | Out-Null } catch { $tamperMessage=$_.Exception.Message }
+    Assert-True ($tamperMessage -like '*Package integrity mismatch*' -and -not (Test-Path $blockedTarget)) 'Tampered Core wrote installation state.'
 
     $fullOne=& $buildScript -PackageRoot $root -OutputPath (Join-Path $testRoot 'full-default.zip')
     $fullTwo=& $buildScript -PackageRoot $root -Package full -OutputPath (Join-Path $testRoot 'full-explicit.zip')

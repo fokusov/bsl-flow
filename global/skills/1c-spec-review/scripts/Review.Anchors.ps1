@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 $script:BSLFlowSpecAnchorSections = @(
     [pscustomobject]@{ prefix = 'REQ'; pattern = '(?:Требуемое поведение|Required behavior)' },
     [pscustomobject]@{ prefix = 'AC'; pattern = '(?:Критерии при[её]мки|Acceptance criteria)' },

@@ -101,13 +101,6 @@ if ($Complexity -notin @('S', 'M', 'L') -or $Risk -notin @('low', 'medium', 'hig
 
 $configText = if (Test-Path -LiteralPath $configPath -PathType Leaf) { Get-Content -Raw -LiteralPath $configPath } else { '' }
 $councilRouting = $null
-if (Test-Path (Join-Path $PSScriptRoot 'Review.Api.Profile.ps1') -PathType Leaf) {
-    # The council route sees the effective policy: user profile merged under
-    # the project config. Routing switches themselves stay project-owned.
-    . (Join-Path $PSScriptRoot 'Review.Api.Profile.ps1')
-    $councilRouting = (Get-BSLFlowCouncilEffectivePolicy -ProjectRoot $projectRoot).policy
-}
-
 $enabled = ConvertTo-BSLFlowBoolean (Get-BSLFlowYamlValue $configText @('review', 'enabled') 'true') 'review.enabled'
 $route = if ($Risk -eq 'high') {
     Get-BSLFlowYamlValue $configText @('review', 'routing', 'high_risk_override') 'required'
@@ -131,6 +124,11 @@ if ($reviewMode -ceq 'council' -and -not (Test-Path (Join-Path $PSScriptRoot 'In
     if ($null -eq $ownerOverride) { throw 'BF_BLOCKED: L/high-risk review requires Council (install bsl-flow-managed) or an owner override recorded in review-reconciliation.json' }
     $final = & (Join-Path $PSScriptRoot 'Test-1CSpecFinal.ps1') -ProjectPath $projectRoot -ChangeName $ChangeName
     return [pscustomobject]@{Complexity=$Complexity;Risk=$Risk;Route='owner_override';ReviewMode='owner_override';ReviewRequired=$true;LintPassed=$final.passed;ReviewPath=$null;Verdict='PASS_WITH_LIMITATIONS';Limitations=@('owner_override_without_council')}
+}
+
+if ($reviewMode -ceq 'council' -or (Get-BSLFlowYamlValue $configText @('review','reviewer','provider') 'opencode') -ceq 'api') {
+    . (Join-Path $PSScriptRoot 'Review.Api.Profile.ps1')
+    $councilRouting = (Get-BSLFlowCouncilEffectivePolicy -ProjectRoot $projectRoot).policy
 }
 
 # A prepared council publication is a durable recovery record. Resume it before

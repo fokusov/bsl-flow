@@ -27,6 +27,10 @@ try {
         if ($hostName -eq 'codex') { $installArgs.CodexHome=$config }
         if ($hostName -eq 'claude') { $installArgs.ClaudeHome=$config }
         if ($hostName -eq 'opencode') { $installArgs.OpenCodeHome=$config }
+        if ($hostName -eq 'claude') {
+            New-Item -ItemType Directory $config -Force | Out-Null
+            @{theme='preserved';hooks=@{SessionStart=@(@{hooks=@(@{type='command';command='echo user-hook'})})}} | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $config 'settings.json')
+        }
         & $core @installArgs -WhatIf | Out-Null
         Assert-I (-not (Test-Path $marker)) 'WhatIf wrote receipt.'
         $result=& $core @installArgs
@@ -34,9 +38,13 @@ try {
         $receipt=Get-Content -Raw $marker | ConvertFrom-Json
         Assert-I ($receipt.version -eq $version -and $receipt.host -eq $hostName) 'Bad Core receipt.'
         Assert-I (Test-Path (Join-Path $skills '1c-spec/SKILL.md')) 'Core skill missing.'
+        $expectedProvider=switch($hostName) {codex{'codex_exec'};claude{'claude_subagent'};default{'opencode'}}
+        $installedTemplate=Get-Content -Raw (Join-Path $skills '1c-init-project/assets/project/bsl-flow.yaml')
+        Assert-I ($installedTemplate -match "(?m)^    provider: $expectedProvider$") 'New-project template lacks the host-native reviewer default.'
         Assert-I (-not (Test-Path (Join-Path $skills '1c-task/SKILL.md'))) 'Fresh Core installed managed controller.'
         Assert-I (-not (Test-Path (Join-Path $skills '1c-spec-review/scripts/Council.Profile.ps1'))) 'Core installed Council.'
         if ($hostName -eq 'claude') { Assert-I (Test-Path (Join-Path $config 'agents/bsl-flow-spec-reviewer.md')) 'Claude subagent missing.' }
+        $settingsHash=if ($hostName -eq 'claude') { (Get-FileHash (Join-Path $config 'settings.json')).Hash } else { $null }
         $snapshot=(Get-FileHash $marker).Hash
         $skillPath=Join-Path $skills '1c-spec/SKILL.md'
         Set-Content $skillPath 'custom prior content'
@@ -44,7 +52,15 @@ try {
         Assert-Fails { & $core @installArgs -SimulatePostApplyFailure } 'previous file contents restored'
         Assert-I ((Get-FileHash $marker).Hash -eq $snapshot) 'Rollback changed Core receipt.'
         Assert-I ((Get-FileHash $skillPath).Hash -eq $beforeSkill) 'Rollback lost existing skill bytes.'
+        if ($hostName -eq 'claude') { Assert-I ((Get-FileHash (Join-Path $config 'settings.json')).Hash -eq $settingsHash) 'Rollback changed Claude settings.' }
         & $core @installArgs | Out-Null
+        if ($hostName -eq 'claude') {
+            $settings=Get-Content -Raw (Join-Path $config 'settings.json') | ConvertFrom-Json
+            $commands=@($settings.hooks.SessionStart | ForEach-Object {$_.hooks} | ForEach-Object {$_.command})
+            Assert-I ($settings.theme -eq 'preserved' -and $commands -contains 'echo user-hook') 'Claude install lost existing configuration.'
+            Assert-I (@($commands | Where-Object {$_ -like '*SessionStart.ps1*'}).Count -eq 1) 'Claude hooks duplicated after reinstall.'
+            Assert-I (Test-Path (Join-Path $config 'bsl-flow/hooks/SessionStart.ps1')) 'Installed hook command target missing.'
+        }
         if ($IsWindows) {
             Assert-Fails { & $managed -MarkerPath (Join-Path $target 'absent.json') } 'requires_core'
             $receipt.version='0.0.0'; $receipt | ConvertTo-Json | Set-Content $marker
