@@ -6,7 +6,8 @@ param(
     [string]$OpenSpecSchemaRoot,
     [string]$MetricsPath,
     [switch]$SkipCliValidation,
-    [switch]$SimulatePostApplyFailure
+    [switch]$SimulatePostApplyFailure,
+    [switch]$SkipOpenCodeReviewer
 )
 
 Set-StrictMode -Version Latest
@@ -186,11 +187,22 @@ foreach ($requiredPath in @($sourceSkills, $sourceSchema, $sourceAgentsBlock, $s
 
 $openSpecCommand = $null
 $openCodeCommand = $null
+$validateOpenCodeReviewer = $false
 if (-not $SkipCliValidation) {
     $openSpecCommand = Get-Command openspec -ErrorAction SilentlyContinue
-    $openCodeCommand = Get-Command opencode -ErrorAction SilentlyContinue
     if (-not $openSpecCommand) { throw 'OpenSpec CLI is required but was not found in PATH.' }
-    if (-not $openCodeCommand) { throw 'OpenCode CLI is required but was not found in PATH.' }
+    if ($SkipOpenCodeReviewer) {
+        Write-Warning 'Skipping the OpenCode reviewer check (-SkipOpenCodeReviewer). Configure review.reviewer.provider (claude_cli, codex_exec, api, or claude_subagent) for the M spec-review route.'
+    }
+    else {
+        $openCodeCommand = Get-Command opencode -ErrorAction SilentlyContinue
+        if (-not $openCodeCommand) {
+            Write-Warning 'OpenCode CLI was not found in PATH. The M spec-review route needs a configured review.reviewer.provider other than opencode (claude_cli, codex_exec, api, or claude_subagent), or an OpenCode install.'
+        }
+        else {
+            $validateOpenCodeReviewer = $true
+        }
+    }
 }
 
 $skillNames = @('1c-init-project', '1c-spec', '1c-spec-review', '1c-estimate', '1c-implement', '1c-verify', '1c-debug', '1c-task')
@@ -214,7 +226,9 @@ if ($WhatIfPreference) {
 
 if (-not $SkipCliValidation) {
     Test-PackagedSchema -OpenSpecCommand $openSpecCommand.Source -SchemaSource $sourceSchema
-    Test-ReviewerConfig -OpenCodeCommand $openCodeCommand.Source -ReviewerConfig $sourceReviewerConfig
+    if ($validateOpenCodeReviewer) {
+        Test-ReviewerConfig -OpenCodeCommand $openCodeCommand.Source -ReviewerConfig $sourceReviewerConfig
+    }
 }
 
 foreach ($requiredContainer in @($codexHome, $targetSkills, $targetSchemaParent)) {
@@ -338,7 +352,9 @@ try {
     if (-not $SkipCliValidation) {
         $whichOutput = Invoke-NativeCommand -Command $openSpecCommand.Source -Arguments @('schema', 'which', 'bsl-flow')
         $validateOutput = Invoke-NativeCommand -Command $openSpecCommand.Source -Arguments @('schema', 'validate', 'bsl-flow', '--json')
-        Test-ReviewerConfig -OpenCodeCommand $openCodeCommand.Source -ReviewerConfig (Join-Path $targetSkills '1c-spec-review\reviewer\opencode-reviewer.json')
+        if ($validateOpenCodeReviewer) {
+            Test-ReviewerConfig -OpenCodeCommand $openCodeCommand.Source -ReviewerConfig (Join-Path $targetSkills '1c-spec-review\reviewer\opencode-reviewer.json')
+        }
     }
     if (-not $hadMetrics) {
         New-Item -ItemType Directory -Path (Split-Path -Parent $metricsPath) -Force | Out-Null

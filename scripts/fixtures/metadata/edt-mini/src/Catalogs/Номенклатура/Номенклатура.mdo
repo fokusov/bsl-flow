@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mdclass:Catalog xmlns:mdclass="http://g5.1c.ru/v8/dt/metadata/mdclass" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" uuid="1c0f5a1a-1111-4111-8111-0000000000e1">
+	<name>Номенклатура</name>
+	<attributes uuid="1c0f5a1a-1111-4111-8111-0000000000e2">
+		<name>Артикул</name>
+		<type>
+			<types>xs:string</types>
+		</type>
+	</attributes>
+	<tabularSections uuid="1c0f5a1a-1111-4111-8111-0000000000e4">
+		<name>Штрихкоды</name>
+		<attributes uuid="1c0f5a1a-1111-4111-8111-0000000000e5">
+			<name>Штрихкод</name>
+			<type>
+				<types>xs:string</types>
+			</type>
+		</attributes>
+	</tabularSections>
+</mdclass:Catalog>

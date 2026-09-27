@@ -217,7 +217,7 @@ Assert-True ($publicReadme.Contains('provider') -and $publicReadme.Contains('`BL
 $retiredPrefix = '1' + 'c'
 $retiredWord = 'li' + 'te'
 $forbiddenNamePattern = '(?i)' + $retiredPrefix + '[-_. ]?' + $retiredWord + '|one' + $retiredPrefix + '[-_. ]?' + $retiredWord
-$scanEntries = @(Get-ChildItem -LiteralPath $packageRoot -Force | Where-Object { $_.Name -notin @('.git','.bsl-flow','.build','work','outputs') })
+$scanEntries = @(Get-ChildItem -LiteralPath $packageRoot -Force | Where-Object { $_.Name -notin @('.git','.bsl-flow','.build','.claude','work','outputs') })
 $scanFiles = @($scanEntries | Where-Object { -not $_.PSIsContainer })
 foreach ($directory in @($scanEntries | Where-Object { $_.PSIsContainer })) {
     $scanFiles += @(Get-ChildItem -LiteralPath $directory.FullName -File -Recurse -Force)
@@ -225,7 +225,7 @@ foreach ($directory in @($scanEntries | Where-Object { $_.PSIsContainer })) {
 $forbiddenHits = $scanFiles |
     Where-Object {
         $relative = $_.FullName.Substring($packageRoot.TrimEnd('\', '/').Length + 1).Replace('\', '/')
-        $_.FullName -notmatch '[\\/](?:\.git|\.bsl-flow|work|outputs)(?:[\\/]|$)' -and
+        $_.FullName -notmatch '[\\/](?:\.git|\.bsl-flow|\.claude|work|outputs)(?:[\\/]|$)' -and
             $relative -notmatch '^\.build/'
     } |
     Select-String -Pattern $forbiddenNamePattern
@@ -383,8 +383,12 @@ try {
         Assert-True (Test-Path -LiteralPath $installedTaskCli -PathType Leaf) 'Installed layout omitted the 1c-task CLI.'
         $taskCommand = Get-Command $installedTaskCli
         foreach ($parameter in @('Action','ProjectPath','TaskId','InputFile','AttemptId','CodexPath','RuntimeAuth')) { Assert-True $taskCommand.Parameters.ContainsKey($parameter) "Installed 1c-task CLI omitted parameter: $parameter" }
-        $actionSet = @($taskCommand.Parameters.Action.Attributes | Where-Object { $_ -is [Management.Automation.ValidateSetAttribute] } | ForEach-Object ValidValues)
-        $expectedActions = @('Start','Status','Next','Context','Run','Record','Update','Accept','Resume','Cancel','Deliver','Serve','Publish','PublishResume','Create','EditRegistry','List','Show','History','Overview','ArchiveTask','UnarchiveTask','Activate')
+        # Unknown actions fail with BF_INVALID inside the controller, so the
+        # action set is declared by $script:BFKnownActions rather than ValidateSet.
+        $knownActionsMatch = [regex]::Match((Get-Content -Raw -LiteralPath $installedTaskCli), '(?m)^\$script:BFKnownActions=@\((?<list>[^)]*)\)')
+        Assert-True $knownActionsMatch.Success 'Installed 1c-task CLI does not declare its known action set.'
+        $actionSet = @([regex]::Matches($knownActionsMatch.Groups['list'].Value, "'([A-Za-z]+)'") | ForEach-Object { $_.Groups[1].Value })
+        $expectedActions = @('Start','Status','Next','Context','Run','Record','Update','Accept','Resume','Cancel','Deliver','Serve','Publish','PublishResume','Create','EditRegistry','List','Show','History','Overview','ArchiveTask','UnarchiveTask')
         Assert-True ($actionSet.Count -eq $expectedActions.Count) 'Installed 1c-task CLI exposes an unexpected action set.'
         foreach ($action in $expectedActions) { Assert-True ($action -in $actionSet) "Installed 1c-task CLI omitted action: $action" }
     }
