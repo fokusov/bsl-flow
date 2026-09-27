@@ -25,6 +25,16 @@ function Assert-True {
     if (-not $Condition) { throw "ASSERT: $Message" }
 }
 
+function Get-BenchFunctionAst {
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Name)
+    $tokens = $null; $parseErrors = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile($Path, [ref]$tokens, [ref]$parseErrors)
+    if ($parseErrors.Count -gt 0) { throw "Runner parse failed: $($parseErrors[0].Message)" }
+    $functionAst = @($ast.FindAll({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $Name }, $true)) | Select-Object -First 1
+    if (-not $functionAst) { throw "Runner function not found: $Name" }
+    return $functionAst
+}
+
 function Remove-BenchHarnessTestRoot {
     param([Parameter(Mandatory)][string]$Path)
     $fullPath = [IO.Path]::GetFullPath($Path)
@@ -40,6 +50,27 @@ $testRoot = Join-Path ([IO.Path]::GetTempPath()) "bslflow-bench-harness-test-$([
 $oldVariant = $env:BENCH_FAKE_VARIANT
 try {
     New-Item -ItemType Directory -Path $testRoot -Force | Out-Null
+
+    # Extract just the acceptance function and stub its gate: this proves the verdict
+    # contract without starting BSL LS, a model, or a runtime.
+    function Invoke-BenchStaticDiffGate { param($RepoPath, $BaselineRef) return $script:benchStubGate }
+    $acceptanceAst = Get-BenchFunctionAst -Path $runner -Name 'Invoke-BenchAcceptanceCheck'
+    Invoke-Expression $acceptanceAst.Extent.Text
+    $bsllsCheck = [pscustomobject]@{ kind = 'bslls_new_errors_max'; value = 0 }
+    $script:benchStubGate = [pscustomobject]@{ Verdict = 'BLOCKED'; Reason = 'invalid_base_ref'; New = @() }
+    $blockedGateResult = Invoke-BenchAcceptanceCheck -Check $bsllsCheck -RepoPath $testRoot -BaselineRef 'fixture-baseline'
+    Assert-True -Condition ($blockedGateResult.Verdict -eq 'BLOCKED') -Message 'BLOCKED static-diff gate was converted into a passing BSL LS check.'
+    $script:benchStubGate = [pscustomobject]@{ Verdict = 'UNEXPECTED_STATE'; Reason = 'future_gate_state'; New = @() }
+    $unknownGateResult = Invoke-BenchAcceptanceCheck -Check $bsllsCheck -RepoPath $testRoot -BaselineRef 'fixture-baseline'
+    Assert-True -Condition ($unknownGateResult.Verdict -eq 'UNEXPECTED_STATE') -Message 'Unknown static-diff gate verdict was not propagated.'
+    $script:benchStubGate = [pscustomobject]@{ Verdict = 'FAIL'; Reason = 'known_diagnostics'; New = @([pscustomobject]@{ severity = 'Error' }) }
+    $bsllsCheck.value = 1
+    $knownGateResult = Invoke-BenchAcceptanceCheck -Check $bsllsCheck -RepoPath $testRoot -BaselineRef 'fixture-baseline'
+    Assert-True -Condition ($knownGateResult.Verdict -eq 'PASS') -Message 'Known diagnostics were not evaluated against the allowed maximum.'
+    $bsllsCheck.value = 0
+    $overLimitResult = Invoke-BenchAcceptanceCheck -Check $bsllsCheck -RepoPath $testRoot -BaselineRef 'fixture-baseline'
+    Assert-True -Condition ($overLimitResult.Verdict -eq 'FAIL') -Message 'Diagnostics above the allowed maximum were accepted.'
+
     $runs = @{}
     foreach ($variant in @('good', 'bad', 'drift')) {
         $runDir = Join-Path $testRoot $variant

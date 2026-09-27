@@ -312,7 +312,7 @@ function Invoke-BenchStaticDiffGate {
     if (-not (Test-Path -LiteralPath $outputPath -PathType Leaf)) { return [pscustomobject]@{ Verdict = 'NOT_RUN'; Reason = 'static_diff_no_output'; New = @() } }
     $report = Get-Content -Raw -LiteralPath $outputPath -Encoding UTF8 | ConvertFrom-Json
     Remove-Item -LiteralPath $outputPath -Force -ErrorAction SilentlyContinue
-    $changedBsl = @(Invoke-BenchGit @('diff', '--name-only', $BaselineRef, '--', 'src') $RepoPath | Where-Object { $_ -match '\.(bsl|os)$' }).Count -gt 0
+    $changedBsl = @((Invoke-BenchGit @('diff', '--name-only', $BaselineRef, '--', 'src') $RepoPath) -split "`r?`n" | Where-Object { $_ -match '\.(bsl|os)$' }).Count -gt 0
     if ($changedBsl -and $report.verdict -eq 'PASS' -and $report.reason -eq 'no_changed_files') {
         # A clean verdict without observing the changed BSL input is not evidence.  Keep the
         # attempt runnable, but expose the missing observation instead of crediting a PASS.
@@ -358,7 +358,10 @@ function Invoke-BenchAcceptanceCheck {
         }
         'bslls_new_errors_max' {
             $gate = Invoke-BenchStaticDiffGate -RepoPath $RepoPath -BaselineRef $BaselineRef
-            if ($gate.Verdict -eq 'NOT_RUN') { return [pscustomobject]@{ Kind = $kind; Verdict = 'NOT_RUN'; Detail = $gate.Reason } }
+            # Only a gate with known diagnostics (PASS/FAIL) can be scored against the
+            # configured maximum. BLOCKED and any future/unknown verdict remain evidence
+            # states; treating their empty New collection as zero errors would fabricate PASS.
+            if ($gate.Verdict -notin @('PASS', 'FAIL')) { return [pscustomobject]@{ Kind = $kind; Verdict = $gate.Verdict; Detail = $gate.Reason } }
             $errorCount = @($gate.New | Where-Object { $_.severity -eq 'Error' }).Count
             $ok = $errorCount -le [int]$Check.value
             return [pscustomobject]@{ Kind = $kind; Verdict = $(if ($ok) { 'PASS' } else { 'FAIL' }); Detail = "new_error_count=$errorCount max=$($Check.value)" }
