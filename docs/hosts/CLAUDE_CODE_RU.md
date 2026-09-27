@@ -4,32 +4,26 @@
 
 ## Установка
 
-### Через marketplace (основной путь)
+### Локальный плагин до публикации 0.9
 
 В сессии Claude Code:
 
 ```text
-/plugin marketplace add <owner>/bsl-flow
+/plugin marketplace add C:/path/to/bsl-flow
 /plugin install bsl-flow@bsl-flow
 ```
 
 Плагин `bsl-flow` собран из корня этого репозитория (`.claude-plugin/plugin.json` и `.claude-plugin/marketplace.json` живут в корне, `source` в `marketplace.json` — `./`). Он подключает:
 
-- 7 Core-скиллов из `global/skills/` под неймспейсом `bsl-flow:1c-spec`, `bsl-flow:1c-verify` и так далее — те же файлы, что и в остальных хостах, без копий;
+- 8 скиллов из `global/skills/`, включая `1c-task` и `1c-estimate`, под неймспейсом `bsl-flow:1c-spec`, `bsl-flow:1c-verify` и так далее — те же файлы, что и в остальных хостах, без копий;
 - два read-only subagent'а из `hosts/claude-code/agents/`: `bsl-flow-spec-reviewer` (`Read, Grep, Glob`) и `bsl-flow-code-reviewer` (`Read, Grep, Glob`);
 - хуки из `hosts/claude-code/hooks/hooks.json`.
 
-Проверить локально до публикации: `claude plugin validate .` из корня репозитория.
+Проверить локально до публикации: `claude plugin validate .` из корня репозитория. После публикации 0.9 локальный путь можно заменить на `fokusov/bsl-flow`; текущая удалённая ветка ещё не подтверждает наличие новой версии.
 
 ### Офлайн-альтернатива (без marketplace)
 
-Если marketplace недоступен (закрытая сеть, корпоративная политика), скопируйте вручную:
-
-- `global/skills/*` → `~/.claude/skills/` (каждый скилл — отдельная подпапка с `SKILL.md`);
-- `hosts/claude-code/agents/*.md` → `~/.claude/agents/`;
-- содержимое `hosts/claude-code/hooks/hooks.json` слейте в `~/.claude/settings.json` (ключ `hooks`), заменив `${CLAUDE_PLUGIN_ROOT}` на абсолютный путь к вашей копии `hosts/claude-code/hooks/` (плейсхолдер `${CLAUDE_PLUGIN_ROOT}` работает только внутри установленного плагина).
-
-При офлайн-установке `claude plugin validate` не запускается автоматически — проверьте синтаксис `hooks.json` вручную (валидный JSON, существующие пути после подстановки).
+Из распакованной поставки 0.9 используй `pwsh -NoProfile -File scripts/Install-BSLFlowCore.ps1 -Host claude`: установщик показывает план; примени его с `-Apply`. Core содержит 6 основных assisted-скиллов, `1c-estimate` подключается отдельно. Установщик управляет путями, сохранением существующей конфигурации и откатом. Точный состав и параметры описаны в `INSTALL.md`. Managed устанавливается отдельно и доступен на Windows.
 
 ## Что делают хуки
 
@@ -58,3 +52,22 @@
 ## Аварийный выключатель
 
 `BSL_FLOW_GATES=off` (переменная окружения) заставляет `PreToolUse-EditGate.ps1` пропускать редактирование даже при непройденной final validation, но обязательно дописывает запись в `.bsl-flow/reports/gate-overrides.jsonl` (время, файл, change, причина). `Test-1CChangeGate.ps1` читает этот журнал и всегда возвращает его содержимое как `limitations` в своём JSON-вердикте, независимо от итогового `verdict`, — используйте это в `verification.md`, а не замалчивайте включённый выключатель.
+
+## Managed (Windows, experimental)
+
+Контроллер поддерживает два маршрута. Оба сохраняют действующие gates авторизации, источников и приёмки; запуск и изменение информационной базы требуют отдельного разрешения.
+
+**Текущая сессия:** зарегистрируй доверенный request без `execution_profile` через `Start`. Затем вызови установленный `1c-task/scripts/Invoke-BSLFlowTask.ps1`:
+
+```powershell
+pwsh -NoProfile -File <controller> -Action Next -Format Prompt -ProjectPath <project> -TaskId <id>
+pwsh -NoProfile -File <controller> -Action Submit -ProjectPath <project> -TaskId <id> -Stage <stage> -DispatchId <dispatch_id> -ResultFile <result.json>
+```
+
+`Next` возвращает JSON-конверт с `dispatch.prompt`, `dispatch_id`, путём схемы и рабочей копией `worker_path`. Выполняй задание именно в этой копии; результат сохрани вне неё. Поля результата: `schema_version: 1`, `status`, `summary`, `payload_json` (строка с JSON). Повторный `Next` показывает уже выданный dispatch; второй `Submit` с использованным идентификатором отклоняется. Неправильная стадия, схема, устаревшие входы и изменение controller state блокируют приёмку. Стадии `verify`, `spec_review` и `acceptance` остаются у контроллера: следуй его `next_action`. Для `Run` с одними `file_assertion` отдельный хост не требуется; другие проверки и review требуют настроенных исполнителей.
+
+Receipt и итоговая приёмка явно содержат `isolation: current_agent` и перечень стадий без изоляции. Это журнал с проверками результата; текущая сессия сохраняет собственные полномочия, независимость ревью и OS sandbox этим режимом не обеспечиваются.
+
+**Headless Claude Code:** в доверенном request укажи `execution_profile.provider: claude-code`, абсолютный путь и SHA-256 `claude.exe`, существующий контракт sandbox/toolset и явный бюджет. Модели задаются полными `claude-*` id, effort — `low|medium|high`. Sandbox в профиле нужен для проверок, запускаемых контроллером; сам Claude worker имеет `permission_rules`, без OS sandbox. Манифест `1c-task/adapters/claude-code.adapter.json` хранит allowlist версий. `--version`/`--help` проверяются до модельного вызова; неизвестная версия или отсутствующий флаг дают `BLOCKED`.
+
+Worker запускается с `-p --output-format stream-json`; на стадиях чтения доступны `Read,Grep,Glob`, на `implement` также `Edit,Write`. Bash, веб, субагенты и MCP выключены, пользовательские/project settings не загружаются. Контроллер проверяет наблюдаемую модель, поток событий, целостность своего состояния и manifest исходников. Частичный запуск сохраняется для reconciliation без автоматического повторения платного вызова. Receipt фиксирует `permission_rules`, а не `os_sandbox`. Статус останется `experimental` до реальных пилотов S и M; офлайн-фикстуры не подтверждают живую изоляцию CLI.

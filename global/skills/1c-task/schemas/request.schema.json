@@ -201,7 +201,7 @@
       "additionalProperties": false,
       "required": ["provider", "executable", "executable_sha256", "sandbox", "toolset", "denied_read_roots"],
       "properties": {
-        "provider": {"enum": ["codex", "opencode"]},
+        "provider": {"enum": ["codex", "opencode", "claude-code"]},
         "codex_skills_sha256": {"$ref": "#/$defs/sha256"},
         "executable": {"$ref": "#/$defs/executable"},
         "executable_sha256": {"$ref": "#/$defs/sha256"},
@@ -354,6 +354,15 @@
       "reviewer": {"pattern": "^[A-Za-z0-9._:-]+$"},
       "worker_effort": {"enum": ["low", "medium", "high", "xhigh"]},
       "reviewer_effort": {"enum": ["low", "medium", "high", "xhigh"]}
+    }}}}
+  },
+  {
+    "if": {"required": ["execution_profile"], "properties": {"execution_profile": {"properties": {"provider": {"const": "claude-code"}}}}},
+    "then": {"properties": {"models": {"properties": {
+      "worker": {"pattern": "^claude-[A-Za-z0-9._-]+$"},
+      "reviewer": {"pattern": "^claude-[A-Za-z0-9._-]+$"},
+      "worker_effort": {"enum": ["low", "medium", "high"]},
+      "reviewer_effort": {"enum": ["low", "medium", "high"]}
     }}}}
   },
   {

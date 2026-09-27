@@ -88,6 +88,8 @@ try {
     # Integrity: a change to controller state between Next and Submit blocks.
     $task2=New-Task;$base2=@('-ProjectPath',$project,'-TaskId',$task2)
     $next=Invoke-Cli (@('-Action','Next','-Format','Prompt')+$base2)
+    $crossTask=Invoke-Cli (@('-Action','Submit','-Stage','inspect','-DispatchId',$dispatch.dispatch_id,'-ResultFile',$good)+$base2)
+    Assert-Mode ($crossTask.code -eq 3 -and $crossTask.text -match 'does not match') 'A dispatch from another task was accepted.'
     Write-Text (Join-Path $project ".bsl-flow/tasks/$task2/inputs/forged.json") '{}'
     $tampered=Invoke-Cli (@('-Action','Submit','-Stage','inspect','-DispatchId',$next.envelope.dispatch.dispatch_id,'-ResultFile',(Write-Result 'inspect' $inspectPayload))+$base2)
     Assert-Mode ($tampered.code -eq 11 -and $tampered.text -match 'controller state modified by worker') "Controller tampering was not detected: $($tampered.text)"
@@ -98,7 +100,14 @@ try {
     Write-Text (Join-Path $next.envelope.worker_path 'hello.txt') "Changed during inspect`n"
     $readOnly=Invoke-Cli (@('-Action','Submit','-Stage','inspect','-DispatchId',$next.envelope.dispatch.dispatch_id,'-ResultFile',(Write-Result 'inspect' $inspectPayload))+$base3)
     Assert-Mode ($readOnly.code -eq 11 -and $readOnly.envelope.submitted.outcome -eq 'BLOCKED' -and $null -ne $readOnly.envelope.unresolved_effect) "Read-only source change was not an unresolved effect: $($readOnly.text)"
+    $task4=New-Task;$base4=@('-ProjectPath',$project,'-TaskId',$task4)
+    $next=Invoke-Cli (@('-Action','Next','-Format','Prompt')+$base4)
+    $cancel=Invoke-Cli (@('-Action','Cancel')+$base4)
+    Assert-Mode ($cancel.envelope.status -eq 'cancelled') 'Cancellation failed.'
+    $cancelledSubmit=Invoke-Cli (@('-Action','Submit','-Stage','inspect','-DispatchId',$next.envelope.dispatch.dispatch_id,'-ResultFile',$good)+$base4)
+    Assert-Mode ($cancelledSubmit.code -ne 0) 'A revoked dispatch authorization was accepted.'
     Write-Output "CURRENT_AGENT_MODE_OK checks=$script:checks; model/sandbox processes=0"
 } finally {
+    if(-not ([IO.Path]::GetFullPath($testRoot)).StartsWith([IO.Path]::GetFullPath([IO.Path]::GetTempPath()),[StringComparison]::OrdinalIgnoreCase)){throw 'Unsafe fixture cleanup path.'}
     if(Test-Path -LiteralPath $testRoot){& git -C (Join-Path $testRoot 'project') worktree prune 2>$null;Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue}
 }

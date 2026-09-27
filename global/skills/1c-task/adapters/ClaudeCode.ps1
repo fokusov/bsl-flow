@@ -55,8 +55,10 @@ function Test-BFClaudeCodeToolPath {
     $inside=$false
     foreach($root in $roots){$r=(Assert-BFSafePath $root).TrimEnd('\','/');if($full -eq $r -or $full.StartsWith($r+'\',[StringComparison]::OrdinalIgnoreCase)){$inside=$true;break}}
     if(-not $inside){throw "BF_BLOCKED: Claude Code $Tool reached outside the permitted roots."}
-    $relative=$full.Substring(([string]$WorkerPath).TrimEnd('\','/').Length).Replace('\','/')
-    if($Tool -cin @('Edit','Write') -and $relative -match '(^|/)(\.git|\.bsl-flow)(/|$)'){throw 'BF_BLOCKED: Claude Code wrote an administrative path.'}
+    if($Tool -cin @('Edit','Write')){
+        $relative=$full.Substring(([string]$WorkerPath).TrimEnd('\','/').Length).Replace('\','/')
+        if($relative -match '(^|/)(\.git|\.bsl-flow)(/|$)'){throw 'BF_BLOCKED: Claude Code wrote an administrative path.'}
+    }
 }
 
 function Read-BFClaudeCodeEvents {
@@ -83,7 +85,7 @@ function Read-BFClaudeCodeEvents {
             $observedModel=Get-BFValue $event 'model'
             if($eventSession -isnot [string] -or [string]::IsNullOrWhiteSpace($eventSession) -or $observedModel -isnot [string] -or [string]::IsNullOrWhiteSpace($observedModel)){throw 'BF_BLOCKED: Claude Code init lacks session or model identity.'}
             $session=$eventSession
-            foreach($tool in @(Get-BFValue $event 'tools' @())){if([string]$tool -cin $DeniedTools -or ([string]$tool).StartsWith('mcp__')){throw "BF_BLOCKED: Claude Code exposed a denied tool: $tool"}}
+            foreach($tool in @(Get-BFValue $event 'tools' @())){if([string]$tool -cnotin $AllowedTools -or [string]$tool -cin $DeniedTools){throw "BF_BLOCKED: Claude Code exposed a denied tool: $tool"}}
             if(@(Get-BFValue $event 'mcp_servers' @()).Count -ne 0){throw 'BF_BLOCKED: Claude Code loaded MCP servers.'}
             continue
         }
@@ -105,7 +107,7 @@ function Read-BFClaudeCodeEvents {
     if((Get-BFValue $final 'is_error') -ne $false -or (Get-BFValue $final 'subtype') -cne 'success'){throw 'BF_BLOCKED: Claude Code reported an error result.'}
     if($ExitCode -ne 0){throw 'BF_BLOCKED: Claude Code process failed.'}
     $cost=Get-BFValue $final 'total_cost_usd';$usage=Get-BFValue $final 'usage';$resultText=Get-BFValue $final 'result'
-    if($null -eq $cost -or $cost -is [bool] -or $cost -isnot [ValueType] -or [double]$cost -lt 0){throw 'BF_BLOCKED: invalid Claude Code reported cost.'}
+    if($null -eq $cost -or $cost -is [bool] -or $cost -isnot [ValueType] -or -not [double]::IsFinite([double]$cost) -or [double]$cost -lt 0){throw 'BF_BLOCKED: invalid Claude Code reported cost.'}
     if($null -eq $usage -or $usage -isnot [pscustomobject]){throw 'BF_BLOCKED: Claude Code result has no usage.'}
     if($resultText -isnot [string]){throw 'BF_BLOCKED: Claude Code result has no text.'}
     $result=ConvertFrom-BFWorkerResultText $resultText 'claude_code_result'
