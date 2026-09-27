@@ -576,6 +576,7 @@ function Invoke-BFManagedWorker {
     # preflight, budget reservation or process launch.
     $adapter=Get-BFWorkerAdapter $profile.provider
     Assert-BFAdapterStagePolicy $adapter $Stage
+    Assert-BFAdapterDispatchReady $adapter
     $worker=Get-Command $adapter.worker_function -CommandType Function -ErrorAction SilentlyContinue
     if($null -eq $worker){throw "BF_BLOCKED: worker adapter $($adapter.name) is not loaded."}
     # BFI-003/BFI-005 pre-dispatch gates live on the shared path so both

@@ -116,6 +116,7 @@ function Read-BFClaudeCodeEvents {
 
 function Invoke-BFClaudeCodeWorker {
     param($State,[string]$Stage,[string]$Prompt,[string]$Directory,[string]$CodexPath,[scriptblock]$Cancelled,[int]$MaxOutputBytes=16777216)
+    Assert-BFAdapterDispatchReady (Get-BFWorkerAdapter 'claude-code')
     $dependencies=Get-BFExecutionDependencies $State;$profile=$State.request.execution_profile
     if($MaxOutputBytes -lt 65536 -or $MaxOutputBytes -gt 16777216){throw 'BF_INVALID: managed output bound is outside the supported range.'}
     if($profile.provider -cne 'claude-code'){throw 'BF_BLOCKED: managed Claude Code identity mismatch.'}

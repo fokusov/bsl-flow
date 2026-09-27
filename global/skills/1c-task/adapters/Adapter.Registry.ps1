@@ -14,7 +14,7 @@ function Get-BFWorkerAdapter {
     $path=Join-Path $PSScriptRoot ($Name+'.adapter.json')
     if(-not(Test-Path -LiteralPath $path -PathType Leaf)){throw 'BF_INVALID: unsupported managed provider.'}
     $adapter=Read-BFJson $path
-    Assert-BFFields $adapter @('name','contract','status','isolation','stages','observed_identity','entry','capability_function','worker_function') @('integrity_check','version','profile_required','required_help_flags','tools') 'adapter'
+    Assert-BFFields $adapter @('name','contract','status','isolation','stages','observed_identity','entry','capability_function','worker_function') @('integrity_check','version','profile_required','required_help_flags','tools','dispatch_blocker') 'adapter'
     if($adapter.name -cne $Name -or $adapter.contract -cne 'worker-adapter/v1' -or $adapter.status -cnotin @('supported','experimental')){throw "BF_BLOCKED: invalid worker adapter manifest: $Name"}
     if($adapter.isolation -cnotin $script:BFAdapterIsolations -or $adapter.observed_identity -isnot [bool]){throw "BF_BLOCKED: invalid worker adapter isolation: $Name"}
     if($adapter.stages -isnot [array] -or $adapter.stages.Count -eq 0){throw "BF_BLOCKED: worker adapter declares no stages: $Name"}
@@ -23,6 +23,15 @@ function Get-BFWorkerAdapter {
     foreach($field in @('capability_function','worker_function')){$value=$adapter.$field;if($null -ne $value -and $value -cnotmatch '^(Test|Invoke|Submit)-BF[A-Za-z]+$'){throw "BF_BLOCKED: invalid worker adapter $field."}}
     if($adapter.isolation -ceq 'permission_rules' -and (Get-BFValue $adapter 'integrity_check' $false) -isnot [bool]){throw 'BF_BLOCKED: invalid adapter integrity flag.'}
     return $adapter
+}
+
+function Assert-BFAdapterDispatchReady {
+    param($Adapter)
+    $blocker=Get-BFValue $Adapter 'dispatch_blocker'
+    if($null -ne $blocker){
+        Assert-BFText $blocker 'adapter.dispatch_blocker'
+        throw "BF_BLOCKED: $blocker"
+    }
 }
 
 function Assert-BFAdapterStagePolicy {

@@ -106,6 +106,24 @@ try {
     Assert-Mode ($cancel.envelope.status -eq 'cancelled') 'Cancellation failed.'
     $cancelledSubmit=Invoke-Cli (@('-Action','Submit','-Stage','inspect','-DispatchId',$next.envelope.dispatch.dispatch_id,'-ResultFile',$good)+$base4)
     Assert-Mode ($cancelledSubmit.code -ne 0) 'A revoked dispatch authorization was accepted.'
+    # Required code review must not be fulfilled by the authoring session.
+    # Isolate the dispatch decision for L/high/explicit-review routes: all
+    # reach code_review, but none may create a current-agent attempt there.
+    $core=Join-Path $PackageRoot 'global/skills/1c-task/scripts'
+    foreach($name in @('Task.Storage.ps1','Task.Contracts.ps1','Task.Gates.ps1','Task.Engine.ps1')){. (Join-Path $core $name)}
+    . (Join-Path $PackageRoot 'global/skills/1c-task/adapters/CurrentAgent.ps1')
+    $script:reviewDispatches=0
+    function Read-BFTask { param($ProjectPath,$TaskId) return $script:reviewState }
+    function Get-BFNext { param($State) return @{action='dispatch';stage='code_review';blockers=@()} }
+    function New-BFEnvelope { param($State,$Action,$Blockers,$Stage) return @{next_action=$Action;next_stage=$Stage} }
+    function New-BFAttempt { $script:reviewDispatches++;throw 'Current-agent self-review was dispatched.' }
+    foreach($route in @(@{complexity='L';risk='low'},@{complexity='S';risk='high'},@{complexity='S';risk='low';require_code_review=$true})){
+        $script:reviewState=@{request=$route}
+        $decision=New-BFCurrentAgentDispatch $project $task4
+        Assert-Mode ($decision.controller_owned -eq $true -and $null -eq $decision.dispatch) 'Required independent review was offered to the current agent.'
+    }
+    $reviewFailure='';try{Assert-BFAdapterStagePolicy (Get-BFWorkerAdapter 'current-agent') 'code_review' -Submit}catch{$reviewFailure=$_.Exception.Message}
+    Assert-Mode ($reviewFailure -like 'BF_BLOCKED:*' -and $script:reviewDispatches -eq 0) 'Submit or Next allowed current-agent self-review.'
     Write-Output "CURRENT_AGENT_MODE_OK checks=$script:checks; model/sandbox processes=0"
 } finally {
     if(-not ([IO.Path]::GetFullPath($testRoot)).StartsWith([IO.Path]::GetFullPath([IO.Path]::GetTempPath()),[StringComparison]::OrdinalIgnoreCase)){throw 'Unsafe fixture cleanup path.'}

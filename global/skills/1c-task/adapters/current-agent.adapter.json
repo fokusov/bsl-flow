@@ -3,7 +3,7 @@
   "contract": "worker-adapter/v1",
   "status": "experimental",
   "isolation": "current_agent",
-  "stages": ["inspect", "spec", "implement", "code_review", "diagnose"],
+  "stages": ["inspect", "spec", "implement", "diagnose"],
   "observed_identity": false,
   "entry": "CurrentAgent.ps1",
   "capability_function": null,
