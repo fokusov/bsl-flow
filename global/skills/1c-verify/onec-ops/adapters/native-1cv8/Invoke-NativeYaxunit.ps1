@@ -24,6 +24,9 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . (Join-Path $AdapterDir 'Native.Common.ps1')
+$failure = Get-OOAuthorizationFailure -Capability $Capability -Target (Get-OOProperty $Params @('target')) -AuthorizationFile $AuthorizationFile -AllowedCapabilities @('test.yaxunit')
+if ($null -ne $failure) { return $failure }
+
 
 $target = Get-N1Param $Params 'target' $null
 $modules = @(Get-N1Param $Params 'modules' @())
@@ -38,7 +41,7 @@ $username = Get-N1Param $Params 'username' ''
 $password = Get-N1Param $Params 'password' ''
 $dryRun = [bool](Get-N1Param $Params 'dry_run' $false)
 
-$logDir = Join-Path $ProjectPath '.bsl-flow/reports/onec-ops-tmp'
+$logDir = Join-Path $ProjectPath '.bsl-flow/reports/onec-ops-evidence'
 [void][IO.Directory]::CreateDirectory($logDir)
 $reportPath = Join-Path $logDir ('native-yaxunit-junit-' + [guid]::NewGuid().ToString('N') + '.xml')
 $configPath = Join-Path $logDir ('native-yaxunit-config-' + [guid]::NewGuid().ToString('N') + '.json')

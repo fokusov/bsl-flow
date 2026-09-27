@@ -25,6 +25,9 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . (Join-Path $AdapterDir 'Native.Common.ps1')
+$failure = Get-OOAuthorizationFailure -Capability $Capability -Target (Get-OOProperty $Params @('target')) -AuthorizationFile $AuthorizationFile -AllowedCapabilities @('build.cf', 'build.cfe')
+if ($null -ne $failure) { return $failure }
+
 
 $target = Get-N1Param $Params 'target' $null
 $sourceDir = Get-N1Param $Params 'source_dir' $null
@@ -45,7 +48,7 @@ $username = Get-N1Param $Params 'username' ''
 $password = Get-N1Param $Params 'password' ''
 $dryRun = [bool](Get-N1Param $Params 'dry_run' $false)
 
-$logDir = Join-Path $ProjectPath '.bsl-flow/reports/onec-ops-tmp'
+$logDir = Join-Path $ProjectPath '.bsl-flow/reports/onec-ops-evidence'
 $loadLog = Join-Path $logDir ('native-build-load-' + [guid]::NewGuid().ToString('N') + '.log')
 $dumpLog = Join-Path $logDir ('native-build-dump-' + [guid]::NewGuid().ToString('N') + '.log')
 

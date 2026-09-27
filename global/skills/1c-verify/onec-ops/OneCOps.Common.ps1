@@ -104,6 +104,7 @@ function Get-OOProperty {
     param([object]$Object, [Parameter(Mandatory)][string[]]$Names)
     if ($null -eq $Object) { return $null }
     foreach ($name in $Names) {
+        if ($Object -is [System.Collections.IDictionary] -and $Object.Contains($name)) { return $Object[$name] }
         $property = $Object.PSObject.Properties[$name]
         if ($null -ne $property) { return $property.Value }
     }
@@ -230,4 +231,34 @@ function Get-OOBslFlowYamlText {
     $path = Join-Path $ProjectPath 'bsl-flow.yaml'
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return '' }
     return (Get-Content -Raw -LiteralPath $path -Encoding UTF8)
+}
+
+function Get-OOAuthorizationFailure {
+    # Shared by dispatcher and executable entries: direct invocation must keep the same gate.
+    # Returns a BLOCKED adapter result on refusal; no output means authorization matched.
+    param([string]$Capability, [object]$Target, [string]$AuthorizationFile, [string[]]$AllowedCapabilities)
+    $message = $null
+    if ($AllowedCapabilities -and $Capability -cnotin $AllowedCapabilities) {
+        $message = 'BF_BLOCKED: capability does not match the adapter entry'
+    }
+    elseif ([string]::IsNullOrWhiteSpace($AuthorizationFile)) {
+        $message = 'BF_BLOCKED: authorization file was not supplied for a mutating capability'
+    }
+    elseif (-not (Test-Path -LiteralPath $AuthorizationFile -PathType Leaf)) {
+        $message = 'BF_BLOCKED: authorization file was not found'
+    }
+    else {
+        try { $auth = Get-Content -Raw -LiteralPath $AuthorizationFile -Encoding UTF8 | ConvertFrom-Json -ErrorAction Stop }
+        catch { $auth = $null }
+        if ($null -eq $auth) { $message = 'BF_BLOCKED: authorization file is not valid JSON' }
+        elseif ([string](Get-OOProperty $auth @('capability')) -cne $Capability) { $message = 'BF_BLOCKED: authorization capability does not match the request' }
+        elseif ([string]::IsNullOrWhiteSpace([string]$Target) -or [string](Get-OOProperty $auth @('target')) -cne [string]$Target) { $message = 'BF_BLOCKED: authorization target does not match the request' }
+        else {
+            $expires = $null
+            try { $expires = [DateTime]::Parse([string](Get-OOProperty $auth @('expires_utc')), [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AssumeUniversal).ToUniversalTime() } catch { }
+            if ($null -eq $expires) { $message = 'BF_BLOCKED: authorization expires_utc is missing or unparsable' }
+            elseif ($expires -le [DateTime]::UtcNow) { $message = 'BF_BLOCKED: authorization has expired' }
+        }
+    }
+    if ($message) { return [pscustomobject]@{ status = 'BLOCKED'; mutating = $true; target = $Target; evidence = @(); message = $message } }
 }

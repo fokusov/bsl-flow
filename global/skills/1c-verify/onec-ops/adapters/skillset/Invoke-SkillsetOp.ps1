@@ -28,6 +28,11 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . (Join-Path $AdapterDir '..\..\OneCOps.Common.ps1')
+if ($Capability -in @('extension.load', 'config.update', 'test.yaxunit', 'test.vanessa')) {
+    $failure = Get-OOAuthorizationFailure -Capability $Capability -Target (Get-OOProperty $Params @('target')) -AuthorizationFile $AuthorizationFile
+    if ($null -ne $failure) { return $failure }
+}
+
 
 function Get-SOParam { param($Params, [string]$Name, $Default) $p = $Params.PSObject.Properties[$Name]; if ($null -ne $p -and $null -ne $p.Value) { return $p.Value }; return $Default }
 function Get-SOProp { param($Object, [string]$Name, $Default) $p = $Object.PSObject.Properties[$Name]; if ($null -ne $p -and $null -ne $p.Value) { return $p.Value }; return $Default }

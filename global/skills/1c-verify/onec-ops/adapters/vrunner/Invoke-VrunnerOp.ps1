@@ -33,6 +33,11 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . (Join-Path $AdapterDir '..\native-1cv8\Native.Common.ps1')
+if ($Capability -in @('build.cf', 'build.cfe', 'test.yaxunit', 'test.vanessa')) {
+    $failure = Get-OOAuthorizationFailure -Capability $Capability -Target (Get-OOProperty $Params @('target')) -AuthorizationFile $AuthorizationFile
+    if ($null -ne $failure) { return $failure }
+}
+
 
 function Get-VOParam { param($Params, [string]$Name, $Default) $p = $Params.PSObject.Properties[$Name]; if ($null -ne $p -and $null -ne $p.Value) { return $p.Value }; return $Default }
 

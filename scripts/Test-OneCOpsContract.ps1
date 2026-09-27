@@ -345,4 +345,58 @@ $resultSchemaPath = Join-Path $onecOpsRoot 'schemas/op-result.schema.json'
 foreach ($result in @($passResult, $failResult, $nativeNoAuth, $groundingResult, $staticResult, $unicaResult, $skillGood, $vResult)) {
     Assert-OO (Test-Json -Json $result.Raw -SchemaFile $resultSchemaPath -ErrorAction Stop) 'Result passes independent JSON-Schema validation'
 }
+# Direct entry invocation must enforce the same authorization as the dispatcher.
+$directRecord = Join-Path $projNative 'direct-denied-record.txt'
+$env:BF_MOCK_RECORD = $directRecord
+try {
+    $directCases = @(
+        @{ provider = 'native-1cv8'; entry = 'Invoke-NativeExtensionLoad.ps1'; capability = 'extension.load' },
+        @{ provider = 'native-1cv8'; entry = 'Invoke-NativeConfigUpdate.ps1'; capability = 'config.update' },
+        @{ provider = 'native-1cv8'; entry = 'Invoke-NativeBuild.ps1'; capability = 'build.cf' },
+        @{ provider = 'native-1cv8'; entry = 'Invoke-NativeBuild.ps1'; capability = 'build.cfe' },
+        @{ provider = 'native-1cv8'; entry = 'Invoke-NativeYaxunit.ps1'; capability = 'test.yaxunit' },
+        @{ provider = 'vrunner'; entry = 'Invoke-VrunnerOp.ps1'; capability = 'test.vanessa' },
+        @{ provider = 'vrunner'; entry = 'Invoke-VrunnerOp.ps1'; capability = 'build.cf' },
+        @{ provider = 'skillset'; entry = 'Invoke-SkillsetOp.ps1'; capability = 'extension.load' }
+    )
+    foreach ($directCase in $directCases) {
+        $adapterDir = Join-Path $onecOpsRoot ('adapters/' + $directCase.provider)
+        $entry = Join-Path $adapterDir $directCase.entry
+        $directParams = [pscustomobject]@{ target = 'db1'; cfe_path = $dummyCfe; extension = 'TestExt'; source_dir = $srcDir; output_path = $outCf; modules = @('Tests'); src = $srcDir; settings = 'settings.json'; executable_path = $mockExecutable; vrunner_bin = $mockExecutable; mode = 'ok' }
+        $direct = & $entry -ProjectPath $projSkill -Params $directParams -AdapterDir $adapterDir -Capability $directCase.capability
+        Assert-OO ($direct.status -eq 'BLOCKED' -and $direct.message -match 'authorization') "Direct $($directCase.provider)/$($directCase.capability) requires authorization"
+        Assert-OO (-not (Test-Path -LiteralPath $directRecord)) 'Denied direct invocation never starts the mock process'
+        foreach ($bad in @(
+            @{ capability = 'metadata.inspect'; target = 'db1'; expires = [DateTime]::UtcNow.AddHours(1) },
+            @{ capability = $directCase.capability; target = 'different-db'; expires = [DateTime]::UtcNow.AddHours(1) },
+            @{ capability = $directCase.capability; target = 'db1'; expires = [DateTime]::UtcNow.AddHours(-1) }
+        )) {
+            $directAuthPath = Join-Path $projNative 'direct-auth.json'
+            Write-OOAuthorization -Path $directAuthPath -Capability $bad.capability -Target $bad.target -ExpiresUtc $bad.expires
+            $direct = & $entry -ProjectPath $projSkill -Params $directParams -AdapterDir $adapterDir -Capability $directCase.capability -AuthorizationFile $directAuthPath
+            Assert-OO ($direct.status -eq 'BLOCKED' -and -not (Test-Path -LiteralPath $directRecord)) "Direct $($directCase.capability) refuses mismatched/expired authorization without a process"
+        }
+    }
+    # Supplying another operation's valid authorization cannot relabel a fixed native entry.
+    Write-OOAuthorization -Path $directAuthPath -Capability 'metadata.inspect' -Target db1 -ExpiresUtc ([DateTime]::UtcNow.AddHours(1))
+    $nativeDir = Join-Path $onecOpsRoot 'adapters/native-1cv8'
+    $confusedEntry = & (Join-Path $nativeDir 'Invoke-NativeConfigUpdate.ps1') -ProjectPath $projNative -Params $directParams -AdapterDir $nativeDir -Capability 'metadata.inspect' -AuthorizationFile $directAuthPath
+    Assert-OO ($confusedEntry.status -eq 'BLOCKED' -and -not (Test-Path -LiteralPath $directRecord)) 'Fixed native entry rejects a relabeled capability'
+}
+finally { Remove-Item Env:\BF_MOCK_RECORD -ErrorAction SilentlyContinue }
+
+# Load/update evidence is durable platform logs, explicitly limited to process completion.
+Assert-OO ($nativeAuthed.Result.evidence.Count -eq 2) 'Successful native extension load retains both platform logs'
+foreach ($logEvidence in $nativeAuthed.Result.evidence) {
+    Assert-OO ((Get-OOSha256File $logEvidence.path) -eq $logEvidence.sha256) 'Load log evidence hash matches its durable file'
+    Assert-OO ((Get-Content -LiteralPath $logEvidence.path -Raw) -match 'mock-log') 'Original platform log content is retained'
+}
+Assert-OO ($nativeAuthed.Result.message -match 'post-state and behavior unverified') 'Load PASS states the evidence limitation'
+$updateAuth = Join-Path $projNative 'update-auth.json'
+Write-OOAuthorization -Path $updateAuth -Capability 'config.update' -Target db1 -ExpiresUtc ([DateTime]::UtcNow.AddHours(1))
+$update = Invoke-OODispatch -Capability 'config.update' -ProjectPath $projNative -Params @{ target = 'db1' } -AuthorizationFile $updateAuth
+Assert-OO ($update.Exit -eq 0 -and $update.Result.evidence.Count -eq 1) 'Successful config update attaches its platform log'
+Assert-OO ((Get-OOSha256File $update.Result.evidence[0].path) -eq $update.Result.evidence[0].sha256) 'Update log hash matches the durable file'
+Assert-OO ($update.Result.message -match 'post-state and behavior unverified') 'Update PASS states the evidence limitation'
+Assert-OO ($failedLoad.Result.evidence.Count -eq 1 -and (Test-Path -LiteralPath $failedLoad.Result.evidence[0].path)) 'Failed load retains its platform log'
 Write-Output "Test-OneCOpsContract: $script:checks checks passed."

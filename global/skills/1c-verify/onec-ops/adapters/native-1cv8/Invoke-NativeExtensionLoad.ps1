@@ -1,8 +1,8 @@
 #Requires -Version 7.0
 <#
 onec-ops extension.load adapter (MUTATING - the dispatcher only reaches this script after
-verifying a matching, unexpired authorization file; there is no authorization check here by
-design, so this script must never be invoked directly outside the dispatcher).
+verifying a matching, unexpired authorization file; the entry repeats the same shared check
+to preserve the boundary on direct invocation).
 
 DESIGNER /LoadCfg <path> -Extension <name>, then /UpdateDBCfg -Extension <name>. /LoadCfg is
 UNVERIFIED here (not exercised elsewhere in this repo) - confirm against ITS "Пакетный режим
@@ -24,6 +24,9 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . (Join-Path $AdapterDir 'Native.Common.ps1')
+$failure = Get-OOAuthorizationFailure -Capability $Capability -Target (Get-OOProperty $Params @('target')) -AuthorizationFile $AuthorizationFile -AllowedCapabilities @('extension.load')
+if ($null -ne $failure) { return $failure }
+
 
 $target = Get-N1Param $Params 'target' $null
 $cfePath = Get-N1Param $Params 'cfe_path' $null
@@ -40,7 +43,7 @@ $username = Get-N1Param $Params 'username' ''
 $password = Get-N1Param $Params 'password' ''
 $dryRun = [bool](Get-N1Param $Params 'dry_run' $false)
 
-$logDir = Join-Path $ProjectPath '.bsl-flow/reports/onec-ops-tmp'
+$logDir = Join-Path $ProjectPath '.bsl-flow/reports/onec-ops-evidence'
 $loadLog = Join-Path $logDir ('native-extload-load-' + [guid]::NewGuid().ToString('N') + '.log')
 $updateLog = Join-Path $logDir ('native-extload-update-' + [guid]::NewGuid().ToString('N') + '.log')
 
@@ -50,7 +53,7 @@ $updateArgv = $base + @('/Out', $updateLog, '-NoTruncate', '/UpdateDBCfg', '-Ext
 
 $loadResult = Invoke-N1Process -ExecutablePath $executable -Argv $loadArgv -LogPath $loadLog -DryRun:$dryRun
 if (-not $dryRun -and $loadResult.ExitCode -ne 0) {
-    return [pscustomobject]@{ status = 'FAIL'; evidence = @(); target = $target; message = 'Extension load failed; database update was not started'; raw_output = $loadResult.Log }
+    return [pscustomobject]@{ status = 'FAIL'; evidence = @($loadLog); target = $target; message = 'Extension load failed; database update was not started'; raw_output = $loadResult.Log }
 }
 $updateResult = Invoke-N1Process -ExecutablePath $executable -Argv $updateArgv -LogPath $updateLog -DryRun:$dryRun
 
@@ -65,8 +68,8 @@ if ($dryRun) {
 $ok = ($loadResult.ExitCode -eq 0 -and $updateResult.ExitCode -eq 0)
 [pscustomobject]@{
     status     = if ($ok) { 'PASS' } else { 'FAIL' }
-    evidence   = @()
-    message    = "load.exit=$($loadResult.ExitCode) update.exit=$($updateResult.ExitCode)"
+    evidence   = @($loadLog, $updateLog)
+    message    = "Evidence level: process completion only; post-state and behavior unverified. load.exit=$($loadResult.ExitCode) update.exit=$($updateResult.ExitCode)"
     raw_output = ($loadResult.Log + "`n" + $updateResult.Log)
     target     = $target
 }
