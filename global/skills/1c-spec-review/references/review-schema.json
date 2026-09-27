@@ -95,11 +95,13 @@
       "additionalProperties": false,
       "required": ["provider", "agent", "model"],
       "properties": {
-        "provider": { "const": "opencode" },
+        "provider": { "enum": ["opencode", "claude_cli", "codex_exec", "api", "claude_subagent"] },
         "agent": { "type": "string", "minLength": 1 },
         "model": { "type": "string", "minLength": 3 }
       }
     },
+    "reviewer_model": { "type": "string", "minLength": 1 },
+    "same_model_as_author": { "type": ["boolean", "null"] },
     "inputs": {
       "type": "object",
       "additionalProperties": false,

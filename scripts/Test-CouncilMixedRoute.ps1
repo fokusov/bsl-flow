@@ -27,7 +27,14 @@ Copy-Item -LiteralPath (Join-Path $root 'openspec/changes/api-specification-coun
 Copy-Item -LiteralPath (Join-Path $root 'openspec/changes/api-specification-council/spec.md') -Destination (Join-Path $change 'spec.md')
 # Default council config: chair runs on the openai provider, all three critics
 # on deepseek. Setting only OPENAI_API_KEY yields a mixed cycle by construction.
-[IO.File]::WriteAllText((Join-Path $temp 'bsl-flow.yaml'), (Get-Content -Raw -LiteralPath (Join-Path $root 'global/skills/1c-init-project/assets/project/bsl-flow.yaml')))
+# The packaged template names symbolic profiles; they are bound inline here.
+# All three tokenless critics resolve to the one current-agent host model, so
+# the fixture explicitly accepts a limited council (independence: any) and the
+# published verdict is PASS_WITH_LIMITATIONS.
+$mixedConfig = (Get-Content -Raw -LiteralPath (Join-Path $root 'global/skills/1c-init-project/assets/project/bsl-flow.yaml'))
+$mixedConfig = [regex]::new('(?m)^  council:[ ]*\r?\n').Replace($mixedConfig, "  council:`n    independence: any`n", 1)
+$mixedConfig = $mixedConfig.TrimEnd() + "`nllm:`n  models:`n    review-fast:`n      provider: deepseek`n      model: deepseek-flash`n      effort: medium`n    review-strong:`n      provider: openai`n      model: gpt-6-astra`n      effort: high`n    review-chair:`n      provider: openai`n      model: gpt-5.6-sol`n      effort: medium`n"
+[IO.File]::WriteAllText((Join-Path $temp 'bsl-flow.yaml'), $mixedConfig)
 
 $state = [pscustomobject]@{
     project_path = $temp
@@ -124,7 +131,8 @@ try {
         -Dispatcher $stub -FallbackRunner $runner -Capabilities $capabilities `
         -BeforeDispatch $hooks.BeforeDispatch -AfterDispatch $hooks.AfterDispatch
 
-    Assert-True ([string]$result.review.verdict -eq 'PASS') 'mixed cycle completes with an accepted review'
+    Assert-True ([string]$result.review.verdict -ceq 'PASS_WITH_LIMITATIONS') 'mixed cycle completes with an accepted review marked with its limitation'
+    Assert-True ((@($result.review.limitations) -join ',') -ceq 'single_model_council') 'tokenless critics on one host model publish the single_model_council limitation'
     Assert-True (@($script:directRoles).Count -eq 1 -and $script:directRoles[0] -ceq 'chair') 'only the credentialed chair dispatched through the direct API route'
     Assert-True (@($script:fallbackRoles).Count -eq 3) 'all three tokenless critics ran through the fallback runner'
     foreach ($envelope in @($result.review.members)) {

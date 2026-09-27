@@ -72,6 +72,9 @@ function Invoke-BSLFlowCouncilReview {
     New-Item -ItemType Directory -Path $runRoot -Force | Out-Null
 
     $bindings = Get-BSLFlowCouncilRoleBindings -ProjectRoot $projectRoot -Council $council -Snapshot $snapshot
+    # Independence admission precedes the dry-run plan and every paid call.
+    . (Join-Path $PSScriptRoot 'Council.Independence.ps1')
+    $independence = Assert-BSLFlowCouncilIndependence -Council $council -Bindings @($bindings) -Capabilities $Capabilities
     if ($DryRun) {
         $plan = @()
         foreach ($entry in $bindings) {
@@ -91,7 +94,10 @@ function Invoke-BSLFlowCouncilReview {
                 endpoint = ('{0}://{1}:{2}{3}' -f [string]$entry.binding.endpoint.scheme, [string]$entry.binding.endpoint.host, [int]$entry.binding.endpoint.port, [string]$entry.binding.endpoint.base_path)
             }
         }
-        return [ordered]@{ dry_run = $true; run_root = $runRoot; plan = @($plan); manifest_requirements = @($snapshot.manifest.requirements).Count }
+        return [ordered]@{
+            dry_run = $true; run_root = $runRoot; plan = @($plan); manifest_requirements = @($snapshot.manifest.requirements).Count
+            independence = [ordered]@{ mode = [string]$independence.mode; limitations = @($independence.limitations) }
+        }
     }
     if (-not $AllowLiveDispatch) {
         throw 'BF_BLOCKED: live council dispatch needs explicit opt-in; dry-run plan recorded.'
@@ -151,7 +157,7 @@ function Get-BSLFlowCouncilRoleBindings {
             provider = [string]$profile.provider; model = [string]$profile.model; effort = [string]$profile.effort
             protocol = [string]$provider.protocol; endpoint = $endpoint
             transport_capability_version = [int]$provider.transport_capability_version
-            prompt_version = 'council-prompt-v2'; member_schema_version = 1
+            prompt_version = 'council-prompt-v3'; member_schema_version = 1
             input_hashes = [pscustomobject][ordered]@{
                 original_task_sha256 = $Snapshot.original_task_sha256; spec_sha256 = $Snapshot.spec_sha256
                 design_sha256 = $Snapshot.design_sha256; evidence_sha256 = $Snapshot.evidence_sha256
@@ -177,7 +183,7 @@ function New-BSLFlowCouncilPrompt {
         'Return a JSON object with role, alternatives[], risks[], unknowns[], questions[]. No verdict, no specification text.'
     }
     elseif ($Role -ceq 'chair') {
-        'Return ONLY a JSON object with exactly these top-level fields: verdict (MUST be exactly one of the strings PASS, REVISE, BLOCK, needs_input), decisions[] (composite_id, decision accepted|rejected|partially_accepted, reason, evidence, resolution, accepted_scope/rejected_scope for partial, resolution_refs for accepted/partial), protected_decisions[] (composite_id, decision preserved|rejected, reason, evidence), requirement_refs[] (id, final_refs[]), final_spec_text (the complete minimally revised specification markdown), final_design_text (optional, only when the design needs changes). No other top-level fields such as type or summary. resolution_refs and final_refs must be verbatim fragments or "Требуемое поведение / N" (or N.M subsection) anchors of final_spec_text. The final specification must never contain the literal placeholder strings TODO, TBD, FIXME, XXX, PLACEHOLDER or {{...}} anywhere, including inside rule descriptions — describe the rule without spelling the marker. Cover every finding, protected item and requirement exactly once. Answer every member question or return needs_input with that question.'
+        'Return ONLY a JSON object with exactly these top-level fields: verdict (MUST be exactly one of the strings PASS, REVISE, BLOCK, needs_input), decisions[] (composite_id, decision accepted|rejected|partially_accepted, reason, evidence, resolution, accepted_scope/rejected_scope for partial, resolution_refs for accepted/partial), protected_decisions[] (composite_id, decision preserved|rejected, reason, evidence), requirement_refs[] (id, final_refs[]), final_spec_text (the complete minimally revised specification markdown), final_design_text (optional, only when the design needs changes). No other top-level fields such as type or summary. Every resolution_refs and final_refs entry MUST be exactly one anchor id from the TRUSTED SPEC ANCHORS list (REQ-N, AC-N, NG-N). An id names the N-th numbered or bulleted item of its section (REQ = Требуемое поведение / Required behavior, AC = Критерии приёмки / Acceptance criteria, NG = Не делать / Non-goals) in final_spec_text, so keep the item numbering stable when you revise, and never use headings, file names, paths or quoted text as refs. The final specification must never contain the literal placeholder strings TODO, TBD, FIXME, XXX, PLACEHOLDER or {{...}} anywhere, including inside rule descriptions — describe the rule without spelling the marker. Cover every finding, protected item and requirement exactly once. Answer every member question or return needs_input with that question.'
     }
     else {
         'Return ONLY a JSON object with exactly these top-level fields: role, verdict (MUST be exactly one of the strings PASS, REVISE, BLOCK, needs_input), findings[] (each with id F-NNN sequential, severity exactly blocker|high|medium|low, category EXACTLY one of the allowed categories listed in the rubric above with no other wording, spec_ref, issue, evidence, suggested_direction), do_not_change[] (strings), needs_input_questions[] (only when verdict is needs_input). Do not invent new categories. No other top-level fields (for example no type, schema_version or summary). Never include provider, model, status, usage, timestamps, hashes or execution mode.'
@@ -206,12 +212,132 @@ function New-BSLFlowCouncilPrompt {
         $lines.Add([string]$View.evidence)
         $lines.Add('<<<END UNTRUSTED DATA: evidence>>>')
     }
+    if ($null -ne $View.PSObject.Properties['anchors'] -and $null -ne $View.anchors) {
+        # Controller-computed anchor ids of the draft; the chair refs use them.
+        $lines.Add('<<<BEGIN TRUSTED SPEC ANCHORS: draft spec.md (ids are controller-computed; item text is untrusted data)>>>')
+        foreach ($anchor in @($View.anchors)) {
+            $lines.Add(('{0} [{1} #{2}]: {3}' -f [string]$anchor.id, [string]$anchor.section, [int]$anchor.item, [string]$anchor.text))
+        }
+        $lines.Add('<<<END TRUSTED SPEC ANCHORS: draft spec.md>>>')
+    }
     if ($null -ne $View.PSObject.Properties['aggregates'] -and $null -ne $View.aggregates) {
         $lines.Add('<<<BEGIN TRUSTED AGGREGATES: member results>>>')
         $lines.Add([string]$View.aggregates)
         $lines.Add('<<<END TRUSTED AGGREGATES: member results>>>')
     }
     return ($lines -join "`n")
+}
+
+function Get-BSLFlowCouncilRoleOutputSchema {
+    # JSON Schema of the role result for structured-output transports (the
+    # Anthropic forced tool input_schema). The chair schema pins every ref to an
+    # enum of the actual draft anchor ids, requirement ids and composite ids, so
+    # a structured chair cannot name a non-existent anchor. The deterministic
+    # validators stay authoritative for every transport.
+    param(
+        [Parameter(Mandatory)][ValidateSet('brainstorm', 'intent_critic', 'architecture_critic', 'executability_critic', 'chair')][string]$Role,
+        [string[]]$AnchorIds = @(),
+        [string[]]$RequirementIds = @(),
+        [string[]]$FindingIds = @(),
+        [string[]]$ProtectedIds = @()
+    )
+    . (Join-Path $script:BSLFlowCouncilScriptRoot 'Review.Common.ps1')
+    $text = [ordered]@{ type = 'string'; minLength = 1 }
+    $textList = [ordered]@{ type = 'array'; items = $text }
+    function New-EnumString([string[]]$Values) {
+        $kept = @($Values | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        if ($kept.Count -eq 0) { return [ordered]@{ type = 'string'; minLength = 1 } }
+        return [ordered]@{ type = 'string'; enum = [string[]]$kept }
+    }
+    if ($Role -ceq 'brainstorm') {
+        return [ordered]@{
+            type = 'object'; additionalProperties = $false; required = @('role')
+            properties = [ordered]@{
+                role = [ordered]@{ type = 'string'; enum = @('brainstorm') }
+                alternatives = $textList; risks = $textList; unknowns = $textList; questions = $textList
+            }
+        }
+    }
+    if ($Role -ceq 'chair') {
+        $anchorRef = New-EnumString $AnchorIds
+        $decision = [ordered]@{
+            type = 'object'; additionalProperties = $false
+            required = @('composite_id', 'decision', 'reason', 'evidence', 'resolution')
+            properties = [ordered]@{
+                composite_id = (New-EnumString $FindingIds)
+                decision = [ordered]@{ type = 'string'; enum = @('accepted', 'rejected', 'partially_accepted') }
+                reason = $text; evidence = $text; resolution = $text
+                accepted_scope = $text; rejected_scope = $text
+                resolution_refs = [ordered]@{ type = 'array'; items = $anchorRef }
+            }
+        }
+        $decisions = [ordered]@{ type = 'array'; items = $decision }
+        if (@($FindingIds).Count -eq 0) { $decisions.maxItems = 0 }
+        $protectedDecision = [ordered]@{
+            type = 'object'; additionalProperties = $false
+            required = @('composite_id', 'decision', 'reason', 'evidence')
+            properties = [ordered]@{
+                composite_id = (New-EnumString $ProtectedIds)
+                decision = [ordered]@{ type = 'string'; enum = @('preserved', 'rejected') }
+                reason = $text; evidence = $text
+            }
+        }
+        $protectedDecisions = [ordered]@{ type = 'array'; items = $protectedDecision }
+        if (@($ProtectedIds).Count -eq 0) { $protectedDecisions.maxItems = 0 }
+        return [ordered]@{
+            type = 'object'; additionalProperties = $false
+            required = @('verdict', 'decisions', 'protected_decisions', 'requirement_refs', 'final_spec_text')
+            properties = [ordered]@{
+                verdict = [ordered]@{ type = 'string'; enum = @('PASS', 'REVISE', 'BLOCK', 'needs_input') }
+                decisions = $decisions
+                protected_decisions = $protectedDecisions
+                requirement_refs = [ordered]@{
+                    type = 'array'; minItems = 1
+                    items = [ordered]@{
+                        type = 'object'; additionalProperties = $false; required = @('id', 'final_refs')
+                        properties = [ordered]@{
+                            id = (New-EnumString $RequirementIds)
+                            final_refs = [ordered]@{ type = 'array'; minItems = 1; items = $anchorRef }
+                        }
+                    }
+                }
+                final_spec_text = $text
+                final_design_text = [ordered]@{ type = @('string', 'null') }
+            }
+        }
+    }
+    return [ordered]@{
+        type = 'object'; additionalProperties = $false
+        required = @('role', 'verdict', 'findings', 'do_not_change')
+        properties = [ordered]@{
+            role = [ordered]@{ type = 'string'; enum = @($Role) }
+            verdict = [ordered]@{ type = 'string'; enum = @('PASS', 'REVISE', 'BLOCK', 'needs_input') }
+            findings = [ordered]@{
+                type = 'array'
+                items = [ordered]@{
+                    type = 'object'; additionalProperties = $false
+                    required = @('id', 'severity', 'category', 'spec_ref', 'issue', 'evidence', 'suggested_direction')
+                    properties = [ordered]@{
+                        id = [ordered]@{ type = 'string'; pattern = '^F-[0-9]{3,}$' }
+                        severity = [ordered]@{ type = 'string'; enum = @('blocker', 'high', 'medium', 'low') }
+                        category = [ordered]@{ type = 'string'; enum = [string[]]@(Get-BSLFlowAllowedFindingCategories) }
+                        spec_ref = $text; issue = $text; evidence = $text; suggested_direction = $text
+                    }
+                }
+            }
+            do_not_change = $textList
+            needs_input_questions = $textList
+        }
+    }
+}
+
+function Get-BSLFlowCouncilRouteValue {
+    param($Route, [Parameter(Mandatory)][string]$Name)
+    if ($null -eq $Route) { return $null }
+    if ($Route -is [System.Collections.IDictionary]) { if ($Route.Contains($Name)) { return $Route[$Name] }; return $null }
+    $property = $Route.PSObject.Properties[$Name]
+    if ($null -eq $property) { return $null }
+    return $property.Value
 }
 
 function Invoke-BSLFlowCouncilLiveDispatch {
@@ -232,7 +358,8 @@ function Invoke-BSLFlowCouncilLiveDispatch {
     New-Item -ItemType Directory -Path $roleDir -Force | Out-Null
     $timeoutSeconds = 300
     try { if ($null -ne $Route.request_timeout_seconds) { $timeoutSeconds = [int]$Route.request_timeout_seconds } } catch { }
-    $result = Invoke-BSLFlowCouncilApi -Binding $Attempt.binding -PromptText $PromptText -Credential $credential -AttemptDir $roleDir -TimeoutSeconds $timeoutSeconds
+    $outputSchema = Get-BSLFlowCouncilRouteValue $Route 'output_schema'
+    $result = Invoke-BSLFlowCouncilApi -Binding $Attempt.binding -PromptText $PromptText -Credential $credential -AttemptDir $roleDir -TimeoutSeconds $timeoutSeconds -OutputSchema $outputSchema
     # observed model/usage come from the provider response envelope; provider is
     # the endpoint identity the controller actually dialed; effort is not observed.
     return [ordered]@{
@@ -355,6 +482,9 @@ function Invoke-BSLFlowCouncilDispatchRole {
     $route.attempt = $attempt
     $route.attempt_path = (Join-Path $RunRoot $roleName)
     $route.request_timeout_seconds = $Entry.request_timeout_seconds
+    if ([string]$Entry.binding.protocol -ceq 'anthropic_messages') {
+        $route.output_schema = Get-BSLFlowCouncilRoleOutputSchema -Role $roleName
+    }
 
     if ($executionMode -ceq 'current_agent_fallback' -and $null -ne $FallbackRunner) {
         $route.dispatcher = New-BSLFlowCouncilFallbackDispatch -Runner $FallbackRunner
@@ -484,7 +614,12 @@ function Invoke-BSLFlowCouncilCycle {
     . (Join-Path $PSScriptRoot 'Council.Transport.ps1')
     . (Join-Path $PSScriptRoot 'Council.Fallback.ps1')
     . (Join-Path $PSScriptRoot 'Council.Engine.ps1')
+    . (Join-Path $PSScriptRoot 'Council.Independence.ps1')
     $changeDir = Join-Path $ProjectRoot "openspec\changes\$ChangeName"
+
+    # Independence admission refuses the whole cycle before any paid dispatch;
+    # an explicitly accepted `any` council carries its limitations to review.json.
+    $independence = Assert-BSLFlowCouncilIndependence -Council $Council -Bindings @($Bindings) -Capabilities $Capabilities
 
     # Decorate bindings with role snapshots and cost estimates once, so every
     # dispatch (sequential or bounded-parallel) sees identical frozen inputs.
@@ -695,9 +830,19 @@ function Invoke-BSLFlowCouncilCycle {
     }
     $chairRoute.attempt = $chairAttempt
     $chairRoute.attempt_path = (Join-Path $RunRoot 'chair')
+    # Draft anchors are derived from the hashed draft spec text, so they need
+    # no extra binding hash; the prompt version pins their presentation.
+    $draftAnchors = @(Get-BSLFlowSpecAnchors -SpecText ([string]$Snapshot.spec_text))
+    if ([string]$chairEntry.binding.protocol -ceq 'anthropic_messages') {
+        $chairRoute.output_schema = Get-BSLFlowCouncilRoleOutputSchema -Role 'chair' `
+            -AnchorIds @($draftAnchors | ForEach-Object { [string]$_.id }) `
+            -RequirementIds @($Snapshot.manifest.requirements | ForEach-Object { [string]$_.id }) `
+            -FindingIds @($aggregate.findings | ForEach-Object { [string]$_.composite_id }) `
+            -ProtectedIds @($aggregate.protected | ForEach-Object { [string]$_.composite_id })
+    }
     $chairView = [pscustomobject][ordered]@{
         original_task = $Snapshot.original_task_text; spec = $Snapshot.spec_text; design = $Snapshot.design_text
-        evidence = $Snapshot.evidence_text; aggregates = $aggregateJson
+        evidence = $Snapshot.evidence_text; anchors = @($draftAnchors); aggregates = $aggregateJson
     }
     $chairPrompt = New-BSLFlowCouncilPrompt -Role 'chair' -View $chairView
 
@@ -840,9 +985,11 @@ function Invoke-BSLFlowCouncilCycle {
     if ($null -ne $chairFinalDesign) {
         $finalDesignBytes = $utf8NoBom.GetBytes([string]$chairFinalDesign)
     }
+    $limitations = @($independence.limitations | Where-Object { $_ })
     $review = [pscustomobject][ordered]@{
         schema_version = 2; reviewed_at_utc = [DateTime]::UtcNow.ToString('o'); council_schema_version = 1
-        verdict = [string]$chair.verdict; diversity = [string]$diversity.diversity; fallback_visible = [bool]$diversity.fallback_visible
+        verdict = (Get-BSLFlowCouncilPublishedVerdict -ChairVerdict ([string]$chair.verdict) -Limitations $limitations)
+        diversity = [string]$diversity.diversity; fallback_visible = [bool]$diversity.fallback_visible
         inputs = [pscustomobject][ordered]@{
             original_task_sha256 = $Snapshot.original_task_sha256; spec_sha256 = $Snapshot.spec_sha256
             design_sha256 = $Snapshot.design_sha256; policy_hash = $Snapshot.policy_hash
@@ -865,6 +1012,9 @@ function Invoke-BSLFlowCouncilCycle {
             final_design_sha256 = $(if ($null -ne $finalDesignBytes) { Get-BSLFlowBytesSha256 $finalDesignBytes } else { $null })
         }
         gate = [pscustomobject][ordered]@{ structural_only = $true; passed = $true }
+    }
+    if ($limitations.Count -gt 0) {
+        $review | Add-Member -NotePropertyName limitations -NotePropertyValue ([string[]]$limitations)
     }
     $review.reconciliation.review_sha256 = Get-BSLFlowCouncilReviewDigest $review
     try { Assert-BSLFlowCouncilReview $review }

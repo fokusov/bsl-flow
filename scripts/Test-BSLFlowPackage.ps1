@@ -383,8 +383,12 @@ try {
         Assert-True (Test-Path -LiteralPath $installedTaskCli -PathType Leaf) 'Installed layout omitted the 1c-task CLI.'
         $taskCommand = Get-Command $installedTaskCli
         foreach ($parameter in @('Action','ProjectPath','TaskId','InputFile','AttemptId','CodexPath','RuntimeAuth')) { Assert-True $taskCommand.Parameters.ContainsKey($parameter) "Installed 1c-task CLI omitted parameter: $parameter" }
-        $actionSet = @($taskCommand.Parameters.Action.Attributes | Where-Object { $_ -is [Management.Automation.ValidateSetAttribute] } | ForEach-Object ValidValues)
-        $expectedActions = @('Start','Status','Next','Context','Run','Record','Update','Accept','Resume','Cancel','Deliver','Serve','Publish','PublishResume','Create','EditRegistry','List','Show','History','Overview','ArchiveTask','UnarchiveTask','Activate')
+        # Unknown actions fail with BF_INVALID inside the controller, so the
+        # action set is declared by $script:BFKnownActions rather than ValidateSet.
+        $knownActionsMatch = [regex]::Match((Get-Content -Raw -LiteralPath $installedTaskCli), '(?m)^\$script:BFKnownActions=@\((?<list>[^)]*)\)')
+        Assert-True $knownActionsMatch.Success 'Installed 1c-task CLI does not declare its known action set.'
+        $actionSet = @([regex]::Matches($knownActionsMatch.Groups['list'].Value, "'([A-Za-z]+)'") | ForEach-Object { $_.Groups[1].Value })
+        $expectedActions = @('Start','Status','Next','Context','Run','Record','Update','Accept','Resume','Cancel','Deliver','Serve','Publish','PublishResume','Create','EditRegistry','List','Show','History','Overview','ArchiveTask','UnarchiveTask')
         Assert-True ($actionSet.Count -eq $expectedActions.Count) 'Installed 1c-task CLI exposes an unexpected action set.'
         foreach ($action in $expectedActions) { Assert-True ($action -in $actionSet) "Installed 1c-task CLI omitted action: $action" }
     }

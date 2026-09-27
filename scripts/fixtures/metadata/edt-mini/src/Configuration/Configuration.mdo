@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mdclass:Configuration xmlns:mdclass="http://g5.1c.ru/v8/dt/metadata/mdclass" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" uuid="76cd31c5-c84a-4883-b234-b84d40539aaa">
+	<name>ДемоКонфигурацияEDT</name>
+	<childObjects>Catalog.Номенклатура</childObjects>
+	<childObjects>CommonModule.ПродажиСервер</childObjects>
+</mdclass:Configuration>
