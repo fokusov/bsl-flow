@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" version="2.20">
+	<Configuration uuid="76cd31c5-c84a-4883-b234-b84d40539000">
+		<Properties>
+			<Name>РасширениеВозвраты</Name>
+		</Properties>
+		<ChildObjects>
+			<Document>РеализацияТоваровУслуг</Document>
+			<Catalog>ПричиныВозврата</Catalog>
+		</ChildObjects>
+	</Configuration>
+</MetaDataObject>

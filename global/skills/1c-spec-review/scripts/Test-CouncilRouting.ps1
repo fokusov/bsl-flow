@@ -100,7 +100,21 @@ function New-PublicManagedState([string]$ProjectRoot, [string]$TaskId) {
     }
 }
 
-$template = Get-Content -Raw -LiteralPath (Join-Path $PackageRoot 'global\skills\1c-init-project\assets\project\bsl-flow.yaml')
+function ConvertTo-BoundCouncilFixture([string]$Text) {
+    # The packaged template names symbolic profiles only; the fixture binds
+    # them inline (project-local llm.models) instead of a user profile. Council
+    # independence (default distinct_models) also needs two distinct critic
+    # models, so one critic is rebound to a second critic profile on the same
+    # provider as the others (credential routing stays unchanged).
+    $pattern = '(?m)^(?<head>[ ]+architecture_critic:[ ]*\r?\n(?:[ ]+(?!model:)[A-Za-z_]+:.*\r?\n)*?[ ]+model:)[ ]*\S+'
+    $updated = [regex]::new($pattern).Replace($Text, { param($m) $m.Groups['head'].Value + ' review-alt' }, 1)
+    if ($updated -ceq $Text) { throw 'Fixture role model binding not found: architecture_critic' }
+    if (-not $updated.EndsWith("`n")) { $updated += "`n" }
+    return ($updated + "llm:`n  models:`n    review-fast:`n      provider: deepseek`n      model: deepseek-flash`n      effort: medium`n    review-alt:`n      provider: deepseek`n      model: deepseek-alt`n      effort: medium`n    review-strong:`n      provider: openai`n      model: gpt-6-astra`n      effort: high`n    review-chair:`n      provider: openai`n      model: gpt-5.6-sol`n      effort: medium`n")
+}
+
+$packagedTemplate = (Get-Content -Raw -LiteralPath (Join-Path $PackageRoot 'global\skills\1c-init-project\assets\project\bsl-flow.yaml')) -replace "`r`n", "`n"
+$template = ConvertTo-BoundCouncilFixture $packagedTemplate
 $taskSkill = Join-Path $PackageRoot 'global\skills\1c-task'
 . (Join-Path $taskSkill 'scripts\Task.Storage.ps1')
 . (Join-Path $taskSkill 'scripts\Task.Memory.ps1')
@@ -178,6 +192,64 @@ try {
 }
 finally { Remove-Item -LiteralPath $proj6 -Recurse -Force -ErrorAction SilentlyContinue }
 
+# 6a. Council independence admission (review.council.independence) runs before
+# the dry-run plan and before any paid call.
+function Set-IndependenceFixture([string]$Text, [string]$Mode, [hashtable]$RoleModels) {
+    foreach ($role in @($RoleModels.Keys)) {
+        $pattern = '(?m)^(?<head>[ ]+' + [regex]::Escape($role) + ':[ ]*\r?\n(?:[ ]+(?!model:)[A-Za-z_]+:.*\r?\n)*?[ ]+model:)[ ]*\S+'
+        $Text = [regex]::new($pattern).Replace($Text, { param($m) $m.Groups['head'].Value + ' ' + $RoleModels[$role] }.GetNewClosure(), 1)
+    }
+    if ($Mode) { $Text = [regex]::new('(?m)^  council:[ ]*\r?\n').Replace($Text, "  council:`n    independence: $Mode`n", 1) }
+    return $Text
+}
+function Get-DryRunError([string]$ConfigText) {
+    $projI = New-TempProject $ConfigText
+    try {
+        $message = $null
+        try { $null = Invoke-BSLFlowCouncilReview -ProjectPath $projI -ChangeName 'demo' -DryRun }
+        catch { $message = [string]$_.Exception.Message }
+        # A refused admission leaves no attempt or budget record behind.
+        if ($null -ne $message -and (Test-Path -LiteralPath (Join-Path $projI '.bsl-flow/reports/spec-review/demo.council/intent_critic') -PathType Container)) {
+            throw 'FAIL: independence refusal recorded an attempt before admission.'
+        }
+        return $message
+    }
+    finally { Remove-Item -LiteralPath $projI -Recurse -Force -ErrorAction SilentlyContinue }
+}
+$singleModel = Set-IndependenceFixture $template '' @{ intent_critic = 'review-chair'; architecture_critic = 'review-chair'; executability_critic = 'review-chair'; chair = 'review-chair' }
+$singleError = Get-DryRunError $singleModel
+Assert-True ($singleError -match "^BF_BLOCKED: council independence 'distinct_models' violated: chair and intent_critic share model 'gpt-5\.6-sol'") 'default distinct_models blocks a one-model council with the contracted message'
+$chairShared = Set-IndependenceFixture $template 'distinct_models' @{ architecture_critic = 'review-chair' }
+Assert-True ((Get-DryRunError $chairShared) -match "violated: chair and architecture_critic share model 'gpt-5\.6-sol'") 'chair sharing a model with any critic is blocked'
+$oneCriticModel = Set-IndependenceFixture $template '' @{ architecture_critic = 'review-fast' }
+Assert-True ((Get-DryRunError $oneCriticModel) -match "enabled critics \(intent_critic, architecture_critic, executability_critic\) all use one model 'deepseek-flash'") 'critics on a single model are blocked even with a distinct chair'
+# distinct_providers: the bound fixture keeps every critic on deepseek (chair
+# on openai), so the critics lack a second provider.
+$providerText = Set-IndependenceFixture $template 'distinct_providers' @{}
+Assert-True ((Get-DryRunError $providerText) -match "^BF_BLOCKED: council independence 'distinct_providers' violated: enabled critics .* all use one provider 'deepseek") 'distinct_providers needs two distinct critic providers'
+$providerOk = Set-IndependenceFixture $template 'distinct_providers' @{ architecture_critic = 'review-strong'; chair = 'review-anthropic' }
+$providerOk = $providerOk.TrimEnd() + "`n    review-anthropic:`n      provider: anthropic`n      model: claude-chair-fixture`n      effort: high`n"
+$providerOk = $providerOk.Replace("llm:`n  providers:`n", "llm:`n  providers:`n    anthropic:`n      protocol: anthropic_messages`n      base_url: https://api.anthropic.com`n")
+Assert-True ($null -eq (Get-DryRunError $providerOk)) 'distinct_providers admits deepseek+openai critics with an anthropic_messages chair'
+$aliasHost = $providerOk.Replace("    anthropic:`n      protocol: anthropic_messages`n      base_url: https://api.anthropic.com`n", "    anthropic:`n      protocol: anthropic_messages`n      base_url: https://api.deepseek.com`n")
+Assert-True ((Get-DryRunError $aliasHost) -match "chair and (intent|executability)_critic share provider") 'provider aliases of one endpoint host are not independent'
+$anyText = Set-IndependenceFixture $template 'any' @{ intent_critic = 'review-chair'; architecture_critic = 'review-chair'; executability_critic = 'review-chair' }
+$projAny = New-TempProject $anyText
+try {
+    $anyPlan = Invoke-BSLFlowCouncilReview -ProjectPath $projAny -ChangeName 'demo' -DryRun
+    Assert-True ([string]$anyPlan.independence.mode -ceq 'any' -and (@($anyPlan.independence.limitations) -join ',') -ceq 'single_model_council') 'independence any is admitted and plans the single_model_council limitation'
+}
+finally { Remove-Item -LiteralPath $projAny -Recurse -Force -ErrorAction SilentlyContinue }
+$projDefault = New-TempProject $template
+try {
+    $defaultPlan = Invoke-BSLFlowCouncilReview -ProjectPath $projDefault -ChangeName 'demo' -DryRun
+    Assert-True ([string]$defaultPlan.independence.mode -ceq 'distinct_models' -and @($defaultPlan.independence.limitations).Count -eq 0) 'absent key defaults to distinct_models without limitations'
+}
+finally { Remove-Item -LiteralPath $projDefault -Recurse -Force -ErrorAction SilentlyContinue }
+Assert-True ((Get-DryRunError (Set-IndependenceFixture $template 'loose' @{})) -match 'Invalid review\.council\.independence: loose') 'unknown independence mode is rejected'
+. (Join-Path $skill 'scripts\Council.Common.ps1')
+Assert-True (-not (Get-BSLFlowCouncilPolicy $template).Contains('independence')) 'absent independence key keeps the parsed policy (and canonical hash) unchanged'
+
 # 7. The public entry point must consume a registered managed state and run the
 # real public council/transport route. A loopback OpenAI-compatible endpoint is
 # used so the test proves HTTP dispatch without depending on external services.
@@ -218,6 +290,14 @@ llm:
       provider: fixture
       model: fixture-model
       effort: medium
+    second:
+      provider: fixture
+      model: fixture-model-b
+      effort: medium
+    chairm:
+      provider: fixture
+      model: fixture-chair-model
+      effort: medium
 review:
   enabled: true
   input:
@@ -241,7 +321,7 @@ review:
       architecture_critic:
         enabled: true
         required: true
-        model: flash
+        model: second
         fallback: block
       executability_critic:
         enabled: true
@@ -251,7 +331,7 @@ review:
       chair:
         enabled: true
         required: true
-        model: flash
+        model: chairm
         fallback: block
 "@
     [IO.File]::WriteAllText((Join-Path $publicTemp 'bsl-flow.yaml'), $publicConfig, [Text.UTF8Encoding]::new($false))

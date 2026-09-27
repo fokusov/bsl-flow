@@ -35,16 +35,97 @@ function Get-BSLFlowCouncilNormalizedReference {
     return (($Text -replace '\s+', ' ').Trim())
 }
 
+$script:BSLFlowSpecAnchorSections = @(
+    [pscustomobject]@{ prefix = 'REQ'; pattern = '(?:Требуемое поведение|Required behavior)' },
+    [pscustomobject]@{ prefix = 'AC'; pattern = '(?:Критерии при[её]мки|Acceptance criteria)' },
+    [pscustomobject]@{ prefix = 'NG'; pattern = '(?:Не делать|Non-goals)' }
+)
+
+function Get-BSLFlowSpecAnchors {
+    # Stable positional anchors for the numbered/bulleted items of the required
+    # behavior, acceptance criteria and non-goals sections. The item rule is the
+    # requirement-manifest rule, so REQ-N is the same item as manifest REQ-00N.
+    # Ids are REQ-N / AC-N / NG-N (1-based, per section).
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$SpecText)
+    $anchors = [System.Collections.Generic.List[object]]::new()
+    $utf8 = [System.Text.UTF8Encoding]::new($false)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        foreach ($section in $script:BSLFlowSpecAnchorSections) {
+            $match = [regex]::Match($SpecText, ('(?ims)^##\s+(?<title>' + $section.pattern + ')\s*$\s*(?<body>.*?)(?=^##\s|\z)'))
+            if (-not $match.Success) { continue }
+            $title = $match.Groups['title'].Value.Trim()
+            $index = 0
+            foreach ($line in ($match.Groups['body'].Value -split "`r?`n")) {
+                $item = [regex]::Match($line, '^\s*(?:\d+\.\s+|[-*]\s+)(?<item>\S.*\S|\S)\s*$')
+                if (-not $item.Success) { continue }
+                $text = $item.Groups['item'].Value.Trim()
+                if (-not $text -or $text -match '^\s*<!--') { continue }
+                $index++
+                $anchors.Add([pscustomobject][ordered]@{
+                        id = ('{0}-{1}' -f $section.prefix, $index)
+                        section = $title
+                        item = $index
+                        text_sha256 = ([BitConverter]::ToString($sha.ComputeHash($utf8.GetBytes($text)))).Replace('-', '').ToLowerInvariant()
+                        text = $text
+                    })
+            }
+        }
+    }
+    finally { $sha.Dispose() }
+    return @($anchors)
+}
+
+function Resolve-BSLFlowSpecAnchorRef {
+    # Resolves an anchor id (REQ-3, AC-1, NG-2; leading zeros tolerated so the
+    # manifest spelling REQ-003 maps to REQ-3) back to its anchor with text.
+    # Returns $null when the ref is not an anchor id or does not exist.
+    param([AllowNull()][string]$Ref, [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Anchors)
+    if ([string]::IsNullOrWhiteSpace($Ref)) { return $null }
+    $idMatch = [regex]::Match($Ref, '^\s*(?<prefix>REQ|AC|NG)-0*(?<number>[1-9][0-9]{0,3})\s*$')
+    if (-not $idMatch.Success) { return $null }
+    $id = ('{0}-{1}' -f $idMatch.Groups['prefix'].Value, [int]$idMatch.Groups['number'].Value)
+    foreach ($anchor in $Anchors) { if ([string]$anchor.id -ceq $id) { return $anchor } }
+    return $null
+}
+
+function Test-BSLFlowSpecAnchorIdSyntax {
+    param([AllowNull()][string]$Ref)
+    if ([string]::IsNullOrWhiteSpace($Ref)) { return $false }
+    return [regex]::IsMatch($Ref, '^\s*(?:REQ|AC|NG)-[0-9]{1,4}\s*$')
+}
+
+function Get-BSLFlowSpecAnchorSummary {
+    # Compact, deterministic list of available ids for error messages.
+    param([Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Anchors)
+    $parts = @()
+    foreach ($prefix in @('REQ', 'AC', 'NG')) {
+        $count = @($Anchors | Where-Object { ([string]$_.id).StartsWith($prefix + '-', [System.StringComparison]::Ordinal) }).Count
+        if ($count -eq 1) { $parts += "$prefix-1" }
+        elseif ($count -gt 1) { $parts += "$prefix-1..$prefix-$count" }
+    }
+    if ($parts.Count -eq 0) { return 'none' }
+    return ($parts -join ', ')
+}
+
 function Test-BSLFlowCouncilReferenceResolves {
     param(
         [AllowNull()][string]$Ref,
         [Parameter(Mandatory)][AllowEmptyString()][string]$FinalSpecText,
-        [Parameter(Mandatory)][int]$FinalRequirementCount
+        [Parameter(Mandatory)][int]$FinalRequirementCount,
+        [object[]]$Anchors
     )
-    # A reference resolves only against the actual final text: either a numbered
-    # requirement anchor within the final requirement manifest, or a verbatim
+    # A reference resolves only against the actual final text. Preferred form is
+    # an anchor id (REQ-N / AC-N / NG-N) of the final specification. For already
+    # published reviews the legacy forms stay readable: a numbered requirement
+    # anchor within the final requirement manifest, or a verbatim
     # (whitespace-normalized) fragment of the final specification.
     if ([string]::IsNullOrWhiteSpace($Ref)) { return $false }
+    if (Test-BSLFlowSpecAnchorIdSyntax $Ref) {
+        # An id-shaped ref never falls back to substring matching.
+        if ($null -eq $Anchors) { $Anchors = @(Get-BSLFlowSpecAnchors -SpecText $FinalSpecText) }
+        return ($null -ne (Resolve-BSLFlowSpecAnchorRef -Ref $Ref -Anchors $Anchors))
+    }
     $numberMatch = [regex]::Match($Ref, '^\s*(?:Требуемое поведение|Required behavior)\s*/\s*([0-9]{1,4})(?:\.([0-9]{1,4}))?\s*$')
     if ($numberMatch.Success) {
         $number = [int]$numberMatch.Groups[1].Value
@@ -281,14 +362,36 @@ function Assert-BSLFlowCouncilReview {
     # (Test-1CSpecFinal) load only this module, so source it here like every
     # other cross-file dependency in the council scripts.
     . (Join-Path $PSScriptRoot 'Council.Engine.ps1')
-    Assert-BSLFlowObjectProperties $Review 'review' @(
+    # limitations is an additive optional field: absent on councils without a
+    # recorded limitation, so previously published reviews stay byte-valid.
+    $reviewFields = @(
         'schema_version', 'reviewed_at_utc', 'council_schema_version', 'verdict',
         'diversity', 'fallback_visible', 'inputs', 'manifest', 'members',
         'findings', 'protected', 'questions', 'chair', 'reconciliation', 'gate'
     )
+    $hasLimitations = Test-BSLFlowEnvelopeField2 $Review 'limitations'
+    if ($hasLimitations) { $reviewFields += 'limitations' }
+    Assert-BSLFlowObjectProperties $Review 'review' $reviewFields
     if ((Get-BSLFlowJsonNumber $Review.schema_version 'review.schema_version' -Integer) -ne 2) { throw 'review.schema_version must be 2.' }
     if ((Get-BSLFlowJsonNumber $Review.council_schema_version 'review.council_schema_version' -Integer) -ne 1) { throw 'review.council_schema_version must be 1.' }
-    if ($Review.verdict -notin @('PASS', 'REVISE', 'BLOCK', 'needs_input')) { throw 'Invalid council verdict.' }
+    if ($Review.verdict -notin @('PASS', 'PASS_WITH_LIMITATIONS', 'REVISE', 'BLOCK', 'needs_input')) { throw 'Invalid council verdict.' }
+    $limitations = @()
+    if ($hasLimitations) {
+        Assert-BSLFlowArray $Review.limitations 'limitations'
+        $limitations = @($Review.limitations)
+        if ($limitations.Count -eq 0) { throw 'review.limitations must be omitted when empty.' }
+        foreach ($limitation in $limitations) {
+            if ($limitation -isnot [string] -or [string]$limitation -cnotin @('single_model_council')) { throw "Unknown review limitation: $limitation" }
+        }
+        if (@($limitations | Select-Object -Unique).Count -ne $limitations.Count) { throw 'review.limitations must be unique.' }
+    }
+    # A council with limitations can never publish a clean PASS; the limited
+    # verdict exists only as the downgrade of a chair PASS.
+    if ($limitations.Count -gt 0 -and $Review.verdict -ceq 'PASS') { throw 'A council review with limitations cannot be a clean PASS; use PASS_WITH_LIMITATIONS.' }
+    if ($Review.verdict -ceq 'PASS_WITH_LIMITATIONS') {
+        if ($limitations.Count -eq 0) { throw 'PASS_WITH_LIMITATIONS requires review.limitations.' }
+        if ([string]$Review.chair.verdict -cne 'PASS') { throw 'PASS_WITH_LIMITATIONS cannot exceed the chair verdict.' }
+    }
     if ($Review.diversity -notin @('multi_model', 'multi_role_single_model', 'degraded', 'unknown')) { throw 'Invalid diversity status.' }
     if ($Review.fallback_visible -isnot [bool]) { throw 'review.fallback_visible must be boolean.' }
     Assert-BSLFlowObjectProperties $Review.inputs 'inputs' @('original_task_sha256', 'spec_sha256', 'design_sha256', 'policy_hash')
@@ -457,18 +560,20 @@ function Assert-BSLFlowCouncilReview {
     if ($finalRequirementCount -lt @($Review.manifest.requirements).Count) {
         throw 'chair.final_spec_text covers fewer material requirements than the reviewed draft manifest.'
     }
+    $finalAnchors = @(Get-BSLFlowSpecAnchors -SpecText $finalSpecForRefs)
+    $anchorHint = ('; refs must be anchor ids of the final specification (available: {0})' -f (Get-BSLFlowSpecAnchorSummary -Anchors $finalAnchors))
     foreach ($ref in $refs) {
         foreach ($final in @($ref.final_refs)) {
-            if (-not (Test-BSLFlowCouncilReferenceResolves -Ref ([string]$final) -FinalSpecText $finalSpecForRefs -FinalRequirementCount $finalRequirementCount)) {
-                throw "Requirement final ref does not resolve in the final specification: $($ref.id) -> $final"
+            if (-not (Test-BSLFlowCouncilReferenceResolves -Ref ([string]$final) -FinalSpecText $finalSpecForRefs -FinalRequirementCount $finalRequirementCount -Anchors $finalAnchors)) {
+                throw "Requirement final ref does not resolve in the final specification: $($ref.id) -> $final$anchorHint"
             }
         }
     }
     foreach ($decision in $decisions) {
         if ($decision.decision -cnotin @('rejected')) {
             foreach ($resolutionRef in @($decision.resolution_refs)) {
-                if (-not (Test-BSLFlowCouncilReferenceResolves -Ref ([string]$resolutionRef) -FinalSpecText $finalSpecForRefs -FinalRequirementCount $finalRequirementCount)) {
-                    throw "Chair resolution ref does not resolve in the final specification: $($decision.composite_id) -> $resolutionRef"
+                if (-not (Test-BSLFlowCouncilReferenceResolves -Ref ([string]$resolutionRef) -FinalSpecText $finalSpecForRefs -FinalRequirementCount $finalRequirementCount -Anchors $finalAnchors)) {
+                    throw "Chair resolution ref does not resolve in the final specification: $($decision.composite_id) -> $resolutionRef$anchorHint"
                 }
             }
         }
@@ -526,11 +631,15 @@ function Test-BSLFlowCouncilFinalGate {
     }
     # Required-role terminal check is policy-driven; structurally every enabled member
     # recorded with a non-completed status already forces diversity degraded and blocks PASS.
-    if ($Review.diversity -ceq 'degraded' -and $Review.verdict -ceq 'PASS') { $errors.Add('Degraded council cannot PASS.') }
-    if ($Review.diversity -ceq 'unknown' -and $Review.verdict -ceq 'PASS') { $errors.Add('Unknown diversity cannot PASS as multi-model evidence.') }
+    # PASS_WITH_LIMITATIONS is a PASS-family verdict: every guard that stops a
+    # PASS stops it as well.
+    $passFamily = ([string]$Review.verdict -cin @('PASS', 'PASS_WITH_LIMITATIONS'))
+    if ($Review.diversity -ceq 'degraded' -and $passFamily) { $errors.Add('Degraded council cannot PASS.') }
+    if ($Review.diversity -ceq 'unknown' -and $passFamily) { $errors.Add('Unknown diversity cannot PASS as multi-model evidence.') }
     $requiredFailed = @($Review.members | Where-Object { $_.status -cne 'completed' })
-    if ($requiredFailed.Count -gt 0 -and $Review.verdict -ceq 'PASS') { $errors.Add('Council with a terminal member failure cannot PASS.') }
-    if ($Review.chair.verdict -cne 'PASS' -and $Review.verdict -ceq 'PASS') { $errors.Add('Deterministic gate cannot upgrade the chair verdict.') }
+    if ($requiredFailed.Count -gt 0 -and $passFamily) { $errors.Add('Council with a terminal member failure cannot PASS.') }
+    if ($Review.chair.verdict -cne 'PASS' -and $passFamily) { $errors.Add('Deterministic gate cannot upgrade the chair verdict.') }
+    if ((Test-BSLFlowEnvelopeField2 $Review 'limitations') -and @($Review.limitations).Count -gt 0 -and $Review.verdict -ceq 'PASS') { $errors.Add('A council review with limitations cannot be a clean PASS.') }
     if ($Review.chair.verdict -ceq 'needs_input' -and $Review.verdict -cne 'needs_input') { $errors.Add('Chair needs_input must propagate.') }
     # Material member questions asked the chair for trusted input; PASS would
     # silently claim they were resolved without evidence.
@@ -543,7 +652,7 @@ function Test-BSLFlowCouncilFinalGate {
         }
     }
     catch { $errors.Add("Could not compare final specification text: $($_.Exception.Message)") }
-    if ($Review.verdict -cne 'PASS' -and @($Review.findings).Count -eq 0 -and @($Review.protected).Count -eq 0) {
+    if (-not $passFamily -and @($Review.findings).Count -eq 0 -and @($Review.protected).Count -eq 0) {
         # needs_input without findings is allowed only with explicit questions in member payloads;
         # at review level a non-PASS still needs at least one decision to reconcile.
         if (@($Review.chair.decisions).Count -eq 0) { $errors.Add('A non-PASS council review must contain at least one reconciled decision.') }
