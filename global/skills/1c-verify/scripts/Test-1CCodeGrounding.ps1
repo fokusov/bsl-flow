@@ -21,6 +21,9 @@ param(
     [Parameter(Mandatory)][string]$ProjectPath,
     [string]$BaseRef = 'HEAD',
     [string]$OutputPath,
+    # A caller-owned cache path keeps verification artifacts out of a staged fixture.
+    # The default preserves the normal project-local cache behavior.
+    [string]$MetadataCachePath,
     [switch]$NoThrow
 )
 
@@ -117,7 +120,7 @@ $sourceRoots = @($sourcePaths | ForEach-Object {
 $metadataIndexScript = Join-Path $PSScriptRoot '..\..\1c-spec-review\scripts\Get-1CMetadataIndex.ps1'
 if (-not (Test-Path -LiteralPath $metadataIndexScript -PathType Leaf)) { throw "Missing Get-1CMetadataIndex.ps1: $metadataIndexScript" }
 if ($sourceRoots.Count -gt 0) {
-    $cachePath = Join-Path $projectRoot '.bsl-flow\cache\metadata-index.json'
+    $cachePath = if ($MetadataCachePath) { [System.IO.Path]::GetFullPath($MetadataCachePath) } else { Join-Path $projectRoot '.bsl-flow\cache\metadata-index.json' }
     $index = & $metadataIndexScript -SourceRoot $sourceRoots -CachePath $cachePath
 }
 else {
@@ -142,7 +145,8 @@ $identPattern = '[A-Za-zА-Яа-яЁё0-9_]+'
 $pluralAlternation = ($pluralToCanonical.Keys | ForEach-Object { [regex]::Escape($_) }) -join '|'
 
 $knownModuleNames = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
-foreach ($moduleKey in @($index.modules.PSObject.Properties.Name)) {
+foreach ($moduleProperty in @($index.modules.PSObject.Properties)) {
+    $moduleKey = [string]$moduleProperty.Name
     if ($moduleKey -match '^ОбщийМодуль\.(?<name>.+)$') { [void]$knownModuleNames.Add($Matches.name) }
 }
 

@@ -259,6 +259,30 @@ try {
     Assert-Grd (@($codeResultFail.errors | Where-Object { $_.message -match 'Unknown metadata object: Справочник.Номенклатура2' }).Count -eq 1) 'Unknown metadata object was not reported by code grounding.'
     Assert-Grd (@($codeResultFail.errors | Where-Object { $_.message -match 'non-export common module method' }).Count -eq 1) 'Non-export module method call was not reported by code grounding.'
 
+    # An incomplete export (such as the HTTP-service bench fixture) has no metadata modules.
+    # Empty PSObject.Properties must not be dereferenced as .Name under StrictMode, and a
+    # caller-owned cache/output must not become an agent scope change.
+    $httpFixtureProject = Join-Path $probeRoot 'http-service-without-metadata'
+    Write-FixtureText -Path (Join-Path $httpFixtureProject 'bsl-flow.yaml') -Text "source:`n  paths:`n    - src`n"
+    $httpModulePath = Join-Path $httpFixtureProject 'src\HTTPServices\ОбменДанными\Ext\Module.bsl'
+    Write-FixtureText -Path $httpModulePath -Text "Функция ПолучитьСтатус(Запрос) Экспорт`nКонецФункции`n"
+    Push-Location $httpFixtureProject
+    try {
+        & git init -q .
+        & git config user.email 'fixture@example.com'
+        & git config user.name 'Fixture'
+        & git add -A
+        & git commit -q -m 'http-service baseline'
+    }
+    finally { Pop-Location }
+    Write-FixtureText -Path $httpModulePath -Text "Функция ПолучитьСтатус(Запрос) Экспорт`n`tВозврат Неопределено;`nКонецФункции`n"
+    $httpGroundingOutput = Join-Path $probeRoot 'http-grounding.json'
+    $httpMetadataCache = Join-Path $probeRoot 'http-metadata-index.json'
+    $httpGroundingResult = & $codeGroundingScript -ProjectPath $httpFixtureProject -OutputPath $httpGroundingOutput -MetadataCachePath $httpMetadataCache -NoThrow
+    Assert-Grd ($httpGroundingResult.verdict -eq 'PASS') 'Empty metadata modules must be handled without a StrictMode Name error.'
+    Assert-Grd ((Test-Path -LiteralPath $httpGroundingOutput) -and (Test-Path -LiteralPath $httpMetadataCache)) 'Caller-owned grounding artifacts were not written.'
+    Assert-Grd (-not (Test-Path -LiteralPath (Join-Path $httpFixtureProject '.bsl-flow'))) 'Grounding created generated evidence inside the staged fixture.'
+
     $codeResultInvalidBase = & $codeGroundingScript -ProjectPath $codeProjectRoot -BaseRef 'definitely-not-a-commit' -NoThrow
     Assert-Grd ($codeResultInvalidBase.verdict -eq 'BLOCKED' -and -not $codeResultInvalidBase.passed) 'Invalid BaseRef must produce a BLOCKED code-grounding result.'
     Assert-Grd ($codeResultInvalidBase.message -match 'unable to enumerate changed BSL files') 'Invalid BaseRef BLOCKED result must preserve Git enumeration evidence.'

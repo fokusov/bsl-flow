@@ -54,17 +54,28 @@ $RepoRoot = [IO.Path]::GetFullPath($RepoRoot)
 
 function Invoke-BenchGit {
     param([Parameter(Mandatory)][string[]]$Arguments, [Parameter(Mandatory)][string]$WorkingDirectory)
-    $previous = $ErrorActionPreference
+    $psi = [Diagnostics.ProcessStartInfo]::new()
+    $psi.FileName = 'git'
+    $psi.WorkingDirectory = $WorkingDirectory
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.UseShellExecute = $false
+    # Keep non-ASCII paths readable. stderr is intentionally not merged with stdout:
+    # host Git warnings must never become scope-drift filenames or numstat rows.
+    foreach ($argument in @('-c', 'core.quotepath=false', '-C', $WorkingDirectory) + $Arguments) { [void]$psi.ArgumentList.Add($argument) }
+    $process = $null
     try {
-        $ErrorActionPreference = 'Continue'
-        # core.quotepath=false: otherwise git wraps any path with non-ASCII (e.g. Cyrillic)
-        # bytes in "..." with \NNN octal escapes, which breaks the glob matching below.
-        $output = git -c core.quotepath=false -C $WorkingDirectory @Arguments 2>&1 | ForEach-Object { $_.ToString() } | Out-String
-        $exit = $LASTEXITCODE
+        $process = [Diagnostics.Process]::Start($psi)
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+        $process.WaitForExit()
+        $stdout = $stdoutTask.GetAwaiter().GetResult()
+        $stderr = $stderrTask.GetAwaiter().GetResult()
+        $exit = $process.ExitCode
     }
-    finally { $ErrorActionPreference = $previous }
-    if ($exit -ne 0) { throw "git $($Arguments -join ' ') failed in $WorkingDirectory : $output" }
-    return $output.Trim()
+    finally { if ($process) { $process.Dispose() } }
+    if ($exit -ne 0) { throw "git $($Arguments -join ' ') failed in $WorkingDirectory (exit $exit): $stderr" }
+    return $stdout.Replace("`r`n", "`n").Replace("`r", "`n").TrimEnd([char[]]"`n")
 }
 
 function ConvertTo-BenchArgumentString {
@@ -356,9 +367,10 @@ function Invoke-BenchAcceptanceCheck {
             $groundingScript = Join-Path $RepoRoot 'global/skills/1c-verify/scripts/Test-1CCodeGrounding.ps1'
             if (-not (Test-Path -LiteralPath $groundingScript -PathType Leaf)) { return [pscustomobject]@{ Kind = $kind; Verdict = 'NOT_RUN'; Detail = 'Test-1CCodeGrounding.ps1 not present in this checkout' } }
             $stdoutFile = [IO.Path]::GetTempFileName(); $stderrFile = [IO.Path]::GetTempFileName()
-            $proc = Start-Process -FilePath 'pwsh' -ArgumentList (ConvertTo-BenchArgumentString @('-NoProfile', '-File', $groundingScript, '-ProjectPath', $RepoPath, '-BaseRef', $BaselineRef)) -NoNewWindow -PassThru -Wait -RedirectStandardOutput $stdoutFile -RedirectStandardError $stderrFile
+            $resultFile = [IO.Path]::GetTempFileName(); $metadataCacheFile = [IO.Path]::GetTempFileName()
+            $proc = Start-Process -FilePath 'pwsh' -ArgumentList (ConvertTo-BenchArgumentString @('-NoProfile', '-File', $groundingScript, '-ProjectPath', $RepoPath, '-BaseRef', $BaselineRef, '-OutputPath', $resultFile, '-MetadataCachePath', $metadataCacheFile)) -NoNewWindow -PassThru -Wait -RedirectStandardOutput $stdoutFile -RedirectStandardError $stderrFile
             $detail = (Get-Content -Raw -LiteralPath $stderrFile -ErrorAction SilentlyContinue)
-            Remove-Item -LiteralPath $stdoutFile, $stderrFile -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $stdoutFile, $stderrFile, $resultFile, $metadataCacheFile -Force -ErrorAction SilentlyContinue
             if ($proc.ExitCode -ne 0 -and $detail -match "warning: unable to access '.+git\\ignore'") {
                 return [pscustomobject]@{ Kind = $kind; Verdict = 'NOT_RUN'; Detail = 'grounding_tool_unavailable_due_to_host_git_excludesfile' }
             }
@@ -376,9 +388,9 @@ function Get-BenchScopeDrift {
     $lineCount = 0
     $filesOutsideScope = New-Object Collections.Generic.List[string]
     $newMetadataCount = 0
-    foreach ($line in ($numstat -split "`n")) {
+    foreach ($line in ($numstat -split "`r?`n")) {
         if ([string]::IsNullOrWhiteSpace($line)) { continue }
-        $parts = $line -split "`t"
+        $parts = $line -split "`t", 3
         if ($parts.Count -lt 3) { continue }
         $added = 0; $removed = 0
         [void][int]::TryParse($parts[0], [ref]$added)
@@ -389,9 +401,9 @@ function Get-BenchScopeDrift {
             $filesOutsideScope.Add($relPath)
         }
     }
-    foreach ($line in ($statusLines -split "`n")) {
+    foreach ($line in ($statusLines -split "`r?`n")) {
         if ([string]::IsNullOrWhiteSpace($line)) { continue }
-        $parts = $line -split "`t"
+        $parts = $line -split "`t", 3
         if ($parts.Count -lt 2) { continue }
         if ($parts[0] -eq 'A' -and -not (Test-BTPathMatchesAnyGlob -RelativePath $parts[1] -Globs $ExpectedScope)) { $newMetadataCount++ }
     }

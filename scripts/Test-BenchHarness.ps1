@@ -44,7 +44,7 @@ try {
     foreach ($variant in @('good', 'bad', 'drift')) {
         $runDir = Join-Path $testRoot $variant
         $env:BENCH_FAKE_VARIANT = $variant
-        & $runner -Agent fake -Mode bare -Tasks 'bench/tasks/s-print-form' -Repeat 1 -OutputDir $runDir -TimeoutSeconds 30 -RepoRoot $PackageRoot
+        & pwsh -NoProfile -File $runner -Agent fake -Mode bare -Tasks 'bench/tasks/s-print-form' -Repeat 1 -OutputDir $runDir -TimeoutSeconds 30 -RepoRoot $PackageRoot
         Assert-True ($LASTEXITCODE -eq 0) "Runner failed for fake variant '$variant'."
         $results = @(Get-ChildItem -LiteralPath $runDir -Filter '*.json' -File | ForEach-Object { Get-Content -Raw -LiteralPath $_.FullName -Encoding UTF8 | ConvertFrom-Json })
         Assert-True ($results.Count -eq 1) "Variant '$variant' did not emit one result for the selected offline fixture task."
@@ -68,7 +68,7 @@ try {
 
     $aggregateDir = Join-Path $testRoot 'aggregate'
     & $aggregator -RunDir @((Join-Path $testRoot 'good'), (Join-Path $testRoot 'bad'), (Join-Path $testRoot 'drift')) -OutputDir $aggregateDir -Date '2099-01-01'
-    Assert-True ($LASTEXITCODE -eq 0) 'Benchmark aggregation failed.'
+    Assert-True $? 'Benchmark aggregation failed.'
     $report = Get-Content -Raw -LiteralPath (Join-Path $aggregateDir '2099-01-01.json') -Encoding UTF8 | ConvertFrom-Json
     Assert-True -Condition ($report.total_attempts -eq 3) -Message 'Aggregate did not preserve all attempt results.'
     $group = @($report.groups | Where-Object { $_.agent -eq 'fake' -and $_.mode -eq 'bare' }) | Select-Object -First 1
