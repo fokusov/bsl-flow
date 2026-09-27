@@ -26,7 +26,17 @@
     "schema_version": { "const": 2 },
     "reviewed_at_utc": { "type": "string", "format": "date-time" },
     "council_schema_version": { "const": 1 },
-    "verdict": { "enum": ["PASS", "REVISE", "BLOCK", "needs_input"] },
+    "verdict": {
+      "description": "PASS_WITH_LIMITATIONS is the published form of a chair PASS when limitations is non-empty; a review with limitations is never a clean PASS.",
+      "enum": ["PASS", "PASS_WITH_LIMITATIONS", "REVISE", "BLOCK", "needs_input"]
+    },
+    "limitations": {
+      "description": "Additive, optional. Present only when non-empty. single_model_council: review.council.independence was 'any' and the council did not satisfy the distinct_models rule.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["single_model_council"] }
+    },
     "diversity": { "enum": ["multi_model", "multi_role_single_model", "degraded", "unknown"] },
     "fallback_visible": { "type": "boolean" },
     "inputs": {
@@ -191,7 +201,7 @@
               "rejected_scope": { "type": "string" },
               "resolution_refs": {
                 "type": "array",
-                "items": { "type": "string", "minLength": 1 }
+                "items": { "$ref": "#/$defs/spec_ref" }
               }
             }
           }
@@ -222,7 +232,7 @@
               "final_refs": {
                 "type": "array",
                 "minItems": 1,
-                "items": { "type": "string", "minLength": 1 }
+                "items": { "$ref": "#/$defs/spec_ref" }
               }
             }
           }
@@ -252,6 +262,11 @@
     }
   },
   "$defs": {
-    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "spec_ref": {
+      "description": "Preferred: an anchor id of the final specification (REQ-N = N-th item of Требуемое поведение / Required behavior, AC-N = Критерии приёмки / Acceptance criteria, NG-N = Не делать / Non-goals), as emitted in spec-lint.json anchors[]. For structured-output transports the chair schema narrows this to an enum of the actual draft anchor ids at dispatch time. Legacy published reviews may carry 'Требуемое поведение / N' anchors or verbatim fragments of the final specification; the deterministic validator still resolves those.",
+      "type": "string",
+      "minLength": 1
+    }
   }
 }

@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 # Repository task registry suite: store identity across worktrees, journal
 # validation, metadata constants, dependency cycles, list filters/sort/cursors,
-# corruption/legacy taxonomy, staged activation (trusted request schema v1),
+# corruption/legacy taxonomy, rejection of the removed Activate action,
 # run/next guard, thin CLI wrapper, output contract, and redaction.
 # Standalone (no Pester), zero model/network calls.
 [CmdletBinding()]
@@ -82,23 +82,6 @@ function Assert-TError {
     Assert-T (-not [string]::IsNullOrEmpty($Document.error.message)) "$Message Error message must not be empty."
 }
 
-function New-TTrustedRequest {
-    # Trusted request schema v1 for staged activation (published requirement 5).
-    param([string]$TaskId, [string]$Project, [switch]$MissingContract, [switch]$InvalidPriority)
-    $request = [ordered]@{
-        task_id             = $TaskId
-        project_root        = $Project
-        title               = 'Activate the planned repository task for the fixture.'
-        priority            = 'medium'
-        labels              = @()
-        depends_on          = @()
-        controller_contract = 'repository-store-aware/v1'
-    }
-    if ($MissingContract) { $request.Remove('controller_contract') }
-    if ($InvalidPriority) { $request['priority'] = 'urgent' }
-    return $request
-}
-
 function New-TLegacyTask {
     # Minimal checkout-local v1 journal. The request.prompt payload is private
     # data that must never surface in any registry output. With -Raw the bytes
@@ -162,7 +145,7 @@ try {
     Assert-T ($docA1.revision -cmatch '^[0-9a-f]{64}$') "write response revision must be the revision hash, got $($docA1.revision)."
     Assert-T ($docA1.status -ceq 'planned' -and $docA1.archived -eq $false) 'created task must be planned and unarchived.'
     Assert-T ($docA1.priority -ceq 'high' -and $docA1.title -ceq 'Alpha one') 'create document lost metadata.'
-    Assert-T ($docA1.next_action -ceq 'activate') "planned task next_action must be activate."
+    Assert-T ($null -eq $docA1.next_action) "planned task next_action must be null now that Activate is removed."
     $taskA1 = $docA1.task_id
     Assert-T ($taskA1 -cmatch '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') 'created task id is not a lowercase UUID.'
     $stateAfterCreate = Read-BFRegistryTaskState -TasksRoot $storeA.TasksRoot -TaskId $taskA1
@@ -423,7 +406,7 @@ try {
     $showA1 = Get-TRegistryJson $showA1Raw
     Assert-T ($showA1.schema_version -eq 1 -and $showA1.repository_id -ceq $storeA.RepositoryId) 'show lost envelope identity.'
     Assert-T ($showA1.task_id -ceq $taskA1) 'show lost identity.'
-    Assert-T ($showA1.status -ceq 'planned' -and $showA1.next_action -ceq 'activate' -and $null -eq $showA1.stage) 'show card lost planned state.'
+    Assert-T ($showA1.status -ceq 'planned' -and $null -eq $showA1.next_action -and $null -eq $showA1.stage) 'show card lost planned state.'
     Assert-T ($showA1.dependency_summary.total -eq 1 -and $showA1.dependency_summary.by_status.planned -eq 1) 'show dependency summary lost the existing target.'
     Assert-T ($showA1.dependency_graph.nodes -ccontains $taskA1 -and $showA1.dependency_graph.nodes -ccontains $taskA2) 'show dependency graph lost graph nodes.'
     Assert-T (@($showA1.dependency_graph.edges | Where-Object { $_.from -ceq $taskA1 -and $_.to -ceq $taskA2 }).Count -eq 1) 'show dependency graph lost the edge.'
@@ -593,49 +576,13 @@ try {
         Assert-T ($output -notmatch '(?i)"(prompt|authorization|password|token|api[_-]?key)"\s*:') 'registry JSON output must not contain secret-shaped keys.'
     }
 
-    # --- Section 13: staged activation through the CLI (trusted request schema v1) ------------------------
+    # --- Section 13: the removed Activate action is rejected outright (owner decision: no controller ------
+    # write slice ever moves a planned task out of `planned`; see the remediation plan Ф0.2/Ф1.3).
     $activateTask = (Get-TRegistryJson (Invoke-TRegistry -Action Create -Project $wtD -Title 'Activate me').StdOut).task_id
-    $requestPath = Join-Path $testRoot 'activate-request.json'
-    Write-TText $requestPath (Get-BFCanonicalJson (New-TTrustedRequest -TaskId $activateTask -Project $wtD))
-    $activateRun = Invoke-TEntry -Arguments @('-Action', 'Activate', '-ProjectPath', $wtD, '-TaskId', $activateTask, '-InputFile', $requestPath, '-Format', 'Json')
-    Assert-T ($activateRun.ExitCode -eq 11) "activate must exit 11 (staged), got $($activateRun.ExitCode)."
-    $activateDoc = ($activateRun.Output | Where-Object { $_ -match '^\{' } | Select-Object -First 1) | ConvertFrom-Json
-    Assert-TError $activateDoc 'BF_BLOCKED' 'activate staged error class.'
-    Assert-T ($activateDoc.error.message -cmatch 'staged BLOCKED' -and $activateDoc.error.message -cmatch [regex]::Escape($activateTask)) 'activate blocker must state the staged outcome with the task identity.'
-    $activateState = Read-BFRegistryTaskState -TasksRoot (Get-BFRegistryStore -ProjectRoot $wtD).TasksRoot -TaskId $activateTask
-    Assert-T (@($activateState['revisions'])).Count -eq 1 'activate wrote to the journal.'
-    Assert-T ([string](Get-BFObjectProperty $activateState['metadata'] 'status') -ceq 'planned') 'activate must keep the task planned.'
-
-    $invalidContractPath = Join-Path $testRoot 'activate-invalid.json'
-    Write-TText $invalidContractPath (Get-BFCanonicalJson (New-TTrustedRequest -TaskId $activateTask -Project $wtD -MissingContract))
-    $activateInvalid = Invoke-TEntry -Arguments @('-Action', 'Activate', '-ProjectPath', $wtD, '-TaskId', $activateTask, '-InputFile', $invalidContractPath, '-Format', 'Json')
-    Assert-T ($activateInvalid.ExitCode -eq 2) 'activate without the declared controller_contract must exit 2 (BF_INVALID).'
-
-    $badPriorityPath = Join-Path $testRoot 'activate-bad-priority.json'
-    Write-TText $badPriorityPath (Get-BFCanonicalJson (New-TTrustedRequest -TaskId $activateTask -Project $wtD -InvalidPriority))
-    $activateBadPriority = Invoke-TEntry -Arguments @('-Action', 'Activate', '-ProjectPath', $wtD, '-TaskId', $activateTask, '-InputFile', $badPriorityPath, '-Format', 'Json')
-    Assert-T ($activateBadPriority.ExitCode -eq 2) 'activate with an invalid priority must exit 2.'
-
-    $mismatchRequestPath = Join-Path $testRoot 'activate-mismatch.json'
-    Write-TText $mismatchRequestPath (Get-BFCanonicalJson (New-TTrustedRequest -TaskId ([guid]::NewGuid().ToString()) -Project $wtD))
-    $activateMismatch = Invoke-TEntry -Arguments @('-Action', 'Activate', '-ProjectPath', $wtD, '-TaskId', $activateTask, '-InputFile', $mismatchRequestPath, '-Format', 'Json')
-    Assert-T ($activateMismatch.ExitCode -eq 2) 'activate with a mismatched task_id must exit 2.'
-
-    $foreignRootPath = Join-Path $testRoot 'activate-foreign.json'
-    Write-TText $foreignRootPath (Get-BFCanonicalJson (New-TTrustedRequest -TaskId $activateTask -Project $repoB))
-    $activateForeign = Invoke-TEntry -Arguments @('-Action', 'Activate', '-ProjectPath', $wtD, '-TaskId', $activateTask, '-InputFile', $foreignRootPath, '-Format', 'Json')
-    Assert-T ($activateForeign.ExitCode -eq 2) 'activate with a project_root from another clone must exit 2.'
-
-    $missingRootPath = Join-Path $testRoot 'activate-missing-root.json'
-    Write-TText $missingRootPath (Get-BFCanonicalJson (New-TTrustedRequest -TaskId $activateTask -Project (Join-Path $testRoot 'does-not-exist')))
-    $activateMissingRoot = Invoke-TEntry -Arguments @('-Action', 'Activate', '-ProjectPath', $wtD, '-TaskId', $activateTask, '-InputFile', $missingRootPath, '-Format', 'Json')
-    Assert-T ($activateMissingRoot.ExitCode -eq 2) 'activate with a nonexistent project_root must exit 2.'
-
-    $activateNoFile = Invoke-TEntry -Arguments @('-Action', 'Activate', '-ProjectPath', $wtD, '-TaskId', $activateTask, '-Format', 'Json')
-    Assert-T ($activateNoFile.ExitCode -eq 2) 'activate without -InputFile must exit 2.'
-
-    $activateMissing = Invoke-TEntry -Arguments @('-Action', 'Activate', '-ProjectPath', $wtD, '-TaskId', ([guid]::NewGuid().ToString()), '-InputFile', $requestPath, '-Format', 'Json')
-    Assert-T ($activateMissing.ExitCode -eq 2) 'activate of an unknown task must exit 2.'
+    $activateRejected = Invoke-TEntry -Arguments @('-Action', 'Activate', '-ProjectPath', $wtD, '-TaskId', $activateTask, '-Format', 'Json')
+    Assert-T ($activateRejected.ExitCode -eq 2) "-Action Activate must be rejected as invalid (BF_INVALID/exit 2), got $($activateRejected.ExitCode)."
+    $wrapperActivateRejected = @(& $wrapper 'task' 'activate' '--project' $wtD '-TaskId' $activateTask 2>&1)
+    Assert-T ($LASTEXITCODE -eq 2) "wrapper 'bsl-flow task activate' must be rejected as invalid, got exit $LASTEXITCODE."
 
     # --- Section 14: run/next guard against planned repository tasks ---------------------------------------
     $guardStore = Get-BFRegistryStore -ProjectRoot $wtD

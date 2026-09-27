@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" version="2.20">
+	<Enum uuid="1c0f5a1a-4444-4111-8111-000000000001">
+		<Properties>
+			<Name>СтавкиНДС</Name>
+			<Comment/>
+		</Properties>
+		<ChildObjects>
+			<EnumValue uuid="1c0f5a1a-4444-4111-8111-000000000002">
+				<Properties>
+					<Name>НДС20</Name>
+				</Properties>
+			</EnumValue>
+			<EnumValue uuid="1c0f5a1a-4444-4111-8111-000000000003">
+				<Properties>
+					<Name>БезНДС</Name>
+				</Properties>
+			</EnumValue>
+		</ChildObjects>
+	</Enum>
+</MetaDataObject>

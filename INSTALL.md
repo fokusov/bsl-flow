@@ -24,6 +24,16 @@
 - Codex;
 - credentials совета: API-ключ в переменной окружения из `token_env` провайдера (например, `DEEPSEEK_API_KEY`) либо `token`/`base_url` в незакоммиченном `.bsl-flow/providers.local.yaml`.
 
+M-маршрут ревью спеки (`review.reviewer.provider`) не требует Codex/OpenCode жёстко — провайдер выбирается в `bsl-flow.yaml`. Установщик по умолчанию проверяет `opencode`, если он единственный сконфигурированный провайдер:
+
+- `opencode` (по умолчанию) — требует OpenCode CLI в `PATH`;
+- `claude_cli` — использует установленный `claude` CLI в режиме без записи (`--allowedTools`/`--disallowedTools`);
+- `codex_exec` — использует `codex exec --sandbox read-only`, тот же CLI, что и managed-адаптер;
+- `api` — один вызов через транспорт совета (`llm.models`/`llm.providers`), без OpenCode/Codex;
+- `claude_subagent` — assisted-режим: подсказка запустить пакетный сабагент и импортировать его JSON через `-ImportRaw`.
+
+Если OpenCode не установлен или не нужен, передай `Install-BSLFlow.ps1 -SkipOpenCodeReviewer`.
+
 Для полного регрессионного набора пакета дополнительно нужен .NET SDK 5 или новее: тесты компилируют маленький имитатор reviewer и не обращаются к платной модели. Для повседневной работы skills SDK не нужен. Проверки запускай через `scripts/Test-BSLFlowPackage.ps1`; они не запускают 1С и не заменяют приёмку в тестовой базе.
 
 Обычный managed-адаптер проверяет стабильный `codex-cli` начиная с `0.153.0` по фактической read/write sandbox-изоляции при запуске задачи. Версия `0.155.1` включена в офлайн-контракты, но реальный host-пилот на другой машине остаётся отдельной проверкой. Для profiled execution provider и sandbox должны иметь одинаковую версию и совпадать с SHA-256 из request; sealed current-agent Council fallback требует собственного проверенного host-контракта.
@@ -76,7 +86,8 @@ Set-ExecutionPolicy -Scope Process Bypass
 Установщик:
 
 - проверит packaged OpenSpec schema;
-- проверит эффективные права bounded read/file listing и sealed reviewer agents, включая запрет unrestricted grep;
+- если в `PATH` нет `opencode` и не передан `-SkipOpenCodeReviewer`, выведет предупреждение (не ошибку) о том, что для M-ревью нужен либо OpenCode, либо настроенный `review.reviewer.provider` (`claude_cli`, `codex_exec`, `api`, `claude_subagent`), и пропустит проверку OpenCode-конфигурации reviewer-а;
+- при наличии `opencode` в `PATH` (и без `-SkipOpenCodeReviewer`) проверит его эффективные права bounded read/file listing и sealed reviewer agents, включая запрет unrestricted grep;
 - установит единственную копию восьми skills в общий `%USERPROFILE%\.agents\skills` и после backup удалит управляемые дубликаты из `%CODEX_HOME%\skills`;
 - установит глобальную schema `bsl-flow`;
 - заменит старый managed bootstrap-блок новым bsl-flow-блоком и удалит после backup старую OpenSpec schema;
@@ -234,6 +245,6 @@ openspec schema validate bsl-flow
 
 ## Ошибки внешнего review
 
-M review выполняет один изолированный reviewer; L/high-risk review выполняет API-совет (`review.council`). Роли Council резолвят модели через `llm.models`, credentials — через `token_env` провайдеров или локальный оверлей. Отсутствие credential, модели или корректного JSON для обязательного Council route является blocker: admission-гейт завершает совет до любого платного вызова. Framework не подменяет модель, не понижает L/high-risk до одного reviewer и не пропускает review автоматически. Невалидный output не записывается в `review.json`.
+M review выполняет один изолированный reviewer через сконфигурированный `review.reviewer.provider` (`opencode`, `claude_cli`, `codex_exec`, `api` или `claude_subagent`; для всех кроме `claude_subagent` также обязателен `review.reviewer.model`); L/high-risk review выполняет API-совет (`review.council`). Роли Council резолвят модели через `llm.models`, credentials — через `token_env` провайдеров или локальный оверлей. Отсутствие credential, модели или корректного JSON для обязательного Council route является blocker: admission-гейт завершает совет до любого платного вызова. Framework не подменяет модель, не понижает L/high-risk до одного reviewer и не пропускает review автоматически. Невалидный output не записывается в `review.json`.
 
 Project config может усилить routing, но не отключить обязательный review для M/L/high-risk. `review.enabled: false` допустим только там, где review и так необязателен; попытка обойти обязательный gate завершается ошибкой. Историческая конфигурация одиночного OpenCode-reviewer не переинтерпретируется молча: явный legacy-блок требует отдельного `opencode_compat`-режима, иначе запуск завершается migration blocker-ом.
