@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "checked_at_utc": "2026-09-27T09:15:04.8513421Z",
+  "passed": true,
+  "review_iteration": 1,
+  "inputs": { "review_sha256": "85bdbd8e9542aa5a3732adf51103feaaf73f9c98ac442cf07f6255b5c7bfc01c", "reconciliation_sha256": "b1556b5ba5dfa3aa6380cd6213ed621696c68b77f2be9d42ce6944d2adf05369", "final_spec_sha256": "b9085d442a15853ffa2e60e92554f5b18f5840be62b9cbb438cd3a03a50c0802", "final_design_sha256": null, "original_task_sha256": "58ab419a0e8b2f609c992aaa186e32939f8107f8a2a0958ffc30dd4c4fdd9646" },
+  "errors": []
+}

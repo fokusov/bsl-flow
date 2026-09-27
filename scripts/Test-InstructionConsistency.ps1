@@ -70,7 +70,7 @@ Assert-True (-not ($delegationText -match $forbiddenPattern)) 'the exempt OpenCo
 # generic regex might miss.
 $taskSkillPath = Join-Path $globalRoot 'skills\1c-task\SKILL.md'
 $taskSkillText = Get-Content -Raw -LiteralPath $taskSkillPath
-Assert-True ($taskSkillText.Contains('M spec review uses the configured single reviewer')) '1c-task/SKILL.md states the single-reviewer/Council split without a fallback claim'
+Assert-True ($taskSkillText.Contains('M specification review uses the configured single reviewer; L/high risk uses Council')) '1c-task/SKILL.md states the single-reviewer/Council split without a fallback claim'
 Assert-True (-not $taskSkillText.Contains('remains the fallback')) '1c-task/SKILL.md no longer calls OpenCode the fallback reviewer'
 
 $bootstrapPath = Join-Path $globalRoot 'AGENTS.bootstrap.md'

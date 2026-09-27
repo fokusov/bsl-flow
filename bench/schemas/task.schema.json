@@ -1,0 +1,127 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://bsl-flow/bench/schemas/task.schema.json",
+  "title": "BSL Flow benchmark task",
+  "description": "Format for bench/tasks/<id>/task.yaml, per docs/plans/2026-09-26-remediation-plan.md section Ф6.1.",
+  "type": "object",
+  "required": ["id", "size", "risk", "fixture", "request", "expected_scope", "acceptance", "ambiguous"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "Task identifier; matches the bench/tasks/<id> directory name."
+    },
+    "size": {
+      "type": "string",
+      "enum": ["S", "M", "L"]
+    },
+    "risk": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+    "fixture": {
+      "type": "object",
+      "description": "Either a local fixture directory (path, relative to the repo root) or a public repo pinned at a commit.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["path"],
+          "additionalProperties": false,
+          "properties": {
+            "path": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["repo", "commit"],
+          "additionalProperties": false,
+          "properties": {
+            "repo": { "type": "string" },
+            "commit": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "request": {
+      "type": "string",
+      "description": "Relative path (from the task directory) to the original-task.md prompt shown to the agent."
+    },
+    "expected_scope": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" },
+      "description": "Glob patterns (relative to the fixture root) the changed files are expected to stay within."
+    },
+    "acceptance": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/acceptanceCheck" },
+      "description": "Hidden checks run against the agent's working tree after the run; never shown to the agent."
+    },
+    "ambiguous": {
+      "type": "boolean",
+      "description": "True when the task is deliberately underspecified; the correct agent behaviour is to ask a clarifying question or report BLOCKED instead of guessing."
+    },
+    "notes": { "type": "string" }
+  },
+  "definitions": {
+    "acceptanceCheck": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["yaxunit", "grounding", "bslls_new_errors_max", "static_diff", "file_contains", "file_absent", "command"]
+        },
+        "requires_runtime": {
+          "type": "boolean",
+          "description": "True when the check needs a live 1C runtime (e.g. YAxUnit). Such checks are declared but skipped offline; the runner counts them under skipped_runtime."
+        },
+        "tests": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "kind: yaxunit. Glob(s) of YAxUnit test files to run against the fixture."
+        },
+        "value": {
+          "type": "integer",
+          "description": "kind: bslls_new_errors_max. Maximum allowed count of NEW bslls diagnostics with severity Error."
+        },
+        "path": {
+          "type": "string",
+          "description": "kind: file_contains / file_absent. Path (relative to the fixture root) of the file to inspect."
+        },
+        "pattern": {
+          "type": "string",
+          "description": "kind: file_contains / file_absent. Regex tested against the file content (file_contains) or its non-existence/absence-of-match (file_absent)."
+        },
+        "command": {
+          "type": "string",
+          "description": "kind: command. Shell command run from the fixture root; exit code 0 is PASS."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "yaxunit" } } },
+          "then": { "required": ["tests"] }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "bslls_new_errors_max" } } },
+          "then": { "required": ["value"] }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "file_contains" } } },
+          "then": { "required": ["path", "pattern"] }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "file_absent" } } },
+          "then": { "required": ["path"] }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "command" } } },
+          "then": { "required": ["command"] }
+        }
+      ]
+    }
+  }
+}

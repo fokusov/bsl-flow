@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.0-dev.1
+
+- Split distribution into Core and Windows-only Managed, with host-specific Core installation, backup/rollback, exact Core dependency receipts and separate CI lanes. Full installation remains available.
+- Compact bootstrap and all eight skill entrypoints, enforce instruction budgets, and move detailed safety and managed-stage contracts into linked references. Database authorization, unknown extension state and explicit runtime restrictions remain separate gates.
+- Add host-native single-reviewer selection, Anthropic Messages transport, model-profile configuration and Council independence checks. Core L/high review blocks without Council or an explicit owner override.
+- Remove the nonfunctional Activate action. Add experimental Claude Code workers and current-agent dispatch/submit with bound, single-use dispatch identities under the ADR-11 portability exception.
+- Add Claude Code plugin hooks, metadata grounding, BSL LS diagnostic diff, and onec-ops provider contracts with mutation authorization. Offline mocks do not establish real CLI/runtime compatibility.
+- Add a fake-agent benchmark harness, preregistered decision rules and synthetic S/M onboarding examples. No real-agent benchmark or kill-list decision is claimed.
+- Development acceptance remains separate from release readiness: live host pilots, Linux/macOS CI execution, heterogeneous Council re-review and required 1C runtime gates need their own evidence. The execution-contract override and temporary Unica runtime restriction remain in force.
+
 ## 2026-09-16 — Three re-anchored specs implemented in PowerShell
 
 - `user-profile-council-config`: the optional user profile config (`%USERPROFILE%\.bsl-flow\config.yaml` / `$HOME/.bsl-flow/config.yaml`, override `BSL_FLOW_USER_CONFIG`) is now a base layer under the project config with field-level merge inside named providers/model profiles/role bindings, a fail-closed allowlist (file+key named on rejection), and the policy hash computed over a canonical JSON form of the effective policy when a profile or overlay contributes (raw-file hash preserved otherwise). The council review republished the spec (REVISE consumed); the implementation matches the published final (55-check suite, council suites green).

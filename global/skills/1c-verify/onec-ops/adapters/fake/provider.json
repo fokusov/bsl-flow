@@ -1,0 +1,19 @@
+{
+  "name": "fake",
+  "contract": "onec-ops/v1",
+  "provider_version": "1.0.0",
+  "capabilities": {
+    "metadata.inspect": { "entry": "Invoke-Fake.ps1", "mode": "script" },
+    "syntax.check": { "entry": "Invoke-Fake.ps1", "mode": "script" },
+    "static.bslls": { "entry": "Invoke-Fake.ps1", "mode": "script" },
+    "build.cf": { "entry": "Invoke-Fake.ps1", "mode": "script" },
+    "build.cfe": { "entry": "Invoke-Fake.ps1", "mode": "script" },
+    "build.epf": { "entry": "Invoke-Fake.ps1", "mode": "script" },
+    "extension.list": { "entry": "Invoke-Fake.ps1", "mode": "script" },
+    "extension.load": { "entry": "Invoke-Fake.ps1", "mode": "script", "requires_authorization": true },
+    "config.update": { "entry": "Invoke-Fake.ps1", "mode": "script", "requires_authorization": true },
+    "test.yaxunit": { "entry": "Invoke-Fake.ps1", "mode": "script", "requires_authorization": true },
+    "test.vanessa": { "entry": "Invoke-Fake.ps1", "mode": "script", "requires_authorization": true }
+  },
+  "detect": "Test-FakeAvailable.ps1"
+}

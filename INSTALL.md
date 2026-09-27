@@ -1,10 +1,17 @@
-# Установка BSL Flow 0.8.0-dev.4
+# Установка BSL Flow 0.9.0-dev.1
 
 Установка framework не загружает расширения в базы.
 
+## Core и Managed
+
+Для обычной assisted-работы установи Core: `./scripts/Install-BSLFlowCore.ps1 -Host codex` (либо `claude`, `opencode`, `agents`). Начни с `-WhatIf`. Для Managed затем используй `Install-BSLFlowManaged.ps1`; он проверяет receipt установленного Core. Полный legacy-маршрут `Install-BSLFlow.ps1` сохранён. Подробности backup/rollback и перехода с 0.8 — [миграция](docs/MIGRATION_0.9_RU.md).
+
+`Build-BSLFlowPackage.ps1 -Package core|managed|full` выбирает поставку. CI-матрица Core рассчитана на Windows/Linux/macOS; факт её выполнения и реальные host/runtime-пилоты проверяются отдельно.
+
+Протокол Council `anthropic_messages` использует forced `tool_choice`. Выбери модель, поддерживающую принудительный вызов инструмента: HTTP 400 при его отклонении — ошибка совместимости провайдера. Укажи другой проверенный model ID в пользовательском профиле; не отключай валидацию результата. Конкретные доступные модели зависят от аккаунта и не зашиты в генератор профиля.
 ## Запуск задач
 
-Единственный пользовательский вход — PowerShell-контроллер. Зависимости движка перечислены в требованиях ниже.
+Core использует отдельные skills. Для явно запрошенной Managed-задачи входом служит PowerShell-контроллер; зависимости движка перечислены ниже.
 
 ```powershell
 & "$env:USERPROFILE\.agents\skills\1c-task\scripts\Invoke-BSLFlowTask.ps1" -Action Start -ProjectPath C:\PRJ\client\project -InputFile C:\Tasks\request.json
@@ -17,16 +24,16 @@
 
 ## Требования
 
-- PowerShell 7 с машинной установкой `C:\Program Files\PowerShell\7\pwsh.exe`;
+- Core: PowerShell 7 из PATH на Windows/Linux/macOS; Managed: Windows с машинной установкой `C:\Program Files\PowerShell\7\pwsh.exe`;
 - Git;
 - Node.js 20.19 или новее;
 - OpenSpec CLI;
-- Codex;
+- выбранный хост (Codex, Claude Code или OpenCode);
 - credentials совета: API-ключ в переменной окружения из `token_env` провайдера (например, `DEEPSEEK_API_KEY`) либо `token`/`base_url` в незакоммиченном `.bsl-flow/providers.local.yaml`.
 
 M-маршрут ревью спеки (`review.reviewer.provider`) не требует Codex/OpenCode жёстко — провайдер выбирается в `bsl-flow.yaml`. Установщик по умолчанию проверяет `opencode`, если он единственный сконфигурированный провайдер:
 
-- `opencode` (по умолчанию) — требует OpenCode CLI в `PATH`;
+- `opencode` (для OpenCode-хоста) — требует OpenCode CLI в `PATH`;
 - `claude_cli` — использует установленный `claude` CLI в режиме без записи (`--allowedTools`/`--disallowedTools`);
 - `codex_exec` — использует `codex exec --sandbox read-only`, тот же CLI, что и managed-адаптер;
 - `api` — один вызов через транспорт совета (`llm.models`/`llm.providers`), без OpenCode/Codex;
@@ -41,8 +48,8 @@ M-маршрут ревью спеки (`review.reviewer.provider`) не тре�
 По умолчанию package suite работает offline: не проверяет реальные credentials/model catalog и не делает model calls. Дополнительные проверки установленного host-окружения включаются отдельно:
 
 ```powershell
-.\scripts\Test-BSLFlowPackage.ps1 -PackageRoot .
-.\scripts\Test-BSLFlowPackage.ps1 -PackageRoot . -HostChecks
+.\scripts\Test-BSLFlowPackage.ps1 -PackageRoot (Get-Location).Path
+.\scripts\Test-BSLFlowPackage.ps1 -PackageRoot (Get-Location).Path -HostChecks
 ```
 
 `-HostChecks` читает текущую host-конфигурацию и завершается с явной причиной, если CLI, установленная skill или model недоступны. Он также не выполняет платный model call и не запускает 1С.
@@ -50,13 +57,13 @@ M-маршрут ревью спеки (`review.reviewer.provider`) не тре�
 ## Воспроизводимая сборка пакета
 
 ```powershell
-.\scripts\Build-BSLFlowPackage.ps1 -PackageRoot .
-.\scripts\Build-BSLFlowPackage.ps1 -PackageRoot . -Test
+.\scripts\Build-BSLFlowPackage.ps1 -PackageRoot (Get-Location).Path
+.\scripts\Build-BSLFlowPackage.ps1 -PackageRoot (Get-Location).Path -Test
 ```
 
-Build создаёт `outputs\BSL-Flow-0.8.0-dev.4.zip`, внешний файл `.sha256` и внутренний `package-manifest.json` с SHA-256 каждого файла. Пути архива сортируются, timestamps фиксируются; `.git`, `.bsl-flow`, `work` и `outputs` в пакет не входят. Повторная сборка тем же PowerShell runtime должна дать тот же SHA-256. `-Test` повторяет сборку, распаковывает точный ZIP во временный каталог, сверяет manifest и запускает offline package suite из распакованного artifact. Установка в глобальные каталоги при этом не выполняется.
+Build создаёт `outputs\BSL-Flow-0.9.0-dev.1.zip`, внешний файл `.sha256` и внутренний `package-manifest.json` с SHA-256 каждого файла. Пути архива сортируются, timestamps фиксируются; `.git`, `.bsl-flow`, `work` и `outputs` в пакет не входят. Повторная сборка тем же PowerShell runtime должна дать тот же SHA-256. `-Test` повторяет сборку, распаковывает точный ZIP во временный каталог, сверяет manifest и запускает offline package suite из распакованного artifact. Установка в глобальные каталоги при этом не выполняется.
 
-Build entrypoint, установщик, task CLI и offline suite требуют PowerShell 7. Используется стандартная машинная установка `C:\Program Files\PowerShell\7\pwsh.exe`; fallback на Windows PowerShell 5.1 не предусмотрен.
+Build и Core требуют PowerShell 7 из PATH. Managed сохраняет стандартную Windows-установку `C:\Program Files\PowerShell\7\pwsh.exe`; Windows PowerShell 5.1 не поддерживается.
 
 Базовая проверенная комбинация: OpenSpec `1.11.0`. Результаты сборки и принятые решения — в [CHANGELOG.md](CHANGELOG.md).
 

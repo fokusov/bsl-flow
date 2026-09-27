@@ -1,0 +1,16 @@
+{
+  "name": "claude-code",
+  "contract": "worker-adapter/v1",
+  "status": "experimental",
+  "dispatch_blocker": "Claude Code private-path isolation is not verified. Tool-name permissions and post-hoc event checks cannot enforce denied_read_roots before model access. Paid worker dispatch is disabled until preventive path isolation is proven.",
+  "isolation": "permission_rules",
+  "integrity_check": true,
+  "stages": ["inspect", "spec", "spec_reconcile", "implement", "code_review", "code_reconcile", "diagnose"],
+  "observed_identity": true,
+  "entry": "ClaudeCode.ps1",
+  "capability_function": "Test-BFClaudeCodeCapability",
+  "worker_function": "Invoke-BFClaudeCodeWorker",
+  "version": {"policy": "exact", "pattern": "^([0-9]+\\.[0-9]+\\.[0-9]+) \\(Claude Code\\)$", "allowlist": ["2.1.142"]},
+  "required_help_flags": ["--print", "--output-format", "stream-json", "--verbose", "--model", "--effort", "--tools", "--allowedTools", "--disallowedTools", "--strict-mcp-config", "--mcp-config", "--setting-sources", "--permission-mode", "dontAsk", "--no-session-persistence", "--disable-slash-commands"],
+  "tools": {"read_only": ["Read", "Grep", "Glob"], "implement": ["Read", "Grep", "Glob", "Edit", "Write"], "denied": ["Bash", "WebFetch", "WebSearch", "Task", "NotebookEdit"]}
+}

@@ -1,0 +1,12 @@
+{
+  "name": "vrunner",
+  "contract": "onec-ops/v1",
+  "capabilities": {
+    "syntax.check": {"entry": "Invoke-VrunnerOp.ps1", "mode": "script"},
+    "build.cf": {"entry": "Invoke-VrunnerOp.ps1", "mode": "script", "requires_authorization": true},
+    "build.cfe": {"entry": "Invoke-VrunnerOp.ps1", "mode": "script", "requires_authorization": true},
+    "test.yaxunit": {"entry": "Invoke-VrunnerOp.ps1", "mode": "script", "requires_authorization": true},
+    "test.vanessa": {"entry": "Invoke-VrunnerOp.ps1", "mode": "script", "requires_authorization": true}
+  },
+  "detect": "Test-VrunnerAvailable.ps1"
+}

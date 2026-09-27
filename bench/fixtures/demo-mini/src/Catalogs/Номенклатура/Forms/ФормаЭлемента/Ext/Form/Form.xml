@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Minimal stub; nothing in this repo's tooling parses form XML content today. -->
+<Form xmlns="http://v8.1c.ru/8.3/xcf/logform">
+  <Items>
+    <Field name="Наименование"/>
+  </Items>
+</Form>

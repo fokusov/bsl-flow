@@ -1,23 +1,47 @@
 {
   "schema_version": 1,
   "description": "Surface-area budget enforced by Test-SurfaceBudget.ps1, per docs/plans/2026-09-26-remediation-plan.md Ф0.1/Ф0.3/Ф3.4. `current` holds thresholds enforced today; `target` records the later, tighter thresholds from plan Ф3.4 that are not yet enforced.",
-  "measured_baseline_commit": "07173ab3cf3c03e45c1e7d5a8d7762d344ec2fb4",
+  "measured_baseline_commit": "0962c77066d90b4892517cf05c235b3cc1af2c10",
   "how_to_update_the_baseline": "This file is a deliberate freeze, not an auto-generated snapshot. To move the baseline on purpose: (1) run `pwsh -NoProfile -File scripts/Measure-BSLFlowSurface.ps1 -PackageRoot <repo root> -OutputPath <tmp>.json`; (2) compare the new numbers against this file's `current` section and confirm every increase is an intended, reviewed change (Ф0.1 only allows bug fixes, deletions, moves between packages, or the recorded Ф4.7 controller-portability exception in ADR-11 -- never an unreviewed new feature); (3) update `current.managed_ps_lines_baseline` and the affected `current.skills[*]`/`current.bootstrap_bytes_max` entries to the new measured values, and `measured_baseline_commit` to the new HEAD sha; (4) say why in the commit message and, if it is a managed change, cite the ADR-11 exception it falls under.",
   "freeze": {
-    "managed_ps_lines_baseline": 14190,
+    "managed_ps_lines_baseline": 15195,
     "managed_ps_lines_growth_limit_pct": 2
   },
   "current": {
-    "bootstrap_bytes_max": 5653,
+    "bootstrap_bytes_max": 803,
     "skills": {
-      "1c-debug": { "bytes_max": 2016, "negation_max": 3 },
-      "1c-estimate": { "bytes_max": 5102, "negation_max": 6 },
-      "1c-implement": { "bytes_max": 4487, "negation_max": 13 },
-      "1c-init-project": { "bytes_max": 6295, "negation_max": 19 },
-      "1c-spec": { "bytes_max": 4320, "negation_max": 10 },
-      "1c-spec-review": { "bytes_max": 5882, "negation_max": 18 },
-      "1c-task": { "bytes_max": 5306, "negation_max": 12 },
-      "1c-verify": { "bytes_max": 4710, "negation_max": 7 }
+      "1c-debug": {
+        "bytes_max": 2898,
+        "negation_max": 0
+      },
+      "1c-estimate": {
+        "bytes_max": 3380,
+        "negation_max": 0
+      },
+      "1c-implement": {
+        "bytes_max": 3405,
+        "negation_max": 0
+      },
+      "1c-init-project": {
+        "bytes_max": 3963,
+        "negation_max": 0
+      },
+      "1c-spec": {
+        "bytes_max": 3973,
+        "negation_max": 0
+      },
+      "1c-spec-review": {
+        "bytes_max": 4021,
+        "negation_max": 0
+      },
+      "1c-task": {
+        "bytes_max": 3540,
+        "negation_max": 0
+      },
+      "1c-verify": {
+        "bytes_max": 3959,
+        "negation_max": 0
+      }
     }
   },
   "target": {

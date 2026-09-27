@@ -85,6 +85,9 @@ $lines.Add('# this file (or the path in BSL_FLOW_USER_CONFIG) binds review-fast,
 $lines.Add('# review-strong and review-chair to real providers and models. Never add a')
 $lines.Add('# literal token or Authorization header here: use token_env plus an')
 $lines.Add('# environment variable, or the .bsl-flow/providers.local.yaml overlay.')
+$lines.Add('# anthropic_messages uses forced tool_choice: select a model that supports')
+$lines.Add('# forced tools. An HTTP 400 rejection is a provider capability failure;')
+$lines.Add('# inspect the response and change the model binding instead of bypassing validation.')
 $lines.Add('llm:')
 $lines.Add('  providers:')
 foreach ($providerName in $selected.providers) {

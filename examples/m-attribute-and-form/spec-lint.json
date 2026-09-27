@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "checked_at_utc": "2026-09-27T09:15:15.8817549Z",
+  "passed": true,
+  "errors": [],
+  "warnings": [],
+  "stats": { "characters": 2817, "lines": 42 },
+  "anchors": [
+    { "id": "REQ-1", "section": "Требуемое поведение", "item": 1, "text_sha256": "662228ec4c12fd625169677408d9574df85078d92523465f60d01984ef2392d8" },
+    { "id": "REQ-2", "section": "Требуемое поведение", "item": 2, "text_sha256": "0b1e036708e630bcf50c26dac6d17ba45db640a8bae8d399f1b4df2eb5b40aaf" },
+    { "id": "REQ-3", "section": "Требуемое поведение", "item": 3, "text_sha256": "f3515fa87963a4c83ac33eeaf94ccb45bcd5829d40e1fc58d7eb76aa1b97041c" },
+    { "id": "REQ-4", "section": "Требуемое поведение", "item": 4, "text_sha256": "419a5ec1573f17909f7f05357a1b42962053f3925b1f481f83e8fa688b467290" },
+    { "id": "AC-1", "section": "Критерии приёмки", "item": 1, "text_sha256": "8df532129d505c3549be5347574e52325d6eca517f2876eb25af3daa0917f295" },
+    { "id": "AC-2", "section": "Критерии приёмки", "item": 2, "text_sha256": "fa4830f4f0d03fd6a5a66c284a4ec8752ff073f50c04fadce15d7b58b01fc550" },
+    { "id": "AC-3", "section": "Критерии приёмки", "item": 3, "text_sha256": "80e430d86b16ab8f825f5ec3c661daebdaa413577ea0140e0b7c90051907451f" },
+    { "id": "AC-4", "section": "Критерии приёмки", "item": 4, "text_sha256": "cb6782dab9dbc101efc66b69b639265b27ca6949565bdcd39bf8078708ce3a26" },
+    { "id": "NG-1", "section": "Не делать", "item": 1, "text_sha256": "995155ca66bf7b1c01a9479759d46ee929f58dfb214a0edd528b61a6816ce93e" },
+    { "id": "NG-2", "section": "Не делать", "item": 2, "text_sha256": "7d6cb2f93e3016b4489e3b4b4c5571597fb9d5a52516046f7d2c58f98fc81cbb" }
+  ]
+}

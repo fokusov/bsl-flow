@@ -1,20 +1,44 @@
 ---
 name: 1c-debug
-description: Diagnose a 1C runtime error, wrong behavior, failing test, or regression through reproducible evidence before changing code.
+description: Diagnose a 1C runtime error, wrong behavior, failing test or regression through reproducible evidence before changing code. Use when the user reports a bug, an error message, a failed test or behavior that differs from the expected result.
 ---
 
 # 1c-debug
 
-If this investigation belongs to a registered managed task, preserve its task ID and current stage. Return findings or the pending question to the controller; use a trusted `Update` for a changed requirement. Do not restart the task or replay an uncertain write. Independent investigations retain the assisted workflow below.
+## When to use
 
-## Workflow
+- A 1C runtime error, wrong result, failing test or regression.
+- A diagnosis-only request: the steps end at the root cause and a proposed correction.
 
-1. Define the smallest reliable reproduction and capture expected/actual behavior, platform and configuration version, client type, input/data state, and relevant error or log output.
-2. Localize the failing boundary: client form, server call, query, transaction/lock, register movement, scheduled job, integration, permissions/RLS, or platform runtime.
-3. Keep a short ranked hypothesis list, each with a discriminating check. Do not modify code because a hypothesis merely sounds plausible.
-4. Read [testing-policy.md](../1c-verify/references/testing-policy.md). Test hypotheses using logs, targeted queries, debugger/runtime evidence, YaXUnit reproduction, or a saved Vanessa scenario for client behavior. Computer-use is a justified narrow diagnostic/visual step, not the default regression runner.
-5. State the root cause as `condition → code/runtime behavior → observed failure`. Label it unproven when evidence is incomplete.
-6. When a fix is authorized, implement the smallest root-cause fix without unrelated cleanup. A diagnosis-only request ends with cause/evidence and a proposed correction, not an unsolicited code change.
-7. Run the reproduction again and add the most stable available regression check.
+## Inputs
 
-Stop and report a blocker rather than guessing when reproduction is impossible, the required environment is unavailable, a platform/vendor defect cannot be isolated further, or missing credentials, permissions, or a test database prevent evidence collection.
+The user's report, expected and actual behavior, platform and configuration version, client type, input/data state, error text and logs, and the relevant source.
+
+## Steps
+
+1. Build the smallest reliable reproduction. Result: expected vs actual behavior, platform and configuration version, client type, data state and the error or log output.
+2. Localize the failing boundary: client form, server call, query, transaction/lock, register movement, scheduled job, integration, permissions/RLS or platform runtime. Result: one named boundary.
+3. Keep a short ranked hypothesis list, each with a discriminating check. Result: hypotheses and the check for each; code changes wait for a confirmed hypothesis.
+4. Test the hypotheses with logs, targeted queries, debugger/runtime evidence, a YaXUnit reproduction or a saved Vanessa scenario for client behavior, following [testing-policy.md](../1c-verify/references/testing-policy.md). Use computer-use as a justified, narrow diagnostic or visual step. Result: evidence that confirms or rejects each hypothesis.
+5. State the root cause as `condition -> code/runtime behavior -> observed failure`, labelled unproven when evidence is incomplete. Result: the cause statement.
+6. When a fix is authorized, make the smallest root-cause fix with `1c-implement` rules and no unrelated cleanup. A diagnosis-only request ends with the cause, evidence and proposed correction. Result: fix or proposal.
+7. Rerun the reproduction and add the most stable available regression check. Result: the reproduction passes and a regression check exists, or the gap is reported.
+
+## Outputs
+
+Root cause (proven or unproven), evidence, the fix or proposed correction, and the reproduction and regression results. Hand a fixed change to `1c-verify`.
+
+## Checks
+
+- The original reproduction now gives the expected behavior.
+- The regression check passes and runs through the configured test route.
+
+## Stop and ask when
+
+- Reproduction is impossible, the required environment is unavailable, or a platform/vendor defect resists further isolation: report the blocker instead of guessing.
+- Missing credentials, permissions or a test database prevent evidence collection.
+- A reproduction step would write business data to a database that is not an authorized test target.
+
+## Managed mode
+
+Inside a 1c-task stage, follow [references/stage-contract.md of 1c-task](../1c-task/references/stage-contract.md) instead.
