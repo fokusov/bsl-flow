@@ -399,4 +399,39 @@ Assert-OO ($update.Exit -eq 0 -and $update.Result.evidence.Count -eq 1) 'Success
 Assert-OO ((Get-OOSha256File $update.Result.evidence[0].path) -eq $update.Result.evidence[0].sha256) 'Update log hash matches the durable file'
 Assert-OO ($update.Result.message -match 'post-state and behavior unverified') 'Update PASS states the evidence limitation'
 Assert-OO ($failedLoad.Result.evidence.Count -eq 1 -and (Test-Path -LiteralPath $failedLoad.Result.evidence[0].path)) 'Failed load retains its platform log'
+# Credential redaction belongs to the shared display argv, never to process arguments.
+$nativeDir = Join-Path $onecOpsRoot 'adapters/native-1cv8'
+. (Join-Path $nativeDir 'Native.Common.ps1')
+$syntheticPassword = 'test-only-secret-P4ss!'
+$syntheticUser = 'test-only-user'
+$originalArgs = @('DESIGNER', '/N', $syntheticUser, '/P', $syntheticPassword, '/F', 'db1', ('--password=' + $syntheticPassword), '--db-pwd', $syntheticPassword)
+$beforeArgs = ConvertTo-Json -InputObject $originalArgs -Compress
+$safeArgs = @(Get-N1PreviewArguments -Argv $originalArgs)
+Assert-OO (($safeArgs -join ' ') -notmatch [regex]::Escape($syntheticPassword)) 'Preview helper redacts native and vrunner password flags'
+Assert-OO (($safeArgs -join ' ') -notmatch [regex]::Escape($syntheticUser)) 'Preview helper redacts credentials username'
+Assert-OO ((ConvertTo-Json -InputObject $originalArgs -Compress) -ceq $beforeArgs) 'Redaction does not mutate actual process arguments'
+$previewRecord = Join-Path $projNative 'preview-process-record.txt'
+$env:BF_MOCK_RECORD = $previewRecord
+try {
+    foreach ($dryCase in @(
+        @{ entry = 'Invoke-NativeExtensionLoad.ps1'; capability = 'extension.load' },
+        @{ entry = 'Invoke-NativeConfigUpdate.ps1'; capability = 'config.update' },
+        @{ entry = 'Invoke-NativeBuild.ps1'; capability = 'build.cf' },
+        @{ entry = 'Invoke-NativeBuild.ps1'; capability = 'build.cfe' },
+        @{ entry = 'Invoke-NativeYaxunit.ps1'; capability = 'test.yaxunit' }
+    )) {
+        $dryAuth = Join-Path $projNative 'dry-auth.json'
+        Write-OOAuthorization -Path $dryAuth -Capability $dryCase.capability -Target db1 -ExpiresUtc ([DateTime]::UtcNow.AddHours(1))
+        $dryParams = [pscustomobject]@{ target = 'db1'; cfe_path = $dummyCfe; extension = 'TestExt'; source_dir = $srcDir; output_path = $outCf; modules = @('Tests'); username = $syntheticUser; password = $syntheticPassword; executable_path = $mockExecutable; dry_run = $true }
+        $dryResult = & (Join-Path $nativeDir $dryCase.entry) -ProjectPath $projNative -Params $dryParams -AdapterDir $nativeDir -Capability $dryCase.capability -AuthorizationFile $dryAuth
+        $dryJson = $dryResult | ConvertTo-Json -Depth 12
+        Assert-OO ($dryResult.status -eq 'BLOCKED' -and $dryResult.raw_output -match '\[REDACTED\]') "Direct native $($dryCase.capability) preview redacts credentials"
+        Assert-OO ($dryJson -notmatch [regex]::Escape($syntheticPassword) -and $dryJson -notmatch [regex]::Escape($syntheticUser)) 'Serialized dry-run result contains no synthetic credentials'
+    }
+    $vrunnerDir = Join-Path $onecOpsRoot 'adapters/vrunner'
+    $vrunnerPreview = & (Join-Path $vrunnerDir 'Invoke-VrunnerOp.ps1') -ProjectPath $projVrunner -AdapterDir $vrunnerDir -Capability syntax.check -Params ([pscustomobject]@{ src = $srcDir; vrunner_bin = $mockExecutable; dry_run = $true; password = $syntheticPassword })
+    Assert-OO (($vrunnerPreview | ConvertTo-Json -Depth 12) -notmatch [regex]::Escape($syntheticPassword)) 'Vrunner dry-run does not serialize supplied credentials'
+    Assert-OO (-not (Test-Path -LiteralPath $previewRecord)) 'Credential preview tests do not launch processes'
+}
+finally { Remove-Item Env:\BF_MOCK_RECORD -ErrorAction SilentlyContinue }
 Write-Output "Test-OneCOpsContract: $script:checks checks passed."
