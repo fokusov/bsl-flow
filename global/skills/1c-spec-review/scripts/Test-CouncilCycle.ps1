@@ -195,7 +195,7 @@ try {
     $result3 = Invoke-BSLFlowCouncilReview -ProjectPath $proj3 -ChangeName 'demo' -AllowLiveDispatch -FallbackRunner $fallbackRunner -Capabilities $capabilities
     Assert-True ([string]$result3.review.verdict -ceq 'PASS_WITH_LIMITATIONS') 'tokenless default route completes through fresh current-agent contexts as a limited PASS'
     Assert-True ((@($result3.review.limitations) -join ',') -ceq 'single_model_council' -and [string]$result3.review.chair.verdict -ceq 'PASS') 'independence any publishes single_model_council and keeps the raw chair PASS'
-    Assert-True ([string]$result3.final_validation.verdict -ceq 'PASS_WITH_LIMITATIONS' -and (@($result3.final_validation.limitations) -join ',') -ceq 'single_model_council') 'final validation carries the limited verdict and its limitations'
+    Assert-True ([string]$result3.final_validation.verdict -ceq 'PASS_WITH_LIMITATIONS' -and (@($result3.final_validation.limitations) -join ',') -ceq 'single_model_council,grounding_unavailable' -and $result3.final_validation.grounding.status -eq 'unavailable') 'final validation preserves council limitations and reports unavailable source grounding'
     Assert-True ([string]$result3.review.diversity -eq 'multi_role_single_model') 'fallback diversity is never multi_model'
     Assert-True ([bool]$result3.review.fallback_visible) 'fallback stays visible in the report'
     Assert-True (@($script:fallbackCalls).Count -eq 4) 'all four required roles ran as fresh fallback contexts'
