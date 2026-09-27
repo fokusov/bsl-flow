@@ -133,32 +133,12 @@ $mutating = ($Capability -in @('extension.load', 'config.update', 'test.yaxunit'
 $requestTarget = Get-OOParam $paramsObj 'target'
 
 if ($mutating) {
-    $authOk = $false
-    $authMessage = 'BF_BLOCKED: authorization file was not supplied for a mutating capability'
-    if (-not [string]::IsNullOrWhiteSpace($AuthorizationFile)) {
-        if (-not (Test-Path -LiteralPath $AuthorizationFile -PathType Leaf)) {
-            $authMessage = "BF_BLOCKED: authorization file was not found: $AuthorizationFile"
-        }
-        else {
-            try { $auth = Get-Content -Raw -LiteralPath $AuthorizationFile -Encoding UTF8 | ConvertFrom-Json -ErrorAction Stop }
-            catch { $auth = $null }
-            if ($null -eq $auth) { $authMessage = 'BF_BLOCKED: authorization file is not valid JSON' }
-            elseif ([string](Get-OOProperty $auth @('capability')) -cne $Capability) { $authMessage = 'BF_BLOCKED: authorization capability does not match the request' }
-            elseif ([string]::IsNullOrWhiteSpace([string]$requestTarget) -or [string](Get-OOProperty $auth @('target')) -cne [string]$requestTarget) { $authMessage = 'BF_BLOCKED: authorization target does not match the request' }
-            else {
-                $expires = $null
-                try { $expires = [DateTime]::Parse([string](Get-OOProperty $auth @('expires_utc')), [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AssumeUniversal).ToUniversalTime() } catch { $expires = $null }
-                if ($null -eq $expires) { $authMessage = 'BF_BLOCKED: authorization expires_utc is missing or unparsable' }
-                elseif ($expires -le [DateTime]::UtcNow) { $authMessage = 'BF_BLOCKED: authorization has expired' }
-                else { $authOk = $true }
-            }
-        }
-    }
-    if (-not $authOk) {
+    $failure = Get-OOAuthorizationFailure -Capability $Capability -Target $requestTarget -AuthorizationFile $AuthorizationFile
+    if ($null -ne $failure) {
         Write-OOResult -Fields @{
             status = 'BLOCKED'; mutating = $true; target = $requestTarget; evidence = @()
             raw_output_sha256 = $null; provider = $selectedProvider; provider_version = (Get-OOProperty $selectedManifest @('provider_version'))
-            message = $authMessage
+            message = $failure.message
         } -ProjectFull $projectFull -Capability $Capability
         exit 11
     }

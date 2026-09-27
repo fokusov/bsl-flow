@@ -19,6 +19,9 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . (Join-Path $AdapterDir 'Native.Common.ps1')
+$failure = Get-OOAuthorizationFailure -Capability $Capability -Target (Get-OOProperty $Params @('target')) -AuthorizationFile $AuthorizationFile -AllowedCapabilities @('config.update')
+if ($null -ne $failure) { return $failure }
+
 
 $target = Get-N1Param $Params 'target' $null
 if ([string]::IsNullOrWhiteSpace([string]$target)) {
@@ -33,7 +36,7 @@ $username = Get-N1Param $Params 'username' ''
 $password = Get-N1Param $Params 'password' ''
 $dryRun = [bool](Get-N1Param $Params 'dry_run' $false)
 
-$logDir = Join-Path $ProjectPath '.bsl-flow/reports/onec-ops-tmp'
+$logDir = Join-Path $ProjectPath '.bsl-flow/reports/onec-ops-evidence'
 $log = Join-Path $logDir ('native-configupdate-' + [guid]::NewGuid().ToString('N') + '.log')
 $argv = @('DESIGNER', '/DisableStartupDialogs', '/DisableStartupMessages', '/F', $target, '/N', $username, '/P', $password, '/Out', $log, '-NoTruncate', '/UpdateDBCfg')
 if (-not [string]::IsNullOrWhiteSpace([string]$extension)) { $argv += @('-Extension', $extension) }
@@ -44,8 +47,8 @@ if ($dryRun) {
 }
 [pscustomobject]@{
     status     = if ($result.ExitCode -eq 0) { 'PASS' } else { 'FAIL' }
-    evidence   = @()
-    message    = "update.exit=$($result.ExitCode)"
+    evidence   = @($log)
+    message    = "Evidence level: process completion only; post-state and behavior unverified. update.exit=$($result.ExitCode)"
     raw_output = $result.Log
     target     = $target
 }
