@@ -45,7 +45,7 @@ function Remove-PackageTestTree {
     param([Parameter(Mandatory)][string]$Path)
     $resolved = [IO.Path]::GetFullPath($Path).TrimEnd('\', '/')
     $temp = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\', '/')
-    if (-not $resolved.StartsWith($temp + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or (Split-Path -Leaf $resolved) -notlike 'bsl-flow-package-extract-*') {
+    if (-not $resolved.StartsWith($temp + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or (Split-Path -Leaf $resolved) -notmatch '^bfp-[0-9a-f]{16}$') {
         throw "Unsafe package test cleanup target: $resolved"
     }
     if (Test-Path -LiteralPath $resolved) { Remove-Item -LiteralPath $resolved -Recurse -Force -ErrorAction SilentlyContinue }
@@ -176,7 +176,9 @@ $hashPath = $zipHashPath
 [IO.File]::WriteAllText($hashPath, "$zipHash  $([IO.Path]::GetFileName($zipPath))`n", $utf8)
 
 if ($Test) {
-    $testRoot = Join-Path ([IO.Path]::GetTempPath()) ('bsl-flow-package-extract-' + [guid]::NewGuid().ToString('N'))
+    # Git for Windows still bounds some internal worktree paths even with core.longpaths.
+    # Leave room for suites that create their own repositories beneath the extracted package.
+    $testRoot = Join-Path ([IO.Path]::GetTempPath()) ('bfp-' + [guid]::NewGuid().ToString('N').Substring(0, 16))
     try {
         $comparisonZip = Join-Path $testRoot 'rebuild.zip'
         New-Item -ItemType Directory -Path $testRoot -Force | Out-Null
