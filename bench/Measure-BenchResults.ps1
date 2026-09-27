@@ -35,6 +35,12 @@ function Get-BenchMean {
     return [math]::Round($sum / $Values.Count, 4)
 }
 
+function Format-BenchPercent {
+    param($Value)
+    if ($null -eq $Value) { return 'n/a' }
+    return "$Value%"
+}
+
 $attempts = New-Object Collections.Generic.List[object]
 foreach ($dir in $RunDir) {
     if (-not (Test-Path -LiteralPath $dir -PathType Container)) { throw "RunDir not found: $dir" }
@@ -111,13 +117,26 @@ foreach ($agentGroup in $byAgent) {
     $bare = $agentGroup.Group | Where-Object { $_.mode -eq 'bare' } | Select-Object -First 1
     $core = $agentGroup.Group | Where-Object { $_.mode -eq 'core' } | Select-Object -First 1
     if (-not $bare -or -not $core) { continue }
-    $falsePassCut = if ($bare.false_pass_rate -and $bare.false_pass_rate -gt 0) { [math]::Round((($bare.false_pass_rate - $core.false_pass_rate) / $bare.false_pass_rate) * 100, 1) } else { $null }
-    $driftCut = if ($bare.mean_drift_lines -and $bare.mean_drift_lines -gt 0) { [math]::Round((($bare.mean_drift_lines - $core.mean_drift_lines) / $bare.mean_drift_lines) * 100, 1) } else { $null }
-    $timeIncrease = if ($bare.mean_wall_seconds -and $bare.mean_wall_seconds -gt 0) { [math]::Round((($core.mean_wall_seconds - $bare.mean_wall_seconds) / $bare.mean_wall_seconds) * 100, 1) } else { $null }
-    $keepRule1 = ($null -ne $falsePassCut -and $falsePassCut -ge 20) -or ($null -ne $driftCut -and $driftCut -ge 20)
-    $keepRule1 = $keepRule1 -and ($null -eq $timeIncrease -or $timeIncrease -le 50)
+    $isSynthetic = $agentGroup.Name -eq 'fake'
+    $evidenceComplete = $bare.ok_attempts -eq $bare.total_attempts -and $core.ok_attempts -eq $core.total_attempts -and
+        $bare.not_run_total -eq 0 -and $core.not_run_total -eq 0 -and $bare.skipped_runtime_total -eq 0 -and $core.skipped_runtime_total -eq 0
+    $hasFalsePassBaseline = $null -ne $bare.false_pass_rate -and $bare.false_pass_rate -gt 0
+    $hasDriftBaseline = $null -ne $bare.mean_drift_lines -and $bare.mean_drift_lines -gt 0
+    $hasDecisionBaseline = $hasFalsePassBaseline -or $hasDriftBaseline
+    $falsePassCut = if (-not $isSynthetic -and $hasFalsePassBaseline) { [math]::Round((($bare.false_pass_rate - $core.false_pass_rate) / $bare.false_pass_rate) * 100, 1) } else { $null }
+    $driftCut = if (-not $isSynthetic -and $hasDriftBaseline) { [math]::Round((($bare.mean_drift_lines - $core.mean_drift_lines) / $bare.mean_drift_lines) * 100, 1) } else { $null }
+    $timeIncrease = if (-not $isSynthetic -and $null -ne $bare.mean_wall_seconds -and $bare.mean_wall_seconds -gt 0) { [math]::Round((($core.mean_wall_seconds - $bare.mean_wall_seconds) / $bare.mean_wall_seconds) * 100, 1) } else { $null }
+    $decision = if ($isSynthetic) { 'synthetic_not_applicable' } elseif (-not $evidenceComplete -or -not $hasDecisionBaseline -or $null -eq $timeIncrease) { 'not_evaluable' } else { 'evaluated' }
+    $keepRule1 = $null
+    if ($decision -eq 'evaluated') {
+        $keepRule1 = (($null -ne $falsePassCut -and $falsePassCut -ge 20) -or ($null -ne $driftCut -and $driftCut -ge 20)) -and
+            ($timeIncrease -le 50)
+    }
     $comparisons.Add([pscustomobject][ordered]@{
             agent                        = $agentGroup.Name
+            applicability                 = $(if ($isSynthetic) { 'synthetic_not_applicable' } else { 'real' })
+            evidence_complete             = $evidenceComplete
+            decision                      = $decision
             false_pass_rate_cut_pct      = $falsePassCut
             drift_cut_pct                = $driftCut
             time_increase_pct            = $timeIncrease
@@ -154,10 +173,10 @@ if ($comparisons.Count -eq 0) {
     $md.Add('No agent has both a `bare` and a `core` run in this aggregate yet.')
 }
 else {
-    $md.Add('| Agent | False-PASS cut | Drift cut | Time increase | Keep per Rule 1 |')
-    $md.Add('|---|---|---|---|---|')
+    $md.Add('| Agent | Applicability | False-PASS cut | Drift cut | Time increase | Rule 1 decision | Keep per Rule 1 |')
+    $md.Add('|---|---|---|---|---|---|---|')
     foreach ($c in $comparisons) {
-        $md.Add("| $($c.agent) | $($c.false_pass_rate_cut_pct)% | $($c.drift_cut_pct)% | $($c.time_increase_pct)% | $($c.keep_per_rule1) |")
+        $md.Add("| $($c.agent) | $($c.applicability) | $(Format-BenchPercent $c.false_pass_rate_cut_pct) | $(Format-BenchPercent $c.drift_cut_pct) | $(Format-BenchPercent $c.time_increase_pct) | $($c.decision) | $($c.keep_per_rule1) |")
     }
 }
 $md.Add('')

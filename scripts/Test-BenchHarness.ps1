@@ -50,6 +50,10 @@ try {
         Assert-True ($results.Count -eq 1) "Variant '$variant' did not emit one result for the selected offline fixture task."
         $runs[$variant] = $results
     }
+    $coreRunDir = Join-Path $testRoot 'core-good'
+    $env:BENCH_FAKE_VARIANT = 'good'
+    & pwsh -NoProfile -File $runner -Agent fake -Mode core -Tasks 'bench/tasks/s-print-form' -Repeat 1 -OutputDir $coreRunDir -TimeoutSeconds 30 -RepoRoot $PackageRoot
+    Assert-True ($LASTEXITCODE -eq 0) 'Runner failed for fake core variant.'
 
     $good = @($runs['good'])
     Assert-True -Condition (@($good | Where-Object { -not $_.acceptance_pass }).Count -eq 0) -Message 'Good fake variant did not satisfy all executed offline checks.'
@@ -66,16 +70,44 @@ try {
     Assert-True -Condition (@($drift | Where-Object { $_.acceptance_pass -and $_.drift.LineCount -gt 0 }).Count -eq 1) -Message 'Drift fake variant did not preserve executed-check success while recording out-of-scope lines.'
     Assert-True -Condition (@($drift | Where-Object { $_.drift.FilesOutsideScope.Count -gt 0 }).Count -eq 1) -Message 'Drift fake variant did not record changed files outside expected_scope.'
 
+    # A real-agent-shaped pair with no false-PASS or drift baseline must not fabricate a
+    # percentage or a Rule 1 decision.
+    $zeroBaselineDir = Join-Path $testRoot 'zero-baseline'
+    New-Item -ItemType Directory -Path $zeroBaselineDir -Force | Out-Null
+    foreach ($mode in @('bare', 'core')) {
+        [ordered]@{
+            task_id = 'zero-baseline'; agent = 'codex'; mode = $mode; status = 'ok'; wall_seconds = 1.0
+            usage = $null; cost_usd = $null; effective_pass = $true; false_pass = $false
+            not_run_count = 0; skipped_runtime_count = 0; drift = [ordered]@{ LineCount = 0; NewMetadataCount = 0; FilesOutsideScope = @() }
+        } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $zeroBaselineDir "$mode.json") -Encoding utf8
+        [ordered]@{
+            task_id = 'missing-time-baseline'; agent = 'claude'; mode = $mode; status = 'ok'; wall_seconds = 0
+            usage = $null; cost_usd = $null; effective_pass = ($mode -eq 'core'); false_pass = ($mode -eq 'bare')
+            not_run_count = 0; skipped_runtime_count = 0; drift = [ordered]@{ LineCount = 0; NewMetadataCount = 0; FilesOutsideScope = @() }
+        } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $zeroBaselineDir "time-$mode.json") -Encoding utf8
+    }
+
     $aggregateDir = Join-Path $testRoot 'aggregate'
-    & $aggregator -RunDir @((Join-Path $testRoot 'good'), (Join-Path $testRoot 'bad'), (Join-Path $testRoot 'drift')) -OutputDir $aggregateDir -Date '2099-01-01'
+    & $aggregator -RunDir @((Join-Path $testRoot 'good'), (Join-Path $testRoot 'bad'), (Join-Path $testRoot 'drift'), $coreRunDir, $zeroBaselineDir) -OutputDir $aggregateDir -Date '2099-01-01'
     Assert-True $? 'Benchmark aggregation failed.'
     $report = Get-Content -Raw -LiteralPath (Join-Path $aggregateDir '2099-01-01.json') -Encoding UTF8 | ConvertFrom-Json
-    Assert-True -Condition ($report.total_attempts -eq 3) -Message 'Aggregate did not preserve all attempt results.'
+    Assert-True -Condition ($report.total_attempts -eq 8) -Message 'Aggregate did not preserve all attempt results.'
     $group = @($report.groups | Where-Object { $_.agent -eq 'fake' -and $_.mode -eq 'bare' }) | Select-Object -First 1
     Assert-True -Condition ($null -ne $group -and $group.false_pass_rate -gt 0) -Message 'Aggregate did not expose the false-PASS metric.'
     Assert-True -Condition ($group.mean_drift_lines -gt 0) -Message 'Aggregate did not expose scope-drift lines.'
     Assert-True -Condition ($group.skipped_runtime_total -gt 0) -Message 'Aggregate did not expose skipped runtime evidence.'
-    Write-Host 'Test-BenchHarness: PASS (3 fake offline attempts; good/bad/drift and aggregate metrics verified).'
+    $fakeComparison = @($report.bare_vs_core | Where-Object { $_.agent -eq 'fake' }) | Select-Object -First 1
+    Assert-True -Condition ($fakeComparison.applicability -eq 'synthetic_not_applicable' -and $fakeComparison.decision -eq 'synthetic_not_applicable' -and $null -eq $fakeComparison.keep_per_rule1) -Message 'Synthetic fake comparison was treated as a Rule 1 decision.'
+    Assert-True -Condition ($null -eq $fakeComparison.false_pass_rate_cut_pct -and $null -eq $fakeComparison.drift_cut_pct) -Message 'Synthetic fake comparison fabricated quality-cut percentages.'
+    $zeroComparison = @($report.bare_vs_core | Where-Object { $_.agent -eq 'codex' }) | Select-Object -First 1
+    Assert-True -Condition ($zeroComparison.decision -eq 'not_evaluable' -and $null -eq $zeroComparison.keep_per_rule1) -Message 'Zero-baseline real comparison fabricated a Rule 1 decision.'
+    Assert-True -Condition ($null -eq $zeroComparison.false_pass_rate_cut_pct -and $null -eq $zeroComparison.drift_cut_pct) -Message 'Zero-baseline real comparison fabricated percentages.'
+    $missingTime = @($report.bare_vs_core | Where-Object { $_.agent -eq 'claude' }) | Select-Object -First 1
+    Assert-True ($missingTime.decision -eq 'not_evaluable' -and $null -eq $missingTime.keep_per_rule1 -and $null -eq $missingTime.time_increase_pct) 'A quality improvement without a time baseline was accepted by Rule 1.'
+    $markdown = Get-Content -Raw -LiteralPath (Join-Path $aggregateDir '2099-01-01.md') -Encoding UTF8
+    Assert-True -Condition ($markdown -match '\| fake \| synthetic_not_applicable \| n/a \| n/a \| n/a \| synthetic_not_applicable \|  \|') -Message 'Markdown did not mark fake comparison as synthetic and n/a.'
+    Assert-True -Condition ($markdown -match '\| codex \| real \| n/a \| n/a \| 0% \| not_evaluable \|  \|') -Message 'Markdown did not render zero-baseline cuts as n/a.'
+    Write-Host 'Test-BenchHarness: PASS (fake good/bad/drift, synthetic comparison, and zero-baseline aggregation verified).'
 }
 finally {
     if ($null -eq $oldVariant) { Remove-Item Env:BENCH_FAKE_VARIANT -ErrorAction SilentlyContinue } else { $env:BENCH_FAKE_VARIANT = $oldVariant }
