@@ -50,7 +50,7 @@ function Invoke-N1Process {
     # prove (in tests) that a missing/invalid authorization never reaches this function.
     param(
         [Parameter(Mandatory)][string]$ExecutablePath,
-        [Parameter(Mandatory)][string[]]$Argv,
+        [Parameter(Mandatory)][AllowEmptyString()][string[]]$Argv,
         [Parameter(Mandatory)][string]$LogPath,
         [switch]$DryRun
     )
@@ -71,11 +71,17 @@ function Invoke-N1Process {
     $psi.RedirectStandardError = $true
     $psi.UseShellExecute = $false
     $process = [Diagnostics.Process]::Start($psi)
-    $stdout = $process.StandardOutput.ReadToEnd()
-    $stderr = $process.StandardError.ReadToEnd()
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
     $process.WaitForExit()
-    Set-Content -LiteralPath $LogPath -Value ($stdout + $stderr) -Encoding UTF8
-    return [pscustomobject]@{ Started = $true; ExitCode = $process.ExitCode; Argv = $Argv; Log = ($stdout + $stderr) }
+    $stdout = $stdoutTask.GetAwaiter().GetResult()
+    $stderr = $stderrTask.GetAwaiter().GetResult()
+    $logText = if (Test-Path -LiteralPath $LogPath) { Get-Content -LiteralPath $LogPath -Raw } else { '' }
+    $combined = $logText + $stdout + $stderr
+    Set-Content -LiteralPath $LogPath -Value $combined -Encoding UTF8
+    $exitCode = $process.ExitCode
+    $process.Dispose()
+    return [pscustomobject]@{ Started = $true; ExitCode = $exitCode; Argv = $Argv; Log = $combined }
 }
 
 function Get-N1Param {

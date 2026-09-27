@@ -38,6 +38,14 @@ function Get-OOYamlStringList {
         [Parameter(Mandatory)][AllowEmptyString()][string]$Text,
         [Parameter(Mandatory)][string[]]$Path
     )
+    $inline = Get-OOYamlValue -Text $Text -Path $Path
+    if ($inline -match '^\[(.*)\]\s*(?:#.*)?$') {
+        foreach ($value in ($Matches[1] -split ',')) {
+            $name = $value.Trim().Trim('"', "'")
+            if ($name) { $name }
+        }
+        return
+    }
     $stack = [System.Collections.Generic.List[object]]::new()
     $result = [System.Collections.Generic.List[string]]::new()
     $inTarget = $false
@@ -143,7 +151,7 @@ function Test-OOJsonSchema {
     function Test-OOType {
         param($Instance, $Type)
         switch ($Type) {
-            'object' { return ($null -ne $Instance -and $Instance -isnot [string] -and $Instance -isnot [System.Collections.IEnumerable]) -or ($Instance -is [System.Collections.IDictionary]) -or ($Instance -is [pscustomobject]) }
+            'object' { return ($Instance -is [System.Collections.IDictionary]) -or ($Instance -is [pscustomobject]) }
             'array' { return ($Instance -is [System.Array]) -or ($Instance -is [System.Collections.IList] -and $Instance -isnot [string]) }
             'string' { return ($Instance -is [string]) }
             'boolean' { return ($Instance -is [bool]) }

@@ -178,7 +178,7 @@ try {
 }
 finally { Remove-Item Env:\BF_MOCK_RECORD -ErrorAction SilentlyContinue }
 
-# build.cf argument construction (non-mutating, no authorization needed)
+# build.cf loads the specified database, so this provider also requires authorization
 $projBuild = New-OOProject @"
 onec:
   providers:
@@ -192,7 +192,11 @@ $outCf = Join-Path $projBuild 'out.cf'
 $buildRecord = Join-Path $projBuild 'mock-record.txt'
 $env:BF_MOCK_RECORD = $buildRecord
 try {
-    $buildResult = Invoke-OODispatch -Capability 'build.cf' -ProjectPath $projBuild -Params @{ target = (Join-Path $projBuild 'db'); source_dir = $srcDir; output_path = $outCf; executable_path = $mockExecutable }
+    $buildDenied = Invoke-OODispatch -Capability 'build.cf' -ProjectPath $projBuild -Params @{ target = (Join-Path $projBuild 'db') }
+    Assert-OO ($buildDenied.Exit -eq 11 -and -not (Test-Path -LiteralPath $buildRecord)) 'Native build requires authorization before touching the target database'
+    $buildAuth = Join-Path $projBuild 'auth.json'
+    Write-OOAuthorization -Path $buildAuth -Capability 'build.cf' -Target (Join-Path $projBuild 'db') -ExpiresUtc ([DateTime]::UtcNow.AddHours(1))
+    $buildResult = Invoke-OODispatch -AuthorizationFile $buildAuth -Capability 'build.cf' -ProjectPath $projBuild -Params @{ target = (Join-Path $projBuild 'db'); source_dir = $srcDir; output_path = $outCf; executable_path = $mockExecutable }
     Assert-OO ($buildResult.Exit -eq 0 -and $buildResult.Result.status -eq 'PASS') 'build.cf via native-1cv8 mock returns PASS'
     Assert-OO (Test-Path -LiteralPath $outCf -PathType Leaf) 'build.cf produced the output .cf file via the mocked /DumpCfg step'
     $buildRecorded = Get-Content -Raw -LiteralPath $buildRecord
@@ -232,34 +236,113 @@ try {
 }
 finally { Remove-Item Env:\BF_MOCK_RECORD -ErrorAction SilentlyContinue }
 
-# --- 9. unica: instruction payload, no extension.list, and -ImportResult relay -----------------
-$projUnica = New-OOProject @"
-onec:
-  providers:
-    - unica
-"@
-$unicaResult = Invoke-OODispatch -Capability 'extension.load' -ProjectPath $projUnica -Params @{ target = 'db1'; cfe_path = 'ext.cfe'; extension = 'TestExt' }
-Assert-OO ($unicaResult.Exit -eq 11 -and $unicaResult.Result.status -eq 'BLOCKED') 'unica extension.load without ImportResult -> BLOCKED instruction'
-Assert-OO ($unicaResult.Result.mutating -eq $true) 'unica extension.load result reports mutating=true'
-Assert-OO ($unicaResult.Result.agent_tool.agent_tool -eq 'unica.runtime.execute') 'unica agent_tool payload names unica.runtime.execute'
-Assert-OO ($unicaResult.Result.agent_tool.arguments.dryRun -eq $true) 'unica agent_tool payload requests dryRun:true'
-
+# --- 9. Unica restriction survives authorization and imported PASS ----------------------------
+$projUnica = New-OOProject "onec:`n  providers:`n    - unica"
+$unicaAuth = Join-Path $projUnica 'auth.json'
+Write-OOAuthorization -Path $unicaAuth -Capability 'extension.load' -Target 'db1' -ExpiresUtc ([DateTime]::UtcNow.AddHours(1))
+$unicaResult = Invoke-OODispatch -Capability 'extension.load' -ProjectPath $projUnica -Params @{ target = 'db1' } -AuthorizationFile $unicaAuth
+Assert-OO ($unicaResult.Exit -eq 11 -and $unicaResult.Result.message -match 'recovery restriction') 'Unica is BLOCKED despite valid authorization'
+Assert-OO ($null -eq $unicaResult.Result.PSObject.Properties['agent_tool']) 'Unica does not instruct a forbidden runtime call'
 $unicaExtList = Invoke-OODispatch -Capability 'extension.list' -ProjectPath $projUnica -Params @{}
-Assert-OO ($unicaExtList.Exit -eq 11 -and $unicaExtList.Result.message -match 'no configured provider') 'unica has no extension.list capability, so it falls through to no-provider BLOCKED'
-
+Assert-OO ($unicaExtList.Exit -eq 11 -and $unicaExtList.Result.message -match 'no configured provider') 'Unica does not expose extension.list'
 $importPath = Join-Path $projUnica 'imported.json'
-[ordered]@{ status = 'PASS'; evidence = @(); message = 'agent observed a successful load' } | ConvertTo-Json | Set-Content -LiteralPath $importPath -Encoding utf8
-$unicaImported = Invoke-OODispatch -Capability 'extension.load' -ProjectPath $projUnica -Params @{ target = 'db1' } -ImportResult $importPath
-Assert-OO ($unicaImported.Exit -eq 0 -and $unicaImported.Result.status -eq 'PASS') '-ImportResult relays the agent-observed outcome instead of a fresh instruction'
-Assert-OO ($unicaImported.Result.mutating -eq $true) 'Imported unica result still reports mutating=true'
+' {"status":"PASS","evidence":[]} ' | Set-Content -LiteralPath $importPath
+$unicaImported = Invoke-OODispatch -Capability 'extension.load' -ProjectPath $projUnica -Params @{ target = 'db1' } -AuthorizationFile $unicaAuth -ImportResult $importPath
+Assert-OO ($unicaImported.Exit -eq 11) 'Imported PASS cannot lift the Unica restriction'
 
-# --- 10. grounding: fails closed until Get-1CMetadataIndex.ps1 exists ---------------------------
-$projGrounding = New-OOProject @"
-onec:
-  providers:
-    - grounding
-"@
-$groundingResult = Invoke-OODispatch -Capability 'metadata.inspect' -ProjectPath $projGrounding -Params @{}
-Assert-OO ($groundingResult.Exit -eq 11 -and $groundingResult.Result.message -match 'no configured provider') 'grounding adapter fails closed (detect=false) while Get-1CMetadataIndex.ps1 is absent'
+# --- 10. Grounding uses the real index and preserves metadata evidence ------------------------
+$projGrounding = New-OOProject "onec:`n  providers:`n    - grounding"
+$fixtureRoot = Join-Path $PackageRoot 'scripts/fixtures/metadata/designer-mini'
+$groundingResult = Invoke-OODispatch -Capability 'metadata.inspect' -ProjectPath $projGrounding -Params @{ source_root = $fixtureRoot }
+Assert-OO ($groundingResult.Exit -eq 0) "Grounding wraps real metadata index: $($groundingResult.Raw)"
+$indexPath = Join-Path $projGrounding $groundingResult.Result.evidence[0].path
+$index = Get-Content -Raw -LiteralPath $indexPath | ConvertFrom-Json
+Assert-OO ($null -ne $index.index.objects.PSObject.Properties['Справочник.Номенклатура']) 'Grounding evidence includes an actual fixture catalog'
+Assert-OO ($groundingResult.Result.evidence[0].sha256 -eq (Get-OOSha256File $indexPath)) 'Grounding hashes the actual index evidence'
+$missingSource = Invoke-OODispatch -Capability 'metadata.inspect' -ProjectPath $projGrounding -Params @{}
+Assert-OO ($missingSource.Exit -eq 11) 'Missing source_root is BLOCKED'
 
+# Empty/partial authorization fails closed, including strict-mode missing properties.
+foreach ($json in @('{}', '{"capability":"extension.load"}', '{"capability":"extension.load","target":"db1"}')) {
+    $badAuthPath = Join-Path $projMut 'bad-auth.json'
+    $json | Set-Content -LiteralPath $badAuthPath
+    $badAuth = Invoke-OODispatch -Capability 'extension.load' -ProjectPath $projMut -Params @{ target = 'db1' } -AuthorizationFile $badAuthPath
+    Assert-OO ($badAuth.Exit -eq 11) 'Partial authorization JSON is BLOCKED'
+}
+
+# Failed load must never start update/dump; evidence log remains the platform log.
+$env:BF_MOCK_FAIL_LOAD = '1'
+$failureRecord = Join-Path $projNative 'failed-load-record.txt'
+$env:BF_MOCK_RECORD = $failureRecord
+try {
+    $failedLoad = Invoke-OODispatch -Capability 'extension.load' -ProjectPath $projNative -Params @{ target = (Join-Path $projNative 'db'); cfe_path = $dummyCfe; extension = 'TestExt' } -AuthorizationFile $nativeAuthPath
+    Assert-OO ($failedLoad.Exit -eq 1) 'Failed load is FAIL'
+    $failureCommands = Get-Content -Raw -LiteralPath $failureRecord
+    Assert-OO ($failureCommands -notmatch '/UpdateDBCfg') 'No update follows a failed extension load'
+    $failedBuild = Invoke-OODispatch -Capability 'build.cf' -ProjectPath $projBuild -Params @{ target = (Join-Path $projBuild 'db'); source_dir = $srcDir; output_path = $outCf } -AuthorizationFile $buildAuth
+    Assert-OO ($failedBuild.Exit -eq 1) 'Failed source load is FAIL despite a stale output artifact'
+    $failureCommands = Get-Content -Raw -LiteralPath $failureRecord
+    Assert-OO ($failureCommands -notmatch '/DumpCfg') 'No dump follows a failed source load'
+}
+finally { Remove-Item Env:\BF_MOCK_RECORD, Env:\BF_MOCK_FAIL_LOAD -ErrorAction SilentlyContinue }
+
+# Native YAxUnit requires real executed cases and no failure nodes, regardless of exit code.
+$testAuth = Join-Path $projNative 'test-auth.json'
+Write-OOAuthorization -Path $testAuth -Capability 'test.yaxunit' -Target (Join-Path $projNative 'db') -ExpiresUtc ([DateTime]::UtcNow.AddHours(1))
+foreach ($case in @(
+    @{ xml = '<testsuite tests="0"/>'; exit = 1 },
+    @{ xml = '<testsuite><testcase><failure/></testcase></testsuite>'; exit = 1 },
+    @{ xml = '<testsuite><testcase><skipped/></testcase></testsuite>'; exit = 1 },
+    @{ xml = '<testsuite tests="1"><testcase name="works"/></testsuite>'; exit = 0 }
+)) {
+    $env:BF_MOCK_JUNIT = $case.xml
+    try {
+        $testRun = Invoke-OODispatch -Capability 'test.yaxunit' -ProjectPath $projNative -Params @{ target = (Join-Path $projNative 'db'); modules = @('Tests') } -AuthorizationFile $testAuth
+        Assert-OO ($testRun.Exit -eq $case.exit) "JUnit acceptance: $($case.xml)"
+    }
+    finally { Remove-Item Env:\BF_MOCK_JUNIT -ErrorAction SilentlyContinue }
+}
+# Remaining adapter contracts and native fail-closed inventory.
+$inlineProject = New-OOProject "onec:`n  providers: [missing, fake]"
+$inlineResult = Invoke-OODispatch -Capability 'syntax.check' -ProjectPath $inlineProject
+Assert-OO ($inlineResult.Exit -eq 0 -and $inlineResult.Result.provider -eq 'fake') 'Inline provider list is supported'
+$inventory = Invoke-OODispatch -Capability 'extension.list' -ProjectPath $projNative -Params @{ target = 'unknown' }
+Assert-OO ($inventory.Exit -eq 11) 'Unknown installed extension state remains BLOCKED'
+
+# No repository/binary: the actual static wrapper must report BLOCKED, not a fabricated PASS.
+$staticResult = Invoke-OODispatch -Capability 'static.bslls' -ProjectPath $projFake -Provider bslls -Params @{ required = $true }
+Assert-OO ($staticResult.Exit -eq 11 -and $staticResult.Result.provider -eq 'bslls') 'BSL LS wrapper missing preconditions is BLOCKED'
+
+$mockSkill = Join-Path $PackageRoot 'scripts/fixtures/onec-ops/mock-skill.ps1'
+$projSkill = New-OOProject "onec:`n  providers: [skillset]`n  skillset:`n    map:`n      syntax.check: $mockSkill`n      extension.load: $mockSkill"
+$skillRecord = Join-Path $projSkill 'record.txt'
+$env:BF_MOCK_RECORD = $skillRecord
+try {
+    $skillDenied = Invoke-OODispatch -Capability 'extension.load' -ProjectPath $projSkill -Params @{ target = 'db1'; mode = 'ok' }
+    Assert-OO ($skillDenied.Exit -eq 11 -and -not (Test-Path -LiteralPath $skillRecord)) 'Skillset cannot start a mutating script without authorization'
+    $skillGood = Invoke-OODispatch -Capability 'syntax.check' -ProjectPath $projSkill -Params @{ mode = 'ok' }
+    Assert-OO ($skillGood.Exit -eq 0) 'Structured script result is accepted'
+    $skillFailed = Invoke-OODispatch -Capability 'syntax.check' -ProjectPath $projSkill -Params @{ mode = 'failure' }
+    Assert-OO ($skillFailed.Exit -eq 1) 'Script nonzero exit overrides a claimed PASS'
+    $skillUnstructured = Invoke-OODispatch -Capability 'syntax.check' -ProjectPath $projSkill -Params @{ mode = 'unstructured' }
+    Assert-OO ($skillUnstructured.Exit -eq 11) 'Script exit 0 without structured evidence is BLOCKED'
+}
+finally { Remove-Item Env:\BF_MOCK_RECORD -ErrorAction SilentlyContinue }
+$skillImport = Join-Path $projSkill 'import.json'
+'{"status":"PASS","capability":"syntax.check","target":"db1","evidence":[]}' | Set-Content -LiteralPath $skillImport
+$skillNoEvidence = Invoke-OODispatch -Capability 'syntax.check' -ProjectPath $projSkill -Params @{ target = 'db1' } -ImportResult $skillImport
+Assert-OO ($skillNoEvidence.Exit -eq 11) 'Imported PASS with no evidence is BLOCKED'
+$skillWrongTarget = Invoke-OODispatch -Capability 'syntax.check' -ProjectPath $projSkill -Params @{ target = 'db2' } -ImportResult $skillImport
+Assert-OO ($skillWrongTarget.Exit -eq 11) 'Imported result from another target is BLOCKED'
+$blockedMap = New-OOProject "onec:`n  providers: [skillset]`n  skillset:`n    map:`n      test.yaxunit: unica.runtime.job.start"
+$blockedAuth = Join-Path $blockedMap 'auth.json'
+Write-OOAuthorization -Path $blockedAuth -Capability 'test.yaxunit' -Target db1 -ExpiresUtc ([DateTime]::UtcNow.AddHours(1))
+$blockedMapping = Invoke-OODispatch -Capability 'test.yaxunit' -ProjectPath $blockedMap -Params @{ target = 'db1' } -AuthorizationFile $blockedAuth
+Assert-OO ($blockedMapping.Exit -eq 11 -and $null -eq $blockedMapping.Result.PSObject.Properties['agent_tool']) 'Skillset cannot emit a forbidden Unica durable-job instruction'
+
+# Validate representative results with the platform JSON-Schema implementation too.
+$resultSchemaPath = Join-Path $onecOpsRoot 'schemas/op-result.schema.json'
+foreach ($result in @($passResult, $failResult, $nativeNoAuth, $groundingResult, $staticResult, $unicaResult, $skillGood, $vResult)) {
+    Assert-OO (Test-Json -Json $result.Raw -SchemaFile $resultSchemaPath -ErrorAction Stop) 'Result passes independent JSON-Schema validation'
+}
 Write-Output "Test-OneCOpsContract: $script:checks checks passed."

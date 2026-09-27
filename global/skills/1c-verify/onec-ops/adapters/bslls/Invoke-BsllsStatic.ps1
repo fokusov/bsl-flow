@@ -6,8 +6,7 @@ onec-ops/v1 result contract:
   PASS               -> PASS
   FAIL               -> FAIL
   BLOCKED            -> BLOCKED
-  NOT_RUN            -> BLOCKED when -Params.required is true, otherwise PASS (limitation, not a
-                         gate failure - matches the underlying script's own -Required semantics)
+  NOT_RUN            -> BLOCKED (no analysis is never reported as PASS)
 
 The wrapped script calls `exit`, so it is always run out-of-process (pwsh -File) and its result is
 read back from its own JSON report file, never from this process's exit code alone.
@@ -43,6 +42,10 @@ $sourcePath = Get-BASParam $Params 'source_path' $null
 if (-not [string]::IsNullOrWhiteSpace([string]$sourcePath)) { $argv += @('-SourcePath', [string]$sourcePath) }
 $bslLsCommand = Get-BASParam $Params 'bsl_ls_command' $null
 if (-not [string]::IsNullOrWhiteSpace([string]$bslLsCommand)) { $argv += @('-BslLsCommand', [string]$bslLsCommand) }
+foreach ($pair in @(@('baseline_report', '-BaselineReport'), @('current_report', '-CurrentReport'))) {
+    $value = Get-BASParam $Params $pair[0] $null
+    if ($value) { $argv += @($pair[1], [string]$value) }
+}
 if ($required) { $argv += '-Required' }
 
 $pwsh = (Get-Process -Id $PID).Path
@@ -64,7 +67,7 @@ $status = switch ($verdict.verdict) {
     'PASS' { 'PASS' }
     'FAIL' { 'FAIL' }
     'BLOCKED' { 'BLOCKED' }
-    'NOT_RUN' { if ($required) { 'BLOCKED' } else { 'PASS' } }
+    'NOT_RUN' { 'BLOCKED' }
     default { 'BLOCKED' }
 }
 

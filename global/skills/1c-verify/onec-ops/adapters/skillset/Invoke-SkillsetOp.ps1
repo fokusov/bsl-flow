@@ -8,11 +8,11 @@ task runner, exposed here as a plain onec-ops provider so any skill can call it 
 Two routing shapes, decided per capability by the configured target's own shape:
   - target ends with ".ps1"  -> mode=script: run it out-of-process as
     `pwsh -File <target> -ProjectPath <p> -ParamsJson <json>`; its stdout is parsed as an
-    onec-ops-shaped JSON result if possible, otherwise captured as raw_output with PASS/FAIL taken
-    from its exit code.
+    onec-ops-shaped JSON result. Unstructured output is BLOCKED on exit 0; a nonzero exit
+    is FAIL even when stdout claims PASS.
   - anything else            -> mode=agent_tool: treated as a Skill name. Returns BLOCKED with an
     agent_tool payload telling the calling agent which Skill to invoke and with what arguments;
-    -ImportResult relays the agent's later-observed outcome, exactly like the unica adapter.
+    -ImportResult records an observed outcome bound to this capability and target, with evidence.
 
 Required -Params: none beyond what the mapped target itself needs (forwarded verbatim as JSON).
 #>
@@ -32,11 +32,27 @@ $ErrorActionPreference = 'Stop'
 function Get-SOParam { param($Params, [string]$Name, $Default) $p = $Params.PSObject.Properties[$Name]; if ($null -ne $p -and $null -ne $p.Value) { return $p.Value }; return $Default }
 function Get-SOProp { param($Object, [string]$Name, $Default) $p = $Object.PSObject.Properties[$Name]; if ($null -ne $p -and $null -ne $p.Value) { return $p.Value }; return $Default }
 
+$yamlText = Get-OOBslFlowYamlText $ProjectPath
+$map = Get-OOYamlFlatMap $yamlText @('onec', 'skillset', 'map')
+if (-not $map.Contains($Capability)) {
+    return [pscustomobject]@{ status = 'BLOCKED'; evidence = @(); message = "BF_BLOCKED: no skillset mapping for $Capability" }
+}
+$mapped = [string]$map[$Capability]
+if ($mapped -match '(?i)unica[.:]runtime|(?:^|:)v8-runner$') {
+    return [pscustomobject]@{ status = 'BLOCKED'; evidence = @(); message = 'BF_BLOCKED: Unica runtime recovery restriction also applies to skillset routes' }
+}
+
 if (-not [string]::IsNullOrWhiteSpace($ImportResult)) {
     if (-not (Test-Path -LiteralPath $ImportResult -PathType Leaf)) { throw "BF_INVALID: ImportResult file was not found: $ImportResult" }
     $imported = Get-Content -Raw -LiteralPath $ImportResult -Encoding UTF8 | ConvertFrom-Json -ErrorAction Stop
     $status = [string](Get-SOProp $imported 'status' $null)
     if ($status -notin @('PASS', 'FAIL', 'BLOCKED')) { throw "BF_INVALID: ImportResult status must be PASS, FAIL or BLOCKED, got: $status" }
+    if ([string](Get-SOProp $imported 'capability' '') -cne $Capability -or [string](Get-SOProp $imported 'target' '') -cne [string](Get-SOParam $Params 'target' '')) {
+        return [pscustomobject]@{ status = 'BLOCKED'; evidence = @(); message = 'BF_BLOCKED: imported capability/target does not match the request' }
+    }
+    if ($status -eq 'PASS' -and @(Get-SOProp $imported 'evidence' @()).Count -eq 0) {
+        return [pscustomobject]@{ status = 'BLOCKED'; evidence = @(); message = 'BF_BLOCKED: imported PASS requires evidence files' }
+    }
     return [pscustomobject]@{
         status     = $status
         evidence   = @(Get-SOProp $imported 'evidence' @())
@@ -45,13 +61,6 @@ if (-not [string]::IsNullOrWhiteSpace($ImportResult)) {
         target     = Get-SOParam $Params 'target' (Get-SOProp $imported 'target' $null)
     }
 }
-
-$yamlText = Get-OOBslFlowYamlText $ProjectPath
-$map = Get-OOYamlFlatMap $yamlText @('onec', 'skillset', 'map')
-if (-not $map.Contains($Capability)) {
-    return [pscustomobject]@{ status = 'BLOCKED'; evidence = @(); message = "BF_BLOCKED: no onec.skillset.map entry configured for capability $Capability"; target = (Get-SOParam $Params 'target' $null) }
-}
-$mapped = [string]$map[$Capability]
 
 if ($mapped.ToLowerInvariant().EndsWith('.ps1')) {
     $scriptPath = if ([IO.Path]::IsPathRooted($mapped)) { $mapped } else { Join-Path $ProjectPath $mapped }
@@ -64,9 +73,9 @@ if ($mapped.ToLowerInvariant().EndsWith('.ps1')) {
     $exit = $LASTEXITCODE
     try { $parsed = $stdout | ConvertFrom-Json -ErrorAction Stop } catch { $parsed = $null }
     if ($null -ne $parsed -and $parsed.PSObject.Properties['status']) {
-        return [pscustomobject]@{ status = [string](Get-SOProp $parsed 'status' $null); evidence = @(Get-SOProp $parsed 'evidence' @()); message = (Get-SOProp $parsed 'message' $null); raw_output = $stdout; target = (Get-SOParam $Params 'target' $null) }
+        return [pscustomobject]@{ status = $(if ($exit -ne 0) { 'FAIL' } else { [string](Get-SOProp $parsed 'status' $null) }); evidence = @(Get-SOProp $parsed 'evidence' @()); message = (Get-SOProp $parsed 'message' $null); raw_output = $stdout; target = (Get-SOParam $Params 'target' $null) }
     }
-    return [pscustomobject]@{ status = if ($exit -eq 0) { 'PASS' } else { 'FAIL' }; evidence = @(); message = "mapped script exit=$exit"; raw_output = $stdout; target = (Get-SOParam $Params 'target' $null) }
+    return [pscustomobject]@{ status = if ($exit -eq 0) { 'BLOCKED' } else { 'FAIL' }; evidence = @(); message = "mapped script exit=$exit"; raw_output = $stdout; target = (Get-SOParam $Params 'target' $null) }
 }
 
 # Skill-name mapping: instruct the agent, do not execute anything ourselves.

@@ -49,6 +49,9 @@ $loadArgv = $base + @('/Out', $loadLog, '-NoTruncate', '/LoadCfg', $cfePath, '-E
 $updateArgv = $base + @('/Out', $updateLog, '-NoTruncate', '/UpdateDBCfg', '-Extension', $extension)
 
 $loadResult = Invoke-N1Process -ExecutablePath $executable -Argv $loadArgv -LogPath $loadLog -DryRun:$dryRun
+if (-not $dryRun -and $loadResult.ExitCode -ne 0) {
+    return [pscustomobject]@{ status = 'FAIL'; evidence = @(); target = $target; message = 'Extension load failed; database update was not started'; raw_output = $loadResult.Log }
+}
 $updateResult = Invoke-N1Process -ExecutablePath $executable -Argv $updateArgv -LogPath $updateLog -DryRun:$dryRun
 
 if ($dryRun) {

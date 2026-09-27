@@ -8,4 +8,13 @@ for ($i = 0; $i -lt $args.Count; $i++) {
     if ($args[$i] -eq '/DumpCfg' -and ($i + 1) -lt $args.Count) { New-Item -ItemType File -Path $args[$i + 1] -Force | Out-Null }
     if ($args[$i] -eq '/Out' -and ($i + 1) -lt $args.Count) { Set-Content -LiteralPath $args[$i + 1] -Value 'mock-log' -Encoding utf8 }
 }
+if ($env:BF_MOCK_JUNIT) {
+    foreach ($argument in $args) {
+        if ($argument -like 'RunUnitTests=*') {
+            $config = Get-Content -LiteralPath $argument.Substring(13) -Raw | ConvertFrom-Json
+            Set-Content -LiteralPath $config.reportPath -Value $env:BF_MOCK_JUNIT -Encoding utf8
+        }
+    }
+}
+if ($env:BF_MOCK_FAIL_LOAD -and ($args -contains '/LoadCfg' -or $args -contains '/LoadConfigFromFiles')) { exit 1 }
 exit 0

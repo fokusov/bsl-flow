@@ -104,6 +104,12 @@ if ($dryRun) {
     return [pscustomobject]@{ status = 'BLOCKED'; evidence = @(); target = $target; message = 'dry_run: argv constructed but process was not started'; raw_output = ($result.Argv -join ' ') }
 }
 
+# Build/test acceptance needs its artifact; process exit alone is insufficient.
+$missingEvidence = @($evidence | Where-Object { -not (Test-Path -LiteralPath $_ -PathType Leaf) })
+$operationStatus = if ($result.ExitCode -eq 0 -and $missingEvidence.Count -eq 0) { 'PASS' } else { 'FAIL' }
+if ($Capability -in @('test.yaxunit', 'test.vanessa') -and $operationStatus -eq 'PASS') {
+    $operationStatus = 'BLOCKED' # A verified runner/result parser is not available yet.
+}
 $relEvidence = @()
 foreach ($path in $evidence) {
     if ([string]::IsNullOrWhiteSpace([string]$path)) { continue }
@@ -112,9 +118,9 @@ foreach ($path in $evidence) {
     $relEvidence += $(if ($full.StartsWith($ProjectPath, [StringComparison]::OrdinalIgnoreCase)) { $full.Substring($ProjectPath.Length).TrimStart('\', '/') } else { $full })
 }
 [pscustomobject]@{
-    status     = if ($result.ExitCode -eq 0) { 'PASS' } else { 'FAIL' }
+    status     = $operationStatus
     evidence   = $relEvidence
-    message    = "vrunner.exit=$($result.ExitCode) argv=$($argv -join ' ')"
+    message    = "vrunner.exit=$($result.ExitCode); CLI flags UNVERIFIED"
     raw_output = $result.Log
     target     = $target
 }

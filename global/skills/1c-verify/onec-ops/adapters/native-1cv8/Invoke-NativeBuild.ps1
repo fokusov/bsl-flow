@@ -1,9 +1,8 @@
 #Requires -Version 7.0
 <#
-onec-ops build.cf / build.cfe adapter: DESIGNER /LoadConfigFromFiles then /DumpCfg. Non-mutating
-from the caller's perspective (plan Ф5.1: "мутирующая: нет (локальный файл)") because the target
-is a scratch FILE infobase used only to materialize the .cf/.cfe artifact, never a shared/working
-database - callers must point -target at a disposable infobase, never a project's real test DB.
+onec-ops build.cf / build.cfe adapter: DESIGNER /LoadConfigFromFiles then /DumpCfg.
+This implementation loads sources into a caller-supplied FILE database, so it requires
+explicit authorization for that exact target even when the intended output is a local file.
 
 /DumpCfg is UNVERIFIED here (not exercised elsewhere in this repo) - confirm the exact flag name
 and -Extension applicability against ITS "Пакетный режим запуска" for the target platform version
@@ -59,6 +58,9 @@ if ($Capability -eq 'build.cfe') {
 }
 
 $loadResult = Invoke-N1Process -ExecutablePath $executable -Argv $loadArgv -LogPath $loadLog -DryRun:$dryRun
+if (-not $dryRun -and $loadResult.ExitCode -ne 0) {
+    return [pscustomobject]@{ status = 'FAIL'; evidence = @(); target = $target; message = 'Source load failed; dump was not started'; raw_output = $loadResult.Log }
+}
 $dumpResult = Invoke-N1Process -ExecutablePath $executable -Argv $dumpArgv -LogPath $dumpLog -DryRun:$dryRun
 
 if ($dryRun) {

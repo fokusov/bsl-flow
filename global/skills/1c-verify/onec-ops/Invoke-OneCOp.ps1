@@ -98,6 +98,7 @@ $selectedProvider = $null
 $selectedManifest = $null
 $selectedCapEntry = $null
 foreach ($candidateName in $candidates) {
+    if ($candidateName -cnotmatch '^[a-z][a-z0-9-]*$') { throw 'BF_INVALID: invalid provider name' }
     $manifestPath = Join-Path $adaptersRoot "$candidateName/provider.json"
     if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) { continue }
     $manifest = Get-Content -Raw -LiteralPath $manifestPath -Encoding UTF8 | ConvertFrom-Json -ErrorAction Stop
@@ -128,7 +129,7 @@ if ($null -eq $selectedProvider) {
     exit 11
 }
 
-$mutating = ((Get-OOProperty $selectedCapEntry @('requires_authorization')) -eq $true)
+$mutating = ($Capability -in @('extension.load', 'config.update', 'test.yaxunit', 'test.vanessa')) -or ((Get-OOProperty $selectedCapEntry @('requires_authorization')) -eq $true)
 $requestTarget = Get-OOParam $paramsObj 'target'
 
 if ($mutating) {
@@ -142,11 +143,11 @@ if ($mutating) {
             try { $auth = Get-Content -Raw -LiteralPath $AuthorizationFile -Encoding UTF8 | ConvertFrom-Json -ErrorAction Stop }
             catch { $auth = $null }
             if ($null -eq $auth) { $authMessage = 'BF_BLOCKED: authorization file is not valid JSON' }
-            elseif ([string]$auth.capability -ne $Capability) { $authMessage = 'BF_BLOCKED: authorization capability does not match the request' }
-            elseif ("$($auth.target)" -ne "$requestTarget") { $authMessage = 'BF_BLOCKED: authorization target does not match the request' }
+            elseif ([string](Get-OOProperty $auth @('capability')) -cne $Capability) { $authMessage = 'BF_BLOCKED: authorization capability does not match the request' }
+            elseif ([string]::IsNullOrWhiteSpace([string]$requestTarget) -or [string](Get-OOProperty $auth @('target')) -cne [string]$requestTarget) { $authMessage = 'BF_BLOCKED: authorization target does not match the request' }
             else {
                 $expires = $null
-                try { $expires = [DateTime]::Parse([string]$auth.expires_utc, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AssumeUniversal).ToUniversalTime() } catch { $expires = $null }
+                try { $expires = [DateTime]::Parse([string](Get-OOProperty $auth @('expires_utc')), [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AssumeUniversal).ToUniversalTime() } catch { $expires = $null }
                 if ($null -eq $expires) { $authMessage = 'BF_BLOCKED: authorization expires_utc is missing or unparsable' }
                 elseif ($expires -le [DateTime]::UtcNow) { $authMessage = 'BF_BLOCKED: authorization has expired' }
                 else { $authOk = $true }
@@ -196,7 +197,7 @@ $resultTarget = Get-OOProperty $adapterResult @('target')
 if ($null -eq $resultTarget) { $resultTarget = $requestTarget }
 
 $adapterMutating = Get-OOProperty $adapterResult @('mutating')
-$effectiveMutating = if ($null -ne $adapterMutating) { [bool]$adapterMutating } else { $mutating }
+$effectiveMutating = $mutating -or ($adapterMutating -eq $true)
 
 $fields = @{
     status            = $status

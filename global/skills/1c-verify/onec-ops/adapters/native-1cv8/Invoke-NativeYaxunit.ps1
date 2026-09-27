@@ -66,6 +66,8 @@ $junitFailed = $false
 if ($reportExists) {
     try {
         [xml]$junit = Get-Content -Raw -LiteralPath $reportPath -Encoding UTF8
+        $cases = @($junit.SelectNodes('//testcase'))
+        if ($cases.Count -eq 0 -or @($junit.SelectNodes('//testcase[not(skipped)]')).Count -eq 0 -or @($junit.SelectNodes('//failure|//error')).Count -gt 0) { $junitFailed = $true }
         foreach ($suite in @($junit.SelectNodes('//testsuite|//testsuites'))) {
             foreach ($name in @('failures', 'errors')) {
                 if ($suite.HasAttribute($name) -and [int]$suite.GetAttribute($name) -gt 0) { $junitFailed = $true }
