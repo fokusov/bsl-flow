@@ -31,7 +31,7 @@ foreach ($name in @('1c-init-project','1c-spec','1c-spec-review','1c-implement',
     if (-not (Test-Path (Join-Path $skills "$name/SKILL.md") -PathType Leaf)) { throw "BF_BLOCKED: Core receipt points to incomplete installation ($name)." }
 }
 $definition = Get-Content -Raw (Join-Path $root 'packaging/managed.json') | ConvertFrom-Json
-$copies = @(foreach ($file in Get-ChildItem (Join-Path $root 'global/skills') -Recurse -File) {
+$copies = @(foreach ($file in Get-ChildItem -Force (Join-Path $root 'global/skills') -Recurse -File) {
     $relative = [IO.Path]::GetRelativePath($root,$file.FullName).Replace('\','/')
     if (Test-BFPackageMember $relative $definition) { @{source=$file.FullName;target=Join-Path $skills $relative.Substring('global/skills/'.Length)} }
 })

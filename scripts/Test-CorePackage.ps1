@@ -84,6 +84,7 @@ try {
     $fixtureRoot = Join-Path $testRoot 'fixture-project'
     New-Item -ItemType Directory -Path (Join-Path $fixtureRoot 'src') -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $fixtureRoot 'openspec\changes\demo-l-change') -Force | Out-Null
+Set-Content -LiteralPath (Join-Path $fixtureRoot 'openspec\config.yaml') -Value 'schema: bsl-flow' -Encoding utf8
     Set-Content -LiteralPath (Join-Path $fixtureRoot 'bsl-flow.yaml') -Value "source:`n  paths:`n    - src`n" -Encoding utf8
     Set-Content -LiteralPath (Join-Path $fixtureRoot 'src\Module.bsl') -Value 'Процедура Тест() КонецПроцедуры' -Encoding utf8
     $specText = @'

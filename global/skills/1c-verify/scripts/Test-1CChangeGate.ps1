@@ -126,12 +126,12 @@ if (@($changedSourceFiles).Count -gt 0) {
                         $reasons.Add("process_violation: change '$changeName' spec.md changed after the final validation it was checked against (hash mismatch).")
                     }
                     else {
-                        $finalValidationMtime = (Get-Item -LiteralPath $finalValidationPath).LastWriteTimeUtc
+                        $finalValidationMtime = (Get-Item -LiteralPath $finalValidationPath -Force).LastWriteTimeUtc
                         $earliestChangeMtime = $null
                         foreach ($relative in $changedSourceFiles) {
                             $fullPath = Join-Path $projectRoot $relative
                             if (Test-Path -LiteralPath $fullPath -PathType Leaf) {
-                                $mtime = (Get-Item -LiteralPath $fullPath).LastWriteTimeUtc
+                                $mtime = (Get-Item -LiteralPath $fullPath -Force).LastWriteTimeUtc
                                 if ($null -eq $earliestChangeMtime -or $mtime -lt $earliestChangeMtime) { $earliestChangeMtime = $mtime }
                             }
                         }

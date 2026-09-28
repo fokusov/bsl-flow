@@ -112,7 +112,7 @@ if ($Package -ne 'full') {
 }
 
 $manifestFiles = foreach ($relative in $relativePaths) {
-    $file = Get-Item -LiteralPath (Join-Path $root $relative)
+    $file = Get-Item -LiteralPath (Join-Path $root $relative) -Force
     [ordered]@{ path = $relative; size_bytes = [int64]$file.Length; sha256 = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
 }
 $includesArchitecture = ($relativePaths -contains $adrIndexRelative) -and ($relativePaths -contains $adrSchemaRelative) -and ($relativePaths -contains $adrSourceRelative)

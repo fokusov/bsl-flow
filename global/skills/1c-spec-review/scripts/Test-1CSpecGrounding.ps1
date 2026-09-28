@@ -80,7 +80,9 @@ function Find-BSLFlowProjectRoot {
     param([Parameter(Mandatory)][string]$StartPath)
     $current = [System.IO.Path]::GetFullPath($StartPath)
     while ($true) {
-        if (Test-Path -LiteralPath (Join-Path $current 'openspec') -PathType Container) { return $current }
+        # A bare `openspec` folder is not enough: %LOCALAPPDATA%\openspec holds
+        # the global OpenSpec schemas and must not be mistaken for a project.
+        if (Test-Path -LiteralPath (Join-Path $current 'openspec/config.yaml') -PathType Leaf) { return $current }
         $parent = Split-Path -Parent $current
         if (-not $parent -or $parent -eq $current) { return $null }
         $current = $parent
@@ -130,7 +132,8 @@ if ($existingRoots.Count -eq 0) {
     return [pscustomobject]$result
 }
 
-$cachePath = Join-Path $projectRoot '.bsl-flow\cache\metadata-index.json'
+# Without a project there is no project-owned place for the cache.
+$cachePath = if ($projectRoot) { Join-Path $projectRoot '.bsl-flow/cache/metadata-index.json' } else { $null }
 $index = & (Join-Path $PSScriptRoot 'Get-1CMetadataIndex.ps1') -SourceRoot $existingRoots -CachePath $cachePath
 
 # ---------------------------------------------------------------------------

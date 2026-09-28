@@ -74,6 +74,16 @@ try {
     Assert-Grd ($resultOk.references_checked -gt 0) 'No references were counted for the correct-reference case.'
     Assert-Grd ($resultOk.index.format -eq 'designer') 'Index format missing from correct-reference result.'
 
+    # --- A bare ancestor `openspec` folder (like %LOCALAPPDATA%\openspec with
+    # global schemas) is not a project root: no crash and no cache written there.
+    $fakeHome = Join-Path $probeRoot 'fake-localappdata'
+    New-Item -ItemType Directory -Path (Join-Path $fakeHome 'openspec/schemas') -Force | Out-Null
+    $changeNoProject = Join-Path $fakeHome 'nested/change-no-project'
+    Write-FixtureText -Path (Join-Path $changeNoProject 'spec.md') -Text ($specHeader + $contextOk + $specTail)
+    $resultNoProject = & $groundingScript -ChangePath $changeNoProject -SourceRoot $designerMini -NoThrow
+    Assert-Grd ($resultNoProject.status -eq 'checked' -and $resultNoProject.passed) 'Explicit source root without a project root did not produce a checked result.'
+    Assert-Grd (-not (Test-Path -LiteralPath (Join-Path $fakeHome '.bsl-flow'))) 'Grounding wrote a cache into a directory that only has a bare openspec folder.'
+
     # --- Typo in object name -> error with suggestion, in a normative section.
     $changeTypo = Join-Path $probeRoot 'change-typo'
     Write-FixtureText -Path (Join-Path $changeTypo 'spec.md') -Text ($specHeader + @'
@@ -204,6 +214,7 @@ try {
     New-Item -ItemType Directory -Path (Join-Path $cacheProjectRoot 'openspec\changes\demo') -Force | Out-Null
     Copy-Item -LiteralPath $designerMini -Destination (Join-Path $cacheProjectRoot 'src') -Recurse
     Write-FixtureText -Path (Join-Path $cacheProjectRoot 'bsl-flow.yaml') -Text "source:`n  paths:`n    - src`n"
+    Write-FixtureText -Path (Join-Path $cacheProjectRoot 'openspec\config.yaml') -Text "schema: bsl-flow`n"
     Write-FixtureText -Path (Join-Path $cacheProjectRoot 'openspec\changes\demo\spec.md') -Text ($specHeader + @'
 ## Контекст 1С
 - Конфигурация/подсистема: Продажи

@@ -130,7 +130,7 @@ function Get-NegationCount {
 $bootstrapPath = Join-Path $root 'global/AGENTS.bootstrap.md'
 $bootstrap = $null
 if (Test-Path -LiteralPath $bootstrapPath -PathType Leaf) {
-    $bootstrapInfo = Get-Item -LiteralPath $bootstrapPath
+    $bootstrapInfo = Get-Item -LiteralPath $bootstrapPath -Force
     $bootstrap = [ordered]@{
         path            = 'global/AGENTS.bootstrap.md'
         bytes           = [int64]$bootstrapInfo.Length

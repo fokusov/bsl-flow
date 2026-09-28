@@ -43,14 +43,14 @@ if (-not $OpenSpecSchemaRoot) {
 foreach ($target in @($SkillsRoot,$hostConfig,$OpenSpecSchemaRoot,$MarkerPath)) { Assert-BFInstallTarget $target -Isolated:$isolated }
 $definition = Get-Content -Raw (Join-Path $root 'packaging/core.json') | ConvertFrom-Json
 $copies = [Collections.Generic.List[object]]::new()
-foreach ($file in Get-ChildItem (Join-Path $root 'global/skills') -Recurse -File) {
+foreach ($file in Get-ChildItem -Force (Join-Path $root 'global/skills') -Recurse -File) {
     $relative = [IO.Path]::GetRelativePath($root,$file.FullName).Replace('\','/')
     if (Test-BFPackageMember $relative $definition) { $copies.Add(@{ source=$file.FullName; target=Join-Path $SkillsRoot $relative.Substring('global/skills/'.Length) }) }
 }
 foreach ($name in @('1c-init-project','1c-spec','1c-spec-review','1c-implement','1c-verify','1c-debug','1c-estimate')) {
     if (-not ($copies.target -contains (Join-Path $SkillsRoot "$name/SKILL.md"))) { throw "Incomplete Core: $name" }
 }
-foreach ($file in Get-ChildItem (Join-Path $root 'global/openspec/schemas/bsl-flow') -Recurse -File) {
+foreach ($file in Get-ChildItem -Force (Join-Path $root 'global/openspec/schemas/bsl-flow') -Recurse -File) {
     $copies.Add(@{source=$file.FullName;target=Join-Path $OpenSpecSchemaRoot ([IO.Path]::GetRelativePath((Join-Path $root 'global/openspec/schemas/bsl-flow'),$file.FullName))})
 }
 $textWrites = @{}
@@ -69,11 +69,11 @@ if ($HostName -in @('codex','opencode','agents')) {
 }
 $agentSource = if ($HostName -eq 'claude') { Join-Path $root 'hosts/claude-code/agents' } else { $null }
 if ($agentSource) {
-    foreach ($file in Get-ChildItem $agentSource -File) { $copies.Add(@{source=$file.FullName;target=Join-Path $hostConfig ('agents/'+$file.Name)}) }
+    foreach ($file in Get-ChildItem -Force $agentSource -File) { $copies.Add(@{source=$file.FullName;target=Join-Path $hostConfig ('agents/'+$file.Name)}) }
 }
 if ($HostName -eq 'claude') {
     $hookTarget=Join-Path $hostConfig 'bsl-flow/hooks'
-    foreach ($file in Get-ChildItem (Join-Path $root 'hosts/claude-code/hooks') -File -Filter '*.ps1') { $copies.Add(@{source=$file.FullName;target=Join-Path $hookTarget $file.Name}) }
+    foreach ($file in Get-ChildItem -Force (Join-Path $root 'hosts/claude-code/hooks') -File -Filter '*.ps1') { $copies.Add(@{source=$file.FullName;target=Join-Path $hookTarget $file.Name}) }
     $settingsPath=Join-Path $hostConfig 'settings.json'
     $settings=if (Test-Path $settingsPath) { Get-Content -Raw $settingsPath | ConvertFrom-Json -AsHashtable } else { [ordered]@{} }
     if ($settings -isnot [Collections.IDictionary]) { throw 'Claude settings.json must be a JSON object.' }

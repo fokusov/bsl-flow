@@ -48,7 +48,7 @@ function Get-TEJUnitData {
     param([string]$Path)
     if ([string]::IsNullOrWhiteSpace($Path)) { return $null }
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $null }
-    if ((Get-Item -LiteralPath $Path).Length -eq 0) { throw "JUnit report is empty: $Path" }
+    if ((Get-Item -LiteralPath $Path -Force).Length -eq 0) { throw "JUnit report is empty: $Path" }
     try {
         $settings = [Xml.XmlReaderSettings]::new()
         $settings.DtdProcessing = [Xml.DtdProcessing]::Prohibit
@@ -220,8 +220,8 @@ try {
     $started = if ($null -ne $RunStartedAtUtc) { ([DateTime]$RunStartedAtUtc).ToUniversalTime() } else { Get-TEUtcTimestamp (Get-TEProperty $expected @('started_at_utc','startedAtUtc')) }
     foreach ($source in @($ReceiptPath,$JUnitReportPath,$SourceManifestPath)) { if ($source -and $started -and (Test-Path -LiteralPath $source -PathType Leaf)) { if ((Get-Item -LiteralPath $source).LastWriteTimeUtc.AddSeconds(2) -lt $started) { $stale = $true } } }
     if ($ReceiptPath -and $JUnitReportPath -and (Test-Path -LiteralPath $ReceiptPath -PathType Leaf) -and (Test-Path -LiteralPath $JUnitReportPath -PathType Leaf)) {
-        $receiptTime = (Get-Item -LiteralPath $ReceiptPath).LastWriteTimeUtc
-        $junitTime = (Get-Item -LiteralPath $JUnitReportPath).LastWriteTimeUtc
+        $receiptTime = (Get-Item -LiteralPath $ReceiptPath -Force).LastWriteTimeUtc
+        $junitTime = (Get-Item -LiteralPath $JUnitReportPath -Force).LastWriteTimeUtc
         if ([math]::Abs(($receiptTime - $junitTime).TotalMinutes) -gt 5) { $stale = $true }
     }
     [void]$checks.Add([pscustomobject]@{name='freshness'; status=if($null -eq $started){'missing'}elseif(-not $stale){'pass'}else{'stale'}; message='Report timestamps are compared with the declared run start.'})

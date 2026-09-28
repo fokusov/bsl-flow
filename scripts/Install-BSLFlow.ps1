@@ -403,7 +403,7 @@ catch {
         elseif (Test-Path -LiteralPath $targetAgents -PathType Leaf) {
             Remove-Item -LiteralPath $targetAgents -Force
         }
-        if (-not $hadMetrics -and (Test-Path -LiteralPath $metricsPath -PathType Leaf) -and (Get-Item -LiteralPath $metricsPath).Length -eq 0) {
+        if (-not $hadMetrics -and (Test-Path -LiteralPath $metricsPath -PathType Leaf) -and (Get-Item -LiteralPath $metricsPath -Force).Length -eq 0) {
             Remove-Item -LiteralPath $metricsPath -Force
         }
     }
