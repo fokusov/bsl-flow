@@ -48,6 +48,9 @@ function Remove-IsolatedTestTree {
 
 if ([string]::IsNullOrWhiteSpace($PackageRoot)) { $PackageRoot = Split-Path -Parent $PSScriptRoot }
 $packageRoot = [System.IO.Path]::GetFullPath($PackageRoot)
+# Install the pristine artifact before controller suites retain evidence under work/.
+# The installer intentionally rejects any files absent from the package manifest.
+& (Join-Path $packageRoot 'scripts/Test-InstallCore.ps1') -PackageRoot $packageRoot
 foreach ($scriptFile in Get-ChildItem -LiteralPath (Join-Path $packageRoot 'scripts'), (Join-Path $packageRoot 'global') -Filter '*.ps1' -File -Recurse) {
     $scriptTokens = $null; $scriptErrors = $null
     $scriptAst = [Management.Automation.Language.Parser]::ParseFile($scriptFile.FullName, [ref]$scriptTokens, [ref]$scriptErrors)
@@ -217,7 +220,7 @@ Assert-True ($publicReadme.Contains('provider') -and $publicReadme.Contains('`BL
 $retiredPrefix = '1' + 'c'
 $retiredWord = 'li' + 'te'
 $forbiddenNamePattern = '(?i)' + $retiredPrefix + '[-_. ]?' + $retiredWord + '|one' + $retiredPrefix + '[-_. ]?' + $retiredWord
-$scanEntries = @(Get-ChildItem -LiteralPath $packageRoot -Force | Where-Object { $_.Name -notin @('.git','.bsl-flow','.build','work','outputs') })
+$scanEntries = @(Get-ChildItem -LiteralPath $packageRoot -Force | Where-Object { $_.Name -notin @('.git','.bsl-flow','.build','.claude','work','outputs') })
 $scanFiles = @($scanEntries | Where-Object { -not $_.PSIsContainer })
 foreach ($directory in @($scanEntries | Where-Object { $_.PSIsContainer })) {
     $scanFiles += @(Get-ChildItem -LiteralPath $directory.FullName -File -Recurse -Force)
@@ -225,7 +228,7 @@ foreach ($directory in @($scanEntries | Where-Object { $_.PSIsContainer })) {
 $forbiddenHits = $scanFiles |
     Where-Object {
         $relative = $_.FullName.Substring($packageRoot.TrimEnd('\', '/').Length + 1).Replace('\', '/')
-        $_.FullName -notmatch '[\\/](?:\.git|\.bsl-flow|work|outputs)(?:[\\/]|$)' -and
+        $_.FullName -notmatch '[\\/](?:\.git|\.bsl-flow|\.claude|work|outputs)(?:[\\/]|$)' -and
             $relative -notmatch '^\.build/'
     } |
     Select-String -Pattern $forbiddenNamePattern
@@ -245,6 +248,20 @@ foreach ($suite in @('Test-CouncilValidation.ps1', 'Test-CouncilEngine.ps1', 'Te
 }
 foreach ($suite in @('Test-TaskStorage.ps1', 'Test-TaskRegistry.ps1', 'Test-TaskRegistryConcurrency.ps1', 'Test-LegacyNativeFence.ps1', 'Test-TaskLifecycle.ps1', 'Test-TaskHardening.ps1', 'Test-TaskResume.ps1', 'Test-TaskCrashRecovery.ps1', 'Test-TaskRepair.ps1', 'Test-TaskDelivery.ps1', 'Test-TaskRunner.ps1', 'Test-RunnerRecovery.ps1', 'Test-CodexHostCapability.ps1', 'Test-TaskRuntime.ps1', 'Test-NativeController.ps1', 'Test-NativeRecovery.ps1', 'Test-NativeReuse.ps1', 'Test-RequirementCoverage.ps1', 'Test-CoverageController.ps1', 'Test-PublicationGit.ps1', 'Test-TaskPublication.ps1')) {
     & (Join-Path $packageRoot "scripts\$suite") -PackageRoot $packageRoot
+}
+# Additional suites register themselves with one file per suite in
+# scripts/suites.d/<name>.suite holding the package-relative script path, so
+# independent changes never edit one shared suite list.
+$suiteRegistry = Join-Path $packageRoot 'scripts\suites.d'
+if (Test-Path -LiteralPath $suiteRegistry -PathType Container) {
+    foreach ($registration in @(Get-ChildItem -LiteralPath $suiteRegistry -Filter '*.suite' -File | Sort-Object Name)) {
+        $relativeSuite = (Get-Content -Raw -LiteralPath $registration.FullName).Trim()
+        Assert-True ($relativeSuite -match '^(?:scripts|global)[\\/][^:]+\.ps1$' -and $relativeSuite -notmatch '\.\.') "Invalid suite registration: $($registration.Name)"
+        $suitePath = Join-Path $packageRoot $relativeSuite
+        Assert-True (Test-Path -LiteralPath $suitePath -PathType Leaf) "Registered suite is missing: $relativeSuite"
+        if ($relativeSuite.Replace('\','/') -eq 'scripts/Test-InstallCore.ps1') { continue } # Already checked before generated evidence.
+        & $suitePath -PackageRoot $packageRoot
+    }
 }
 
 foreach ($skillName in @('1c-init-project', '1c-spec', '1c-spec-review', '1c-estimate', '1c-implement', '1c-verify', '1c-debug', '1c-task')) {
@@ -370,8 +387,12 @@ try {
         Assert-True (Test-Path -LiteralPath $installedTaskCli -PathType Leaf) 'Installed layout omitted the 1c-task CLI.'
         $taskCommand = Get-Command $installedTaskCli
         foreach ($parameter in @('Action','ProjectPath','TaskId','InputFile','AttemptId','CodexPath','RuntimeAuth')) { Assert-True $taskCommand.Parameters.ContainsKey($parameter) "Installed 1c-task CLI omitted parameter: $parameter" }
-        $actionSet = @($taskCommand.Parameters.Action.Attributes | Where-Object { $_ -is [Management.Automation.ValidateSetAttribute] } | ForEach-Object ValidValues)
-        $expectedActions = @('Start','Status','Next','Context','Run','Record','Update','Accept','Resume','Cancel','Deliver','Serve','Publish','PublishResume','Create','EditRegistry','List','Show','History','Overview','ArchiveTask','UnarchiveTask','Activate')
+        # Unknown actions fail with BF_INVALID inside the controller, so the
+        # action set is declared by $script:BFKnownActions rather than ValidateSet.
+        $knownActionsMatch = [regex]::Match((Get-Content -Raw -LiteralPath $installedTaskCli), '(?m)^\$script:BFKnownActions=@\((?<list>[^)]*)\)')
+        Assert-True $knownActionsMatch.Success 'Installed 1c-task CLI does not declare its known action set.'
+        $actionSet = @([regex]::Matches($knownActionsMatch.Groups['list'].Value, "'([A-Za-z]+)'") | ForEach-Object { $_.Groups[1].Value })
+        $expectedActions = @('Start','Status','Next','Context','Run','Record','Update','Accept','Resume','Cancel','Deliver','Serve','Publish','PublishResume','Create','EditRegistry','List','Show','History','Overview','ArchiveTask','UnarchiveTask','Submit')
         Assert-True ($actionSet.Count -eq $expectedActions.Count) 'Installed 1c-task CLI exposes an unexpected action set.'
         foreach ($action in $expectedActions) { Assert-True ($action -in $actionSet) "Installed 1c-task CLI omitted action: $action" }
     }
@@ -428,6 +449,22 @@ secret-folder/
     Assert-True ($projectConfig -match '(?m)^\s{4}timeout_seconds:\s*600\s*$') 'Default reviewer timeout is not 600 seconds.'
     . $commonScript
     . (Join-Path $reviewSkill 'scripts\Council.Common.ps1')
+    $unboundModelsBlocked = $false
+    try { Get-BSLFlowCouncilPolicy $projectConfig | Out-Null }
+    catch { $unboundModelsBlocked = $_.Exception.Message -match 'unknown model profile: review-fast' }
+    Assert-True $unboundModelsBlocked 'Portable defaults silently supplied concrete Council model bindings.'
+    # Bind synthetic ids only in this offline fixture, as an operator would.
+    $fixtureModels = @'
+llm:
+  models:
+    review-fast:
+      provider: openai
+      model: fixture-critic
+    review-chair:
+      provider: openai
+      model: fixture-chair
+'@
+    $projectConfig = [regex]::Replace($projectConfig, '(?m)^llm:\s*$', $fixtureModels)
     $defaultCouncil = Get-BSLFlowCouncilPolicy $projectConfig
     Assert-True ([bool]$defaultCouncil.enabled -and [string]$defaultCouncil.legacy_mode -eq 'block') 'Portable project default council policy is not migration-blocking.'
     # The remaining package fixture exercises the explicitly selected legacy
@@ -435,6 +472,7 @@ secret-folder/
     # opt in only inside this isolated test project, so no live council dispatch
     # can be triggered by an environment credential during the OpenCode checks.
     $projectConfig = [regex]::Replace($projectConfig, '(?m)^(\s*legacy_mode:\s*)block\s*$', '${1}opencode_compat')
+    $projectConfig = [regex]::Replace($projectConfig, '(?m)^review:\s*$', "review:`n  reviewer:`n    provider: opencode`n    model: fixture/reviewer")
     Set-Content -LiteralPath (Join-Path $project 'bsl-flow.yaml') -Value $projectConfig -Encoding utf8
     $compatCouncil = Get-BSLFlowCouncilPolicy (Get-Content -Raw (Join-Path $project 'bsl-flow.yaml'))
     Assert-True ([bool]$compatCouncil.enabled -and [string]$compatCouncil.legacy_mode -eq 'opencode_compat') 'Legacy OpenCode compatibility fixture was not explicitly selected.'

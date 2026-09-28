@@ -83,6 +83,24 @@ function Write-BSLFlowJsonAtomic {
     }
 }
 
+function Update-BSLFlowReviewStatus {
+    # $Status is a mutable ordered dictionary; callers on both sides of the
+    # provider abstraction (Invoke-1CSpecReview.ps1 and Review.Providers.ps1)
+    # share the same instance so status.json always reflects the current phase.
+    param(
+        [Parameter(Mandatory)]$Status,
+        [Parameter(Mandatory)][string]$StatusPath,
+        [Parameter(Mandatory)][string]$Phase,
+        [string]$State = 'running',
+        [string]$Message,
+        [int]$ExitCode = -1
+    )
+    $Status.phase = $Phase; $Status.state = $State; $Status.updated_at_utc = [DateTime]::UtcNow.ToString('o')
+    if ($PSBoundParameters.ContainsKey('Message')) { $Status.message = $Message }
+    if ($ExitCode -ge 0) { $Status.exit_code = $ExitCode }
+    Write-BSLFlowJsonAtomic -Value $Status -Path $StatusPath
+}
+
 function Assert-BSLFlowText {
     param($Value, [Parameter(Mandatory)][string]$Name, [switch]$AllowEmpty)
     if ($null -eq $Value -or $Value -isnot [string] -or ((-not $AllowEmpty) -and [string]::IsNullOrWhiteSpace($Value))) {
@@ -136,7 +154,9 @@ function Assert-BSLFlowReviewPayload {
 
     $rawProperties = @('schema_version', 'reviewer_verdict', 'summary', 'scores', 'overengineering', 'findings', 'do_not_change', 'confidence')
     $completedProperties = @($rawProperties + @('reviewed_at_utc', 'review_iteration', 'verdict', 'weighted_score', 'blocking_findings', 'reviewer', 'inputs', 'gate'))
-    $allowedTop = if ($Completed) { $completedProperties } else { $rawProperties }
+    # Reviews published before 0.9 lack the provenance fields; they stay valid.
+    $optionalProvenance = @('reviewer_model', 'same_model_as_author') | Where-Object { $null -ne $Review.PSObject -and $null -ne $Review.PSObject.Properties[$_] }
+    $allowedTop = if ($Completed) { @($completedProperties + @($optionalProvenance)) } else { $rawProperties }
     Assert-BSLFlowObjectProperties $Review 'review' $allowedTop
 
     if ((Get-BSLFlowJsonNumber $Review.schema_version 'review.schema_version' -Integer) -ne 1) { throw 'review.schema_version must be 1.' }
@@ -210,8 +230,10 @@ function Assert-BSLFlowReviewPayload {
             if ($ratio -lt 0 -or $ratio -gt 1) { throw "Invalid overengineering ratio: $name" }
         }
         Assert-BSLFlowObjectProperties $Review.reviewer 'reviewer' @('provider', 'agent', 'model')
-        if ($Review.reviewer.provider -ne 'opencode') { throw 'reviewer.provider must be opencode.' }
+        if ($Review.reviewer.provider -notin @('opencode', 'claude_cli', 'codex_exec', 'api', 'claude_subagent')) { throw 'Invalid reviewer.provider.' }
         foreach ($name in @('agent', 'model')) { Assert-BSLFlowText $Review.reviewer.$name "reviewer.$name" }
+        if ('reviewer_model' -in $optionalProvenance) { Assert-BSLFlowText $Review.reviewer_model 'reviewer_model' }
+        if ('same_model_as_author' -in $optionalProvenance -and $null -ne $Review.same_model_as_author -and $Review.same_model_as_author -isnot [bool]) { throw 'same_model_as_author must be a boolean or null.' }
         Assert-BSLFlowObjectProperties $Review.inputs 'inputs' @('original_task_sha256', 'spec_sha256', 'design_sha256')
         foreach ($name in @('original_task_sha256', 'spec_sha256')) {
             if ($Review.inputs.$name -isnot [string] -or $Review.inputs.$name -notmatch '^[a-f0-9]{64}$') { throw "Invalid input hash: $name" }
@@ -322,7 +344,10 @@ function Complete-BSLFlowReview {
         [Parameter(Mandatory)][double]$MaxUnjustifiedRatioForPass,
         [string]$OriginalTaskSha256,
         [string]$SpecSha256,
-        [AllowNull()]$DesignSha256
+        [AllowNull()]$DesignSha256,
+        [string]$Provider = 'opencode',
+        [AllowNull()][string]$ObservedModel,
+        [AllowNull()][string]$AuthorModel
     )
 
     Assert-BSLFlowReviewPayload -Review $RawReview
@@ -375,6 +400,12 @@ function Complete-BSLFlowReview {
     }
     if ($null -ne $DesignSha256 -and $DesignSha256 -notmatch '^[a-f0-9]{64}$') { throw 'Invalid captured design hash.' }
 
+    $reviewerModel = if ($ObservedModel) { $ObservedModel } else { $Model }
+    $sameModelAsAuthor = $null
+    if (-not [string]::IsNullOrWhiteSpace($AuthorModel)) {
+        $sameModelAsAuthor = ($AuthorModel.Trim() -ieq $reviewerModel.Trim())
+    }
+
     return [ordered]@{
         schema_version = 1
         reviewed_at_utc = [DateTime]::UtcNow.ToString('o')
@@ -400,7 +431,9 @@ function Complete-BSLFlowReview {
         findings = @($RawReview.findings)
         do_not_change = @($RawReview.do_not_change)
         confidence = [double]$RawReview.confidence
-        reviewer = [ordered]@{ provider = 'opencode'; agent = $Agent; model = $Model }
+        reviewer = [ordered]@{ provider = $Provider; agent = $Agent; model = $Model }
+        reviewer_model = $reviewerModel
+        same_model_as_author = $sameModelAsAuthor
         inputs = [ordered]@{
             original_task_sha256 = $OriginalTaskSha256
             spec_sha256 = $SpecSha256

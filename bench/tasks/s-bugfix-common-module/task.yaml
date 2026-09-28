@@ -1,0 +1,21 @@
+id: s-bugfix-common-module
+size: S
+risk: low
+fixture:
+  path: bench/fixtures/demo-mini
+request: original-task.md
+expected_scope:
+  - src/CommonModules/ОбщегоНазначения/**
+acceptance:
+  - kind: file_contains
+    path: src/CommonModules/ОбщегоНазначения/Ext/Module.bsl
+    pattern: 'Сумма\s*<=\s*Лимит'
+  - kind: file_absent
+    path: src/CommonModules/ОбщегоНазначения/Ext/Module.bsl
+    pattern: 'Сумма\s*<\s*Лимит\s+Тогда'
+  - kind: bslls_new_errors_max
+    value: 0
+  - kind: yaxunit
+    tests: [bench/tasks/s-bugfix-common-module/tests/*.bsl]
+    requires_runtime: true
+ambiguous: false

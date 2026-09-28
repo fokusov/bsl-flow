@@ -1,0 +1,23 @@
+name: Managed
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  managed:
+    runs-on: windows-2025
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Install pinned OpenSpec test dependency
+        shell: pwsh
+        run: |
+          npm.cmd install --global @fission-ai/openspec@1.11.0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Full offline regression and package
+        shell: pwsh
+        run: ./scripts/Build-BSLFlowPackage.ps1 -PackageRoot (Get-Location).Path -Package full -Test
+      - name: Managed package
+        shell: pwsh
+        run: ./scripts/Build-BSLFlowPackage.ps1 -PackageRoot (Get-Location).Path -Package managed -Test

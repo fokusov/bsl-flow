@@ -29,6 +29,32 @@ $finalDesignHash = $null
 $originalTaskHash = $null
 $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
 
+# Recompute from current sources; a previous standalone grounding receipt is not freshness evidence.
+$grounding = $null
+try {
+    $grounding = & (Join-Path $PSScriptRoot 'Test-1CSpecGrounding.ps1') -ChangePath $changeRoot -NoThrow
+    if (-not $grounding.passed) { $errors.Add('Final specification grounding failed; see spec-grounding.json.') }
+}
+catch { $errors.Add("Final grounding could not run: $($_.Exception.Message)") }
+$groundingLimitations = @(if ($null -eq $grounding -or $grounding.status -eq 'unavailable') { 'grounding_unavailable' })
+
+if (-not (Test-Path $reviewPath -PathType Leaf) -and -not (Test-Path (Join-Path $PSScriptRoot 'Invoke-CouncilReview.ps1') -PathType Leaf)) {
+    . (Join-Path $PSScriptRoot 'Review.Override.ps1')
+    $ownerOverride = Get-BSLFlowOwnerOverride -ChangeRoot $changeRoot
+    if ($null -ne $ownerOverride) {
+        if (Test-Path (Join-Path $projectRoot ('.bsl-flow/reports/spec-review/' + $ChangeName + '.council/publication/prepared.json'))) { throw 'BF_BLOCKED: prepared council publication requires Managed recovery; an override cannot replace it.' }
+        $overrideSpec = Get-Content -Raw $specPath
+        if ($overrideSpec -notmatch '(?im)^\s*-\s*(?:Complexity|Сложность):\s*L\s*$' -and $overrideSpec -notmatch '(?im)^\s*-\s*(?:Risk|Риск):\s*high\s*$') { $errors.Add('Owner override without Council applies only to L/high-risk.') }
+        $lint = & (Join-Path $PSScriptRoot 'Test-1CSpec.ps1') -ChangePath $changeRoot -NoThrow
+        if (-not $lint.passed) { $errors.Add('Final specification lint failed.') }
+        $result = [ordered]@{schema_version=1;passed=($errors.Count -eq 0);verdict='PASS_WITH_LIMITATIONS';limitations=@('owner_override_without_council')+$groundingLimitations;owner_override=$ownerOverride;grounding=$grounding;errors=@($errors);inputs=@{reconciliation_sha256=Get-BSLFlowSha256 $reconciliationPath;final_spec_sha256=Get-BSLFlowSha256 $specPath}}
+        if (-not $result.passed) { $result.verdict = 'BLOCKED' }
+        Write-BSLFlowJsonAtomic -Value $result -Path $outputPath
+        if (-not $result.passed) { throw "Final specification invariant validation failed. See: $outputPath" }
+        return [pscustomobject]$result
+    }
+}
+
 foreach ($required in @($reviewPath, $specPath, $originalTaskPath)) {
     if (-not (Test-Path -LiteralPath $required -PathType Leaf)) { $errors.Add("Missing required final-validation input: $required") }
 }
@@ -44,6 +70,7 @@ if ($rawReviewText) {
     try { $peekVersion = ($rawReviewText | ConvertFrom-Json -ErrorAction Stop).schema_version } catch { $peekVersion = $null }
 }
 if ($peekVersion -eq 2) {
+    if (-not (Test-Path (Join-Path $PSScriptRoot 'Council.Validation.ps1'))) { throw 'BF_BLOCKED: council review validation requires bsl-flow-managed.' }
     . (Join-Path $PSScriptRoot 'Council.Validation.ps1')
     $councilReview = $null
     $councilLint = $null
@@ -70,6 +97,9 @@ if ($peekVersion -eq 2) {
         review_schema = 2
         verdict = if ($null -ne $councilReview) { [string]$councilReview.verdict } else { $null }
         diversity = if ($null -ne $councilReview) { [string]$councilReview.diversity } else { $null }
+        # PASS_WITH_LIMITATIONS is carried verbatim; limitations explain it.
+        limitations = @(if ($null -ne $councilReview -and $null -ne $councilReview.PSObject.Properties['limitations']) { @($councilReview.limitations | ForEach-Object { [string]$_ }) }) + $groundingLimitations
+        grounding = $grounding
         inputs = [ordered]@{
             review_sha256 = $v2ReviewHash
             reconciliation_sha256 = $v2ReconciliationHash
@@ -79,6 +109,7 @@ if ($peekVersion -eq 2) {
         }
         errors = @($errors)
     }
+    if ($result.verdict -eq 'PASS' -and $groundingLimitations.Count -gt 0) { $result.verdict = 'PASS_WITH_LIMITATIONS' }
     Write-BSLFlowJsonAtomic -Value $result -Path $outputPath
     if (-not $result.passed) { throw "Final specification invariant validation failed. See: $outputPath" }
     return [pscustomobject]$result
@@ -167,6 +198,9 @@ if ($errors.Count -eq 0) {
 
 $result = [ordered]@{
     schema_version = 1
+    grounding = $grounding
+    limitations = $groundingLimitations
+    verdict = if ($errors.Count -gt 0) { 'BLOCKED' } elseif ($groundingLimitations.Count -gt 0) { 'PASS_WITH_LIMITATIONS' } else { 'PASS' }
     checked_at_utc = [DateTime]::UtcNow.ToString('o')
     passed = ($errors.Count -eq 0)
     review_iteration = if ($null -ne $review) { $review.review_iteration } else { $null }

@@ -5,21 +5,38 @@ features:
   self_learning_memory:
     enabled: false
 
+# Council independence (review.council.independence, default distinct_models):
+# the chair model differs from every critic model, and the critics use two
+# distinct models. Critics: DeepSeek + Claude Sonnet; chair: Claude Opus.
+# anthropic_messages needs a model that accepts a forced tool_choice.
 llm:
   providers:
     deepseek:
       protocol: openai_compatible
       base_url: https://api.deepseek.com
       token_env: DEEPSEEK_API_KEY
+    anthropic:
+      protocol: anthropic_messages
+      base_url: https://api.anthropic.com
+      token_env: ANTHROPIC_API_KEY
   models:
     reviewer:
       provider: deepseek
       model: deepseek-v4-pro
       effort: medium
+    critic-claude:
+      provider: anthropic
+      model: claude-sonnet-5
+      effort: medium
+    chair-claude:
+      provider: anthropic
+      model: claude-opus-5
+      effort: high
 review:
   enabled: true
   council:
     enabled: true
+    independence: distinct_models
     legacy_mode: block
     roles:
       intent_critic:
@@ -30,7 +47,7 @@ review:
       architecture_critic:
         enabled: true
         required: true
-        model: reviewer
+        model: critic-claude
         fallback: block
       executability_critic:
         enabled: true
@@ -40,5 +57,5 @@ review:
       chair:
         enabled: true
         required: true
-        model: reviewer
+        model: chair-claude
         fallback: block

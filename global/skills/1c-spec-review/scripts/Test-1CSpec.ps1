@@ -1,4 +1,4 @@
-﻿#Requires -Version 7.0
+#Requires -Version 7.0
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$ChangePath,
@@ -125,6 +125,13 @@ if ($verificationMatch.Success) {
 if ($text.Length -gt $MaxCharacters) { $warnings.Add("Specification length $($text.Length) exceeds $MaxCharacters characters; verify that detail is necessary.") }
 if ($text -match '(?i)на будущее|future[- ]proof|универсальн(?:ый|ая|ое)\s+механизм') { $warnings.Add('Potential speculative design language found; verify concrete justification.') }
 
+# Stable anchors for council refs (additive): one entry per numbered/bulleted
+# item of the required behavior, acceptance criteria and non-goals sections.
+. (Join-Path $PSScriptRoot 'Review.Anchors.ps1')
+$anchors = @(Get-BSLFlowSpecAnchors -SpecText $text | ForEach-Object {
+        [ordered]@{ id = [string]$_.id; section = [string]$_.section; item = [int]$_.item; text_sha256 = [string]$_.text_sha256 }
+    })
+
 $result = [ordered]@{
     schema_version = 1
     checked_at_utc = [DateTime]::UtcNow.ToString('o')
@@ -132,6 +139,7 @@ $result = [ordered]@{
     errors = @($errors)
     warnings = @($warnings)
     stats = [ordered]@{ characters = $text.Length; lines = @($text -split "`r?`n").Count }
+    anchors = @($anchors)
 }
 if (-not $OutputPath) { $OutputPath = Join-Path $changeRoot 'spec-lint.json' }
 Write-BSLFlowJsonAtomic -Value $result -Path $OutputPath

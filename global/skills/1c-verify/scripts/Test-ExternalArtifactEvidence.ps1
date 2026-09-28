@@ -33,7 +33,7 @@ if(-not(Has-Property $evidence 'artifact')){Add-Issue $issues 'missing_artifact'
     $path=[string]$evidence.artifact.path
     if (-not [string]::IsNullOrWhiteSpace($path) -and -not [IO.Path]::IsPathRooted($path)) {$path=[IO.Path]::GetFullPath((Join-Path $script:evidenceRoot $path))}
     if([string]::IsNullOrWhiteSpace($path)-or-not(Test-Path -LiteralPath $path -PathType Leaf)){Add-Issue $issues 'artifact_file_missing'}else{
-        $item=Get-Item -LiteralPath $path
+        $item=Get-Item -LiteralPath $path -Force
         $hash=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
         if(([string]$evidence.artifact.sha256)-notmatch'^[0-9a-fA-F]{64}$'){Add-Issue $issues 'artifact_sha256_invalid'}
         elseif($hash-ne([string]$evidence.artifact.sha256).ToLowerInvariant()){Add-Issue $issues 'artifact_sha256_mismatch'}

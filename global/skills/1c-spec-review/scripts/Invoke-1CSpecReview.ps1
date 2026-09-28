@@ -15,12 +15,17 @@ param(
     [string]$ManagedCodexPath,
     [string]$EvidenceText = '',
     [Alias('HostStatePath')]
-    [string]$ManagedStatePath
+    [string]$ManagedStatePath,
+    [string]$ImportRaw,
+    [string]$AuthorModel,
+    [string]$ClaudeCliPath,
+    [string]$CodexCliPath
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Review.Common.ps1')
+. (Join-Path $PSScriptRoot 'Review.Providers.ps1')
 
 function Get-SpecClassification {
     param([Parameter(Mandatory)][string]$SpecText)
@@ -96,14 +101,6 @@ if ($Complexity -notin @('S', 'M', 'L') -or $Risk -notin @('low', 'medium', 'hig
 
 $configText = if (Test-Path -LiteralPath $configPath -PathType Leaf) { Get-Content -Raw -LiteralPath $configPath } else { '' }
 $councilRouting = $null
-try {
-    # The council route sees the effective policy: user profile merged under
-    # the project config. Routing switches themselves stay project-owned.
-    . (Join-Path $PSScriptRoot 'Council.Profile.ps1')
-    $councilRouting = (Get-BSLFlowCouncilEffectivePolicy -ProjectRoot $projectRoot).policy
-}
-catch { throw }
-
 $enabled = ConvertTo-BSLFlowBoolean (Get-BSLFlowYamlValue $configText @('review', 'enabled') 'true') 'review.enabled'
 $route = if ($Risk -eq 'high') {
     Get-BSLFlowYamlValue $configText @('review', 'routing', 'high_risk_override') 'required'
@@ -117,6 +114,22 @@ if ($policyRequired -and $route -ne 'required') {
 }
 $reviewRequired = $ForceReview -or ($route -eq 'required')
 $reviewMode = Get-BSLFlowSpecReviewMode -Complexity $Complexity -Risk $Risk -ReviewRequired $reviewRequired
+
+if ($reviewMode -ceq 'council' -and -not (Test-Path (Join-Path $PSScriptRoot 'Invoke-CouncilReview.ps1') -PathType Leaf)) {
+    if (Test-Path (Join-Path $projectRoot ('.bsl-flow/reports/spec-review/' + $ChangeName + '.council/publication/prepared.json'))) {
+        throw 'BF_BLOCKED: prepared council publication requires Managed recovery; an override cannot replace it.'
+    }
+    . (Join-Path $PSScriptRoot 'Review.Override.ps1')
+    $ownerOverride = Get-BSLFlowOwnerOverride -ChangeRoot $changeRoot
+    if ($null -eq $ownerOverride) { throw 'BF_BLOCKED: L/high-risk review requires Council (install bsl-flow-managed) or an owner override recorded in review-reconciliation.json' }
+    $final = & (Join-Path $PSScriptRoot 'Test-1CSpecFinal.ps1') -ProjectPath $projectRoot -ChangeName $ChangeName
+    return [pscustomobject]@{Complexity=$Complexity;Risk=$Risk;Route='owner_override';ReviewMode='owner_override';ReviewRequired=$true;LintPassed=$final.passed;ReviewPath=$null;Verdict='PASS_WITH_LIMITATIONS';Limitations=@('owner_override_without_council')}
+}
+
+if ($reviewMode -ceq 'council' -or (Get-BSLFlowYamlValue $configText @('review','reviewer','provider') 'opencode') -ceq 'api') {
+    . (Join-Path $PSScriptRoot 'Review.Api.Profile.ps1')
+    $councilRouting = (Get-BSLFlowCouncilEffectivePolicy -ProjectRoot $projectRoot).policy
+}
 
 # A prepared council publication is a durable recovery record. Resume it before
 # lint or any route can start another model call; Resume performs the final lint
@@ -188,14 +201,17 @@ if ($reviewMode -ceq 'council') {
 }
 
 $provider = Get-BSLFlowYamlValue $configText @('review', 'reviewer', 'provider') 'opencode'
-if ($provider -ne 'opencode') { throw "Unsupported reviewer provider: $provider" }
-if (-not $Model) { $Model = Get-BSLFlowYamlValue $configText @('review', 'reviewer', 'model') 'deepseek/deepseek-v4-pro' }
-if (-not $Variant) { $Variant = Get-BSLFlowYamlValue $configText @('review', 'reviewer', 'variant') 'high' }
-if ($Model -notmatch '^[A-Za-z0-9._-]+/[A-Za-z0-9._:#-]+$') { throw "Unsafe or invalid reviewer model id: $Model" }
-if ($Variant -notmatch '^[A-Za-z0-9._-]+$') { throw "Unsafe or invalid reviewer variant: $Variant" }
+if ($provider -notin @('opencode', 'claude_cli', 'codex_exec', 'api', 'claude_subagent')) { throw "Unsupported reviewer provider: $provider" }
+if (-not $Model) { $Model = Get-BSLFlowYamlValue $configText @('review', 'reviewer', 'model') '' }
+if ($provider -ne 'claude_subagent' -and -not $Model) {
+    throw 'Reviewer model is not configured: set review.reviewer.model in bsl-flow.yaml (or ~/.bsl-flow/config.yaml).'
+}
+if ($provider -eq 'opencode' -and -not $Variant) { $Variant = Get-BSLFlowYamlValue $configText @('review', 'reviewer', 'variant') 'high' }
 $configuredAgent = Get-BSLFlowYamlValue $configText @('review', 'reviewer', 'agent') 'bsl-flow-spec-reviewer'
 $agent = if ($readMode -eq 'attached_only') { 'bsl-flow-spec-reviewer-sealed' } else { $configuredAgent }
-if ($agent -notin @('bsl-flow-spec-reviewer', 'bsl-flow-spec-reviewer-sealed')) { throw "Only packaged hard-deny reviewer agents are allowed: $agent" }
+if ($provider -eq 'opencode' -and $agent -notin @('bsl-flow-spec-reviewer', 'bsl-flow-spec-reviewer-sealed')) {
+    throw "Only packaged hard-deny reviewer agents are allowed: $agent"
+}
 
 $culture = [System.Globalization.CultureInfo]::InvariantCulture
 $passScore = $reviewPolicy.PassWeightedScore
@@ -205,8 +221,12 @@ $maxRatio = $reviewPolicy.MaxUnjustifiedRatioForPass
 $skillRoot = Split-Path -Parent $PSScriptRoot
 $reviewerConfig = Join-Path $skillRoot 'reviewer\opencode-reviewer.json'
 $rubricPath = Join-Path $skillRoot 'references\reviewer-rubric.md'
-foreach ($required in @($reviewerConfig, $rubricPath)) {
+$reviewSchemaPath = Join-Path $skillRoot 'references\review-schema.json'
+foreach ($required in @($rubricPath)) {
     if (-not (Test-Path -LiteralPath $required -PathType Leaf)) { throw "Packaged reviewer file missing: $required" }
+}
+if ($provider -eq 'opencode' -and -not (Test-Path -LiteralPath $reviewerConfig -PathType Leaf)) {
+    throw "Packaged reviewer file missing: $reviewerConfig"
 }
 $maxInputBytes = [int]::Parse((Get-BSLFlowYamlValue $configText @('review', 'input', 'max_file_bytes') '262144'), $culture)
 if ($maxInputBytes -lt 1024 -or $maxInputBytes -gt 1048576) { throw 'review.input.max_file_bytes must be between 1024 and 1048576.' }
@@ -216,17 +236,6 @@ if ($TimeoutSeconds -eq 0) { $TimeoutSeconds = $configuredTimeout }
 if ($MaxOutputBytes -eq 0) { $MaxOutputBytes = $configuredOutput }
 if ($TimeoutSeconds -lt 1 -or $TimeoutSeconds -gt 3600) { throw 'review.runtime.timeout_seconds must be between 1 and 3600.' }
 if ($MaxOutputBytes -lt 65536 -or $MaxOutputBytes -gt 16777216) { throw 'review.runtime.max_output_bytes must be between 65536 and 16777216.' }
-
-$providerPath = $null
-if ($OpenCodePath) {
-    $providerPath = [System.IO.Path]::GetFullPath($OpenCodePath)
-    if (-not (Test-Path -LiteralPath $providerPath -PathType Leaf)) { throw "OpenCode executable not found: $providerPath" }
-}
-else {
-    $opencode = Get-Command opencode -ErrorAction SilentlyContinue
-    if (-not $opencode) { throw 'OpenCode CLI is required for this review route.' }
-    $providerPath = $opencode.Source
-}
 
 $capturedInputs = [ordered]@{
     original_task = Get-BSLFlowBoundedUtf8Snapshot -Path $originalTaskPath -MaxBytes $maxInputBytes
@@ -285,165 +294,39 @@ $status = [ordered]@{
 }
 function Update-ReviewStatus {
     param([Parameter(Mandatory)][string]$Phase, [string]$State = 'running', [string]$Message, [int]$ExitCode = -1)
-    $status.phase = $Phase; $status.state = $State; $status.updated_at_utc = [DateTime]::UtcNow.ToString('o')
-    if ($PSBoundParameters.ContainsKey('Message')) { $status.message = $Message }
-    if ($ExitCode -ge 0) { $status.exit_code = $ExitCode }
-    Write-BSLFlowJsonAtomic -Value $status -Path $statusPath
+    $callArgs = @{ Status = $status; StatusPath = $statusPath; Phase = $Phase; State = $State; ExitCode = $ExitCode }
+    if ($PSBoundParameters.ContainsKey('Message')) { $callArgs.Message = $Message }
+    Update-BSLFlowReviewStatus @callArgs
 }
 Update-ReviewStatus -Phase 'input'
 
-$writerEncoding = [System.Text.UTF8Encoding]::new($false)
-$eventWriter = New-Object System.IO.StreamWriter($eventsPath, $false, $writerEncoding)
-$rawWriter = New-Object System.IO.StreamWriter($rawResponsePath, $false, $writerEncoding)
-$stderrWriter = New-Object System.IO.StreamWriter($stderrPath, $false, $writerEncoding)
-$state = @{ Bytes = 0; OutputLimitExceeded = $false; DrainIncomplete = $false; ProcessStillRunning = $false; SyncRoot = New-Object object }
-function Write-ProviderLine {
-    param([Parameter(Mandatory)][string]$Line, [Parameter(Mandatory)][ValidateSet('stdout','stderr')][string]$Stream)
-    [Threading.Monitor]::Enter($state.SyncRoot)
-    try {
-        $lineBytes = $writerEncoding.GetByteCount($Line + "`n")
-        if (($state.Bytes + $lineBytes) -gt $MaxOutputBytes) { $state.OutputLimitExceeded = $true; return }
-        $state.Bytes += $lineBytes
-        if ($Stream -eq 'stdout') {
-            $eventWriter.WriteLine($Line); $eventWriter.Flush()
-            $rawWriter.WriteLine($Line); $rawWriter.Flush()
-        }
-        else { $stderrWriter.WriteLine($Line); $stderrWriter.Flush() }
-    }
-    finally { [Threading.Monitor]::Exit($state.SyncRoot) }
-}
-
-$process = $null
 $exitCode = -1
-$published = $false
 $failurePhase = 'launching'
-$failureMessage = $null
-$oldConfig = $env:OPENCODE_CONFIG
-$oldDisableProject = $env:OPENCODE_DISABLE_PROJECT_CONFIG
-$oldDisableClaude = $env:OPENCODE_DISABLE_CLAUDE_CODE
+$outputDrained = $true
 try {
-    $failurePhase = 'launching'
     Update-ReviewStatus -Phase 'launching'
-    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
-    $startInfo.FileName = $providerPath
-    $startInfo.UseShellExecute = $false
-    $startInfo.CreateNoWindow = $true
-    $startInfo.RedirectStandardInput = $true
-    $startInfo.RedirectStandardOutput = $true
-    $startInfo.RedirectStandardError = $true
-    $startInfo.StandardInputEncoding = $writerEncoding
-    $startInfo.StandardOutputEncoding = $writerEncoding
-    $startInfo.StandardErrorEncoding = $writerEncoding
-    $arguments = @('run', '--pure', '--agent', $agent, '--model', $Model, '--variant', $Variant, '--format', 'json', '--dir', $projectRoot, 'Review the delimited specification context from stdin. Return only the contracted JSON object.')
-    foreach ($argument in $arguments) { $startInfo.ArgumentList.Add($argument) }
-    $env:OPENCODE_CONFIG = $reviewerConfig
-    $env:OPENCODE_DISABLE_PROJECT_CONFIG = '1'
-    $env:OPENCODE_DISABLE_CLAUDE_CODE = '1'
-    $process = New-Object System.Diagnostics.Process
-    $process.StartInfo = $startInfo
-    if (-not $process.Start()) { throw 'OpenCode process could not be started.' }
-    Update-ReviewStatus -Phase 'streaming'
-    # Keep stdin asynchronous and send the exact captured UTF-8 envelope.
-    $inputBytes = $writerEncoding.GetBytes($contextEnvelope)
-    $inputTask = $process.StandardInput.BaseStream.WriteAsync($inputBytes, 0, $inputBytes.Length)
-    $stdinClosed = $false
-    $stdoutDone = $false; $stderrDone = $false
-    $stdoutRead = $process.StandardOutput.ReadLineAsync()
-    $stderrRead = $process.StandardError.ReadLineAsync()
-    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
-    while (-not $process.HasExited -and [DateTime]::UtcNow -lt $deadline) {
-        if (-not $stdinClosed -and $inputTask.IsCompleted) {
-            try { [void]$inputTask.GetAwaiter().GetResult() }
-            catch {
-                $failurePhase = 'input'
-                $failureMessage = "OpenCode stdin write failed: $($_.Exception.Message)"
-            }
-            $process.StandardInput.Close(); $stdinClosed = $true
-            if ($failureMessage) { break }
-        }
-        while (-not $stdoutDone -and $stdoutRead.IsCompleted) {
-            $line = $stdoutRead.Result
-            if ($null -eq $line) { $stdoutDone = $true } else { Write-ProviderLine -Line ([string]$line) -Stream stdout; $stdoutRead = $process.StandardOutput.ReadLineAsync() }
-        }
-        while (-not $stderrDone -and $stderrRead.IsCompleted) {
-            $line = $stderrRead.Result
-            if ($null -eq $line) { $stderrDone = $true } else { Write-ProviderLine -Line ([string]$line) -Stream stderr; $stderrRead = $process.StandardError.ReadLineAsync() }
-        }
-        if ($state.OutputLimitExceeded) {
-            $failurePhase = 'output_limit'
-            $failureMessage = "OpenCode output exceeded $MaxOutputBytes bytes."
-            break
-        }
-        Start-Sleep -Milliseconds 50
+    $providerResult = Invoke-BSLFlowSingleReviewProvider -Provider $provider -ProjectRoot $projectRoot -ChangeName $ChangeName -ContextEnvelope $contextEnvelope `
+        -Agent $agent -Model $Model -Variant $Variant -ReadMode $readMode -TimeoutSeconds $TimeoutSeconds -MaxOutputBytes $MaxOutputBytes `
+        -OpenCodePath $OpenCodePath -ReviewerConfigPath $reviewerConfig -ReviewSchemaPath $reviewSchemaPath -ImportRawPath $ImportRaw -AuthorModel $AuthorModel `
+        -ClaudeCliPath $ClaudeCliPath -CodexCliPath $CodexCliPath `
+        -CouncilRouting $councilRouting -RunRoot $runRoot -EventsPath $eventsPath -RawResponsePath $rawResponsePath -StderrPath $stderrPath
+    $outputDrained = [bool]$providerResult.OutputDrained
+    if ([bool]$providerResult.Failed) {
+        $failurePhase = [string]$providerResult.FailurePhase
+        $exitCode = [int]$providerResult.ExitCode
+        throw [string]$providerResult.FailureMessage
     }
-    if (-not $stdinClosed) {
-        if ($inputTask.IsCompleted) {
-            try { [void]$inputTask.GetAwaiter().GetResult() }
-            catch {
-                $failurePhase = 'input'
-                $failureMessage = "OpenCode stdin write failed: $($_.Exception.Message)"
-            }
-        }
-        try { $process.StandardInput.Close() } catch {}
-        $stdinClosed = $true
-    }
-    if (-not $process.HasExited -and -not $failureMessage) {
-        $failurePhase = 'timeout'
-        $failureMessage = "OpenCode review exceeded timeout of $TimeoutSeconds seconds."
-        Update-ReviewStatus -Phase $failurePhase -Message $failureMessage
-        # Kill only the process started above; never enumerate or stop unrelated processes.
-        try { $process.Kill() } catch { $failureMessage += " Process termination failed: $($_.Exception.Message)" }
-        if (-not $process.WaitForExit(2000)) { $state.ProcessStillRunning = $true }
-    }
-    elseif (-not $process.HasExited) {
-        # A limit-triggered stop is still bounded and targets only our process.
-        try { $process.Kill() } catch { $failureMessage += " Process termination failed: $($_.Exception.Message)" }
-        if (-not $process.WaitForExit(2000)) { $state.ProcessStillRunning = $true }
-    }
-    # The process is already exited in the normal path. Never wait without a bound
-    # after a failed/timeout termination.
-    # Drain asynchronous readers after exit. Polling tasks avoids PowerShell
-    # event callbacks, which have no runspace on thread-pool threads.
-    $drainDeadline = [DateTime]::UtcNow.AddSeconds(2)
-    while ((-not $stdoutDone -or -not $stderrDone) -and [DateTime]::UtcNow -lt $drainDeadline) {
-        while (-not $stdoutDone -and $stdoutRead.IsCompleted) {
-            $line = $stdoutRead.Result
-            if ($null -eq $line) { $stdoutDone = $true } else { Write-ProviderLine -Line ([string]$line) -Stream stdout; $stdoutRead = $process.StandardOutput.ReadLineAsync() }
-        }
-        while (-not $stderrDone -and $stderrRead.IsCompleted) {
-            $line = $stderrRead.Result
-            if ($null -eq $line) { $stderrDone = $true } else { Write-ProviderLine -Line ([string]$line) -Stream stderr; $stderrRead = $process.StandardError.ReadLineAsync() }
-        }
-        if (-not $stdoutDone -or -not $stderrDone) { Start-Sleep -Milliseconds 10 }
-    }
-    if (-not $stdoutDone -or -not $stderrDone) { $state.DrainIncomplete = $true }
-    $exitCode = $process.ExitCode
-    if (-not $failureMessage -and $exitCode -ne 0) {
-        $failurePhase = 'provider_failed'
-        $failureMessage = "OpenCode review failed with exit code $exitCode."
-    }
-    if (-not $failureMessage -and $state.OutputLimitExceeded) {
-        $failurePhase = 'output_limit'
-        $failureMessage = "OpenCode output exceeded $MaxOutputBytes bytes."
-    }
-    if (-not $failureMessage -and ($state.ProcessStillRunning -or $state.DrainIncomplete)) {
-        $failurePhase = 'output_drain'
-        $failureMessage = 'OpenCode output could not be drained within the bounded shutdown window.'
-    }
-    if ($failureMessage) { throw $failureMessage }
+    $rawReview = $providerResult.RawReview
     $failurePhase = 'parsing'
     Update-ReviewStatus -Phase 'parsing' -ExitCode $exitCode
-    $eventWriter.Flush()
-    $eventWriter.Dispose()
-    $events = @([System.IO.File]::ReadAllLines($eventsPath, $writerEncoding))
-    $rawReview = Get-BSLFlowJsonFromOpenCodeEvents -Lines $events
     $failurePhase = 'validating'
     Update-ReviewStatus -Phase 'validating' -ExitCode $exitCode
     $completionParameters = @{
         RawReview = $rawReview; OriginalTaskPath = $originalTaskPath; SpecPath = $specPath; DesignPath = $designPath
-        Agent = $agent; Model = $Model; PassWeightedScore = $passScore; BlockBelowWeightedScore = $blockScore
+        Agent = [string]$providerResult.Agent; Model = [string]$providerResult.RequestedModel; PassWeightedScore = $passScore; BlockBelowWeightedScore = $blockScore
         MaxOverengineeringIndexForPass = $maxIndex; MaxUnjustifiedRatioForPass = $maxRatio
         OriginalTaskSha256 = $capturedInputs.original_task.Sha256; SpecSha256 = $capturedInputs.spec.Sha256
+        Provider = [string]$providerResult.Provider; ObservedModel = $providerResult.ObservedModel; AuthorModel = $AuthorModel
     }
     if ($null -ne $capturedInputs.design) { $completionParameters.DesignSha256 = $capturedInputs.design.Sha256 }
     $review = Complete-BSLFlowReview @completionParameters
@@ -466,7 +349,7 @@ try {
     Update-ReviewStatus -Phase 'completed' -State 'completed' -ExitCode $exitCode
 }
 catch {
-    if (-not $failureMessage) { $failureMessage = $_.Exception.Message }
+    $failureMessage = $_.Exception.Message
     $status.message = $failureMessage
     Update-ReviewStatus -Phase $failurePhase -State 'failed' -Message $failureMessage -ExitCode $exitCode
     $diagnostic = [ordered]@{
@@ -474,17 +357,10 @@ catch {
         failed_at_utc = [DateTime]::UtcNow.ToString('o'); message = $failureMessage
         exit_code = if ($exitCode -ge 0) { $exitCode } else { $null }
         events_path = $eventsPath; raw_response_path = $rawResponsePath; stderr_path = $stderrPath
-        input_snapshot_path = $inputSnapshotPath; review_published = $published; output_drained = (-not $state.DrainIncomplete)
+        input_snapshot_path = $inputSnapshotPath; review_published = $false; output_drained = $outputDrained
     }
     Write-BSLFlowJsonAtomic -Value $diagnostic -Path $diagnosticPath
     throw $failureMessage
-}
-finally {
-    if ($null -ne $process) { $process.Dispose() }
-    $eventWriter.Dispose(); $rawWriter.Dispose(); $stderrWriter.Dispose()
-    if ($null -eq $oldConfig) { Remove-Item Env:OPENCODE_CONFIG -ErrorAction SilentlyContinue } else { $env:OPENCODE_CONFIG = $oldConfig }
-    if ($null -eq $oldDisableProject) { Remove-Item Env:OPENCODE_DISABLE_PROJECT_CONFIG -ErrorAction SilentlyContinue } else { $env:OPENCODE_DISABLE_PROJECT_CONFIG = $oldDisableProject }
-    if ($null -eq $oldDisableClaude) { Remove-Item Env:OPENCODE_DISABLE_CLAUDE_CODE -ErrorAction SilentlyContinue } else { $env:OPENCODE_DISABLE_CLAUDE_CODE = $oldDisableClaude }
 }
 
 return [pscustomobject]@{

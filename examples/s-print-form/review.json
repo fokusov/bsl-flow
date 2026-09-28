@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "reviewed_at_utc": "2026-09-27T00:00:00Z",
+  "review_iteration": 1,
+  "reviewer_verdict": "PASS",
+  "verdict": "PASS",
+  "summary": "SYNTHETIC/DEMO review fixture. It records the intended artifact contract only; no model or 1C runtime was executed.",
+  "scores": { "intent_fidelity": 5, "minimality": 5, "completeness": 5, "architecture_fit": 5, "testability": 5, "assumption_discipline": 5, "clarity": 5 },
+  "weighted_score": 5,
+  "overengineering": { "architectural_decision_count": 0, "required_count": 0, "justified_count": 0, "optional_count": 0, "unjustified_count": 0, "index": 0, "optional_ratio": 0, "unjustified_ratio": 0, "normalized_index": 0, "items": [] },
+  "blocking_findings": [],
+  "findings": [],
+  "do_not_change": [],
+  "confidence": 0.9,
+  "reviewer": { "provider": "codex_exec", "agent": "synthetic-fixture", "model": "not-executed" },
+  "inputs": { "original_task_sha256": "2bd1d4db3f74cbcb9cd7e4a7e8ef92c3e997911b8ea5d1597cf2f153a19da42c", "spec_sha256": "b21d265f0e47dd78fedb9a5639fe1e640a6bc8422dc24fa36de49ee2d602ddd8", "design_sha256": null },
+  "gate": { "pass_weighted_score": 4, "block_below_weighted_score": 3, "max_overengineering_index_for_pass": 2, "max_unjustified_ratio_for_pass": 0 }
+}

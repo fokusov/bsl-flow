@@ -1,6 +1,7 @@
 # Local BSL Flow state and generated delivery artifacts
 /.bsl-flow/
 /.build/
+/.claude/
 work/
 outputs/
 *.zip
@@ -9,6 +10,10 @@ openspec/changes/**/state.json
 
 # Local tool scratch caches
 .tmp-*/
+
+# Benchmark runs are generated evidence. Keep only the placeholder directory in source.
+/bench/results/*
+!/bench/results/.gitkeep
 
 # OS/editor noise
 .DS_Store

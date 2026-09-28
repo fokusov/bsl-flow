@@ -1,0 +1,4 @@
+Output directory for bench run results and aggregates (bench/Invoke-BSLFlowBench.ps1,
+bench/Measure-BenchResults.ps1). Generated files are not committed except when a maintainer
+deliberately publishes an aggregate (bench/results/<date>.json and its markdown summary) per
+bench/README.md; this placeholder just keeps the empty directory in git.

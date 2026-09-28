@@ -1,0 +1,8 @@
+{
+  "name": "bslls",
+  "contract": "onec-ops/v1",
+  "capabilities": {
+    "static.bslls": { "entry": "Invoke-BsllsStatic.ps1", "mode": "script" }
+  },
+  "detect": "Test-BsllsAvailable.ps1"
+}

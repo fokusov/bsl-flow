@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "onec-ops/v1/op-result.schema.json",
+  "title": "onec-ops operation result",
+  "type": "object",
+  "required": ["schema_version", "capability", "status", "mutating", "provider"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": 1 },
+    "capability": { "type": "string" },
+    "status": { "enum": ["PASS", "FAIL", "BLOCKED"] },
+    "mutating": { "type": "boolean" },
+    "target": { "type": ["string", "null"] },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    },
+    "raw_output_sha256": { "type": ["string", "null"] },
+    "provider": { "type": "string" },
+    "provider_version": { "type": ["string", "null"] },
+    "message": { "type": ["string", "null"] },
+    "agent_tool": { "type": "object" }
+  }
+}

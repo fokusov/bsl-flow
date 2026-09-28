@@ -3,17 +3,49 @@
 param(
     [string]$PackageRoot,
     [string]$OutputPath,
+    [ValidateSet('full', 'core', 'managed')]
+    [string]$Package = 'full',
     [switch]$Test
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+function Test-BFGlobMatch {
+    param([Parameter(Mandatory)][string]$RelativePath, [Parameter(Mandatory)][string]$Pattern)
+    # ** behaves like * here because $RelativePath is already a flat, forward-slash
+    # relative file path (no directory traversal is being matched against).
+    $wildcard = $Pattern -replace '\*\*', '*'
+    return $RelativePath -like $wildcard
+}
+
+function Select-BFPackageManifestFiles {
+    param(
+        [Parameter(Mandatory)][string[]]$RelativePaths,
+        [Parameter(Mandatory)][string]$ManifestPath
+    )
+    if (-not (Test-Path -LiteralPath $ManifestPath -PathType Leaf)) { throw "Package manifest not found: $ManifestPath" }
+    $definition = Get-Content -Raw -LiteralPath $ManifestPath | ConvertFrom-Json -ErrorAction Stop
+    $includePatterns = [string[]]@($definition.include)
+    $excludePatterns = [string[]]@($definition.exclude)
+    if ($includePatterns.Count -eq 0) { throw "Package manifest declares no include patterns: $ManifestPath" }
+    $selected = foreach ($relative in $RelativePaths) {
+        $included = $false
+        foreach ($pattern in $includePatterns) { if (Test-BFGlobMatch -RelativePath $relative -Pattern $pattern) { $included = $true; break } }
+        if (-not $included) { continue }
+        $excluded = $false
+        foreach ($pattern in $excludePatterns) { if (Test-BFGlobMatch -RelativePath $relative -Pattern $pattern) { $excluded = $true; break } }
+        if ($excluded) { continue }
+        $relative
+    }
+    return [pscustomobject]@{ Paths = [string[]]@($selected); Definition = $definition }
+}
+
 function Remove-PackageTestTree {
     param([Parameter(Mandatory)][string]$Path)
     $resolved = [IO.Path]::GetFullPath($Path).TrimEnd('\', '/')
     $temp = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\', '/')
-    if (-not $resolved.StartsWith($temp + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or (Split-Path -Leaf $resolved) -notlike 'bsl-flow-package-extract-*') {
+    if (-not $resolved.StartsWith($temp + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or (Split-Path -Leaf $resolved) -notmatch '^bfp-[0-9a-f]{16}$') {
         throw "Unsafe package test cleanup target: $resolved"
     }
     if (Test-Path -LiteralPath $resolved) { Remove-Item -LiteralPath $resolved -Recurse -Force -ErrorAction SilentlyContinue }
@@ -41,13 +73,16 @@ foreach ($relative in @($adrIndexRelative, $adrSchemaRelative, $adrSourceRelativ
 $adrIndex = Read-BFArchitectureIndex $root
 Assert-BFADRIndex $adrIndex $root | Out-Null
 $adrIndexCanonical = Get-BFArchitectureIndexHash $adrIndex
-if ([string]::IsNullOrWhiteSpace($OutputPath)) { $OutputPath = Join-Path $root "outputs\BSL-Flow-$version.zip" }
+if ([string]::IsNullOrWhiteSpace($OutputPath)) {
+    $defaultName = if ($Package -eq 'full') { "BSL-Flow-$version.zip" } else { "BSL-Flow-$Package-$version.zip" }
+    $OutputPath = Join-Path $root "outputs\$defaultName"
+}
 $zipPath = [IO.Path]::GetFullPath($OutputPath)
 $zipHashPath = $zipPath + '.sha256'
 $zipParent = Split-Path -Parent $zipPath
 New-Item -ItemType Directory -Path $zipParent -Force | Out-Null
 
-$excludedRootSegments = @('.bsl-flow', '.build', 'work', 'outputs')
+$excludedRootSegments = @('.bsl-flow', '.build', '.claude', 'work', 'outputs')
 $excludedRootFiles = @()
 $packageFiles = foreach ($entry in (Get-ChildItem -LiteralPath $root -Force)) {
     if ($entry.PSIsContainer) {
@@ -66,18 +101,31 @@ $relativePaths = [string[]]@($packageFiles | Where-Object {
 if ($relativePaths.Count -eq 0) { throw 'No package files selected.' }
 [Array]::Sort($relativePaths, [StringComparer]::Ordinal)
 
+$packageManifestDefinition = $null
+if ($Package -ne 'full') {
+    $manifestDefinitionPath = Join-Path $root "packaging\$Package.json"
+    $selection = Select-BFPackageManifestFiles -RelativePaths $relativePaths -ManifestPath $manifestDefinitionPath
+    $relativePaths = $selection.Paths
+    $packageManifestDefinition = $selection.Definition
+    if ($relativePaths.Count -eq 0) { throw "No files matched the $Package package manifest: $manifestDefinitionPath" }
+    [Array]::Sort($relativePaths, [StringComparer]::Ordinal)
+}
+
 $manifestFiles = foreach ($relative in $relativePaths) {
-    $file = Get-Item -LiteralPath (Join-Path $root $relative)
+    $file = Get-Item -LiteralPath (Join-Path $root $relative) -Force
     [ordered]@{ path = $relative; size_bytes = [int64]$file.Length; sha256 = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
 }
-if ($relativePaths -notcontains $adrIndexRelative -or $relativePaths -notcontains $adrSchemaRelative -or $relativePaths -notcontains $adrSourceRelative) {
+$includesArchitecture = ($relativePaths -contains $adrIndexRelative) -and ($relativePaths -contains $adrSchemaRelative) -and ($relativePaths -contains $adrSourceRelative)
+if ($Package -ne 'managed' -and -not $includesArchitecture) {
     throw 'Architecture files are missing from the package file inventory.'
 }
 $manifest = [ordered]@{
     schema_version = 1
-    package = 'bsl-flow'
+    package = $(if ($Package -eq 'full') { 'bsl-flow' } else { $Package })
     version = $version
-    architecture = [ordered]@{
+}
+if ($includesArchitecture) {
+    $manifest.architecture = [ordered]@{
         adr_index_path = $adrIndexRelative
         adr_index_sha256 = (Get-FileHash -LiteralPath (Join-Path $root $adrIndexRelative) -Algorithm SHA256).Hash.ToLowerInvariant()
         adr_index_canonical_sha256 = $adrIndexCanonical
@@ -86,8 +134,10 @@ $manifest = [ordered]@{
         adr_source_path = $adrSourceRelative
         adr_source_sha256 = (Get-FileHash -LiteralPath (Join-Path $root $adrSourceRelative) -Algorithm SHA256).Hash.ToLowerInvariant()
     }
-    files = @($manifestFiles)
 }
+if ($Package -eq 'managed') { $manifest.requires_core = $version }
+elseif ($Package -eq 'core') { $manifest.requires_core = $null }
+$manifest.files = @($manifestFiles)
 $utf8 = [Text.UTF8Encoding]::new($false)
 $manifestBytes = $utf8.GetBytes(($manifest | ConvertTo-Json -Depth 8 -Compress) + "`n")
 $fixedTime = [DateTimeOffset]::new(2000, 1, 1, 0, 0, 0, [TimeSpan]::Zero)
@@ -126,11 +176,13 @@ $hashPath = $zipHashPath
 [IO.File]::WriteAllText($hashPath, "$zipHash  $([IO.Path]::GetFileName($zipPath))`n", $utf8)
 
 if ($Test) {
-    $testRoot = Join-Path ([IO.Path]::GetTempPath()) ('bsl-flow-package-extract-' + [guid]::NewGuid().ToString('N'))
+    # Git for Windows still bounds some internal worktree paths even with core.longpaths.
+    # Leave room for suites that create their own repositories beneath the extracted package.
+    $testRoot = Join-Path ([IO.Path]::GetTempPath()) ('bfp-' + [guid]::NewGuid().ToString('N').Substring(0, 16))
     try {
         $comparisonZip = Join-Path $testRoot 'rebuild.zip'
         New-Item -ItemType Directory -Path $testRoot -Force | Out-Null
-        $null = & $MyInvocation.MyCommand.Path -PackageRoot $root -OutputPath $comparisonZip
+        $null = & $MyInvocation.MyCommand.Path -PackageRoot $root -OutputPath $comparisonZip -Package $Package
         $comparisonHash = (Get-FileHash -LiteralPath $comparisonZip -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($comparisonHash -ne $zipHash) { throw 'Reproducible rebuild produced a different ZIP SHA-256.' }
         Remove-Item -LiteralPath $comparisonZip, ($comparisonZip + '.sha256') -Force
@@ -147,11 +199,13 @@ if ($Test) {
             $path = Join-Path $testRoot ([string]$record.path)
             if ((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -ne $record.sha256) { throw "Extracted package hash mismatch: $($record.path)" }
         }
-        & (Join-Path $testRoot 'scripts\Test-BSLFlowPackage.ps1') -PackageRoot $testRoot
+        if ($Package -eq 'full') {
+            & (Join-Path $testRoot 'scripts\Test-BSLFlowPackage.ps1') -PackageRoot $testRoot
+        }
     }
     finally {
         Remove-PackageTestTree -Path $testRoot
     }
 }
 
-[pscustomobject]@{ Version = $version; ZipPath = $zipPath; Sha256 = $zipHash; Sha256Path = $hashPath; FileCount = $relativePaths.Count }
+[pscustomobject]@{ Package = $Package; Version = $version; ZipPath = $zipPath; Sha256 = $zipHash; Sha256Path = $hashPath; FileCount = $relativePaths.Count }

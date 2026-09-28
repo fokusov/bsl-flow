@@ -1,0 +1,331 @@
+{
+  "schema_version": 1,
+  "checked_at_utc": "2026-09-27T14:20:46.6628349Z",
+  "passed": true,
+  "errors": [],
+  "warnings": [],
+  "stats": {
+    "characters": 14385,
+    "lines": 157
+  },
+  "anchors": [
+    {
+      "id": "REQ-1",
+      "section": "Требуемое поведение",
+      "item": 1,
+      "text_sha256": "36860acbdbf67fc36a6cf1e6c36c238509fa5ea133ca10256a41485d37433699"
+    },
+    {
+      "id": "REQ-2",
+      "section": "Требуемое поведение",
+      "item": 2,
+      "text_sha256": "9cad07af311886b44e78c322eda11302230c596e4583ff205ae6e07a6d00e8d7"
+    },
+    {
+      "id": "REQ-3",
+      "section": "Требуемое поведение",
+      "item": 3,
+      "text_sha256": "cdd9b207cc465888044d17f7c1b7b0b7d78635ce90ecb1f2ed1da2c5a26ea492"
+    },
+    {
+      "id": "REQ-4",
+      "section": "Требуемое поведение",
+      "item": 4,
+      "text_sha256": "169c663bd9539e3f67f663633ba3cb83f39c97da1dcf78f80971590b34a67f3c"
+    },
+    {
+      "id": "REQ-5",
+      "section": "Требуемое поведение",
+      "item": 5,
+      "text_sha256": "86baf6053c0cdb9475ffd8128bbd74262fd7910ff8a44bed2ab201633f56d4f1"
+    },
+    {
+      "id": "REQ-6",
+      "section": "Требуемое поведение",
+      "item": 6,
+      "text_sha256": "806d848e6332123367e6d039e0630f7a327481ad034b81d8ff071f13f8260d72"
+    },
+    {
+      "id": "REQ-7",
+      "section": "Требуемое поведение",
+      "item": 7,
+      "text_sha256": "d00c5b5e952e6f125c04c7322ae0d791c2f63eb53eda4a25527176e0ca6436de"
+    },
+    {
+      "id": "REQ-8",
+      "section": "Требуемое поведение",
+      "item": 8,
+      "text_sha256": "fc69e74cb7b81096fbb2dcb744ecde6555688ff2146f3a0c0d0e637e4a967bc1"
+    },
+    {
+      "id": "REQ-9",
+      "section": "Требуемое поведение",
+      "item": 9,
+      "text_sha256": "073272113cc5404daead9e19e951ae36653fa1843d25ec7f0391156721e5b3f5"
+    },
+    {
+      "id": "REQ-10",
+      "section": "Требуемое поведение",
+      "item": 10,
+      "text_sha256": "3d6cc2e3936c94d563237b0b923c6a10d96d133353a6aece2b8894605b624f08"
+    },
+    {
+      "id": "REQ-11",
+      "section": "Требуемое поведение",
+      "item": 11,
+      "text_sha256": "d73b0fcc3aa8b01b61f51a43734982a3147a7dd542f3c5aa6ec596bccf303acb"
+    },
+    {
+      "id": "REQ-12",
+      "section": "Требуемое поведение",
+      "item": 12,
+      "text_sha256": "a34d0c9b76a3aec27aa096f2353121d42caa24f9d3dcfaa87e574fd521a71a7d"
+    },
+    {
+      "id": "REQ-13",
+      "section": "Требуемое поведение",
+      "item": 13,
+      "text_sha256": "54b251f03774b9763337f6ff1216dc59243dac970381d6b6e1986e9ebc647cf2"
+    },
+    {
+      "id": "REQ-14",
+      "section": "Требуемое поведение",
+      "item": 14,
+      "text_sha256": "5d286ba099bd71003382b08832842dc4430ebf7653463c398c65cd323ddb7dd5"
+    },
+    {
+      "id": "REQ-15",
+      "section": "Требуемое поведение",
+      "item": 15,
+      "text_sha256": "abd8453a2b3d938ec0ac4cae87d3ef7e7f9eebec4cf55c6fe11ab75993e9b358"
+    },
+    {
+      "id": "REQ-16",
+      "section": "Требуемое поведение",
+      "item": 16,
+      "text_sha256": "a1e2ce959ad53069e9bd957d5ef0bf95334619692229dd1eea423b2cd443e94f"
+    },
+    {
+      "id": "REQ-17",
+      "section": "Требуемое поведение",
+      "item": 17,
+      "text_sha256": "2069be787f6b6bd2e14bcc7ed158558f33ae00f1be4f40d930d99113e51fda65"
+    },
+    {
+      "id": "REQ-18",
+      "section": "Требуемое поведение",
+      "item": 18,
+      "text_sha256": "fed00b37973bec44cf64f165817e59d1abc8dfaa5335f28f550c2a52c3c599df"
+    },
+    {
+      "id": "REQ-19",
+      "section": "Требуемое поведение",
+      "item": 19,
+      "text_sha256": "7edcebd2977d80ad02812bddf612cc1aec6c4243edb7a98ab77f427998f34074"
+    },
+    {
+      "id": "REQ-20",
+      "section": "Требуемое поведение",
+      "item": 20,
+      "text_sha256": "c98cf7616724286118353662e7c35d28cbc87092934d0e16f4b4d26d554e5113"
+    },
+    {
+      "id": "REQ-21",
+      "section": "Требуемое поведение",
+      "item": 21,
+      "text_sha256": "5bae303143efc869f950fb1044f3160f2662a1f03105720582486d8ba4863113"
+    },
+    {
+      "id": "REQ-22",
+      "section": "Требуемое поведение",
+      "item": 22,
+      "text_sha256": "b45a9ca184b3f6f90339717ab8ae0baebb1a6bd6197f94384704776bc9446a90"
+    },
+    {
+      "id": "REQ-23",
+      "section": "Требуемое поведение",
+      "item": 23,
+      "text_sha256": "7aac06d96bf7f832e8d3099a21abe5484c4018cb290a3d69775be7fba4524285"
+    },
+    {
+      "id": "REQ-24",
+      "section": "Требуемое поведение",
+      "item": 24,
+      "text_sha256": "b48cc22758025823e509545817cf8f7bc55a80696d3b40d8c8b3d63d09cfa4e3"
+    },
+    {
+      "id": "REQ-25",
+      "section": "Требуемое поведение",
+      "item": 25,
+      "text_sha256": "c464ae1a21bdceba258f1aebef34e2b3e920d5e1c2eb68141df0bcf45850ed7f"
+    },
+    {
+      "id": "REQ-26",
+      "section": "Требуемое поведение",
+      "item": 26,
+      "text_sha256": "1e025bd02b9e5f7d7196bf509f43e177dad8667773186a580fd1871c3ea937e9"
+    },
+    {
+      "id": "REQ-27",
+      "section": "Требуемое поведение",
+      "item": 27,
+      "text_sha256": "82242a05919e999fde772f0abbd3efb0f4793c8044cc21354af34bd77aba3d8d"
+    },
+    {
+      "id": "REQ-28",
+      "section": "Требуемое поведение",
+      "item": 28,
+      "text_sha256": "5b30ce9493787d05bb00fe2c5c536a64d892efd90c19cf2d3bfdaa39eaac9a89"
+    },
+    {
+      "id": "REQ-29",
+      "section": "Требуемое поведение",
+      "item": 29,
+      "text_sha256": "50113df7bbcbbbd41c7f44dadd54a9e253bb6b0dd453b4f42ffa90ec163ab461"
+    },
+    {
+      "id": "REQ-30",
+      "section": "Требуемое поведение",
+      "item": 30,
+      "text_sha256": "88bf631aefcd62568eaa5c450b90ec68a57509ead03cd87b67ec115bf973e6f3"
+    },
+    {
+      "id": "AC-1",
+      "section": "Критерии приёмки",
+      "item": 1,
+      "text_sha256": "1876648361f6d790a4d3df2503d69c7bef5f6fd84ad041719796db85c775bd6a"
+    },
+    {
+      "id": "AC-2",
+      "section": "Критерии приёмки",
+      "item": 2,
+      "text_sha256": "e7eb8bbdf2f07b426f232984c5931741b5aaf730ee97e52c42b50576524ecbc9"
+    },
+    {
+      "id": "AC-3",
+      "section": "Критерии приёмки",
+      "item": 3,
+      "text_sha256": "6fa67f37835764699491490d4d80805f8f722f38b9960b939db209339d3e3412"
+    },
+    {
+      "id": "AC-4",
+      "section": "Критерии приёмки",
+      "item": 4,
+      "text_sha256": "a2c2f3438ed449988559e530d213d4ebafa8150ab676d30c1fcadb862e23f80b"
+    },
+    {
+      "id": "AC-5",
+      "section": "Критерии приёмки",
+      "item": 5,
+      "text_sha256": "08408f293d2a2654a1c2f200571c9fc66db8d3e28552df08c2c87805714246e9"
+    },
+    {
+      "id": "AC-6",
+      "section": "Критерии приёмки",
+      "item": 6,
+      "text_sha256": "d7b4c0cb0ec8319c589af82c02f4fcc91aaf8a9853087af94311903d1ee63769"
+    },
+    {
+      "id": "AC-7",
+      "section": "Критерии приёмки",
+      "item": 7,
+      "text_sha256": "20fea9d78e343f248462e0e3cf9906c7ac1648961d05b5d9bb31ace2fd2219f1"
+    },
+    {
+      "id": "AC-8",
+      "section": "Критерии приёмки",
+      "item": 8,
+      "text_sha256": "464129fd58793b42b92d457947971adaeadd2fb9100914516f9a9a9d37ccdbe7"
+    },
+    {
+      "id": "AC-9",
+      "section": "Критерии приёмки",
+      "item": 9,
+      "text_sha256": "2f9408f68af985526a9aff27d3c99c2f0a42177b8e4de3ee7ed461a25da10843"
+    },
+    {
+      "id": "AC-10",
+      "section": "Критерии приёмки",
+      "item": 10,
+      "text_sha256": "d8416fa5e5b6f1398099c8f3d930052ca8b358c5bc3a7aeca15d24e83e9d969b"
+    },
+    {
+      "id": "AC-11",
+      "section": "Критерии приёмки",
+      "item": 11,
+      "text_sha256": "f3de90b32dfb3b347612ad1f92d0e41efb683f447c0d7e527810946b5d25ee32"
+    },
+    {
+      "id": "AC-12",
+      "section": "Критерии приёмки",
+      "item": 12,
+      "text_sha256": "0af5549227bc07fa6d0bfba592507df1211c6aea497256bccf51d3d235f430ca"
+    },
+    {
+      "id": "AC-13",
+      "section": "Критерии приёмки",
+      "item": 13,
+      "text_sha256": "77b51adc877b44cfcddafdd6ca710c9097dfefb7e5d9b3005656bab6e32acf05"
+    },
+    {
+      "id": "AC-14",
+      "section": "Критерии приёмки",
+      "item": 14,
+      "text_sha256": "a35e5ecd6e1b3f1db85fd46e0d8d1e013c7c1e64c9315d45908c084b5ed01b8e"
+    },
+    {
+      "id": "AC-15",
+      "section": "Критерии приёмки",
+      "item": 15,
+      "text_sha256": "11773267f5d2a388b24c84c40d5675b4826dda8710043dacf78ffb57b006336a"
+    },
+    {
+      "id": "AC-16",
+      "section": "Критерии приёмки",
+      "item": 16,
+      "text_sha256": "0c2b098c56bc889c922becdc02ca792c92a3eb52012a200c1943709647ca8a3f"
+    },
+    {
+      "id": "NG-1",
+      "section": "Не делать",
+      "item": 1,
+      "text_sha256": "76d5767f146606bbf2db1eb2133f78070a8b67810e7552194ea2ce6a888d237a"
+    },
+    {
+      "id": "NG-2",
+      "section": "Не делать",
+      "item": 2,
+      "text_sha256": "b4114f1e15e405312369bad98a0ec693e4db23dc4ef20bcbe0e38152a1895461"
+    },
+    {
+      "id": "NG-3",
+      "section": "Не делать",
+      "item": 3,
+      "text_sha256": "fa929d50d85f27436909b363e05030030c75155e2e47833a502facd1b4e2ca39"
+    },
+    {
+      "id": "NG-4",
+      "section": "Не делать",
+      "item": 4,
+      "text_sha256": "120548f9f1fd0dc4ec46c5a08cc74480c34f87d97b5631ea23a3c85751b92e97"
+    },
+    {
+      "id": "NG-5",
+      "section": "Не делать",
+      "item": 5,
+      "text_sha256": "726abc96f085ec00534c33dd41c8afb976e61be51d455a99aa0d74bf7ded1e71"
+    },
+    {
+      "id": "NG-6",
+      "section": "Не делать",
+      "item": 6,
+      "text_sha256": "9675ab935006d94c69d5e707c89578644a778c76920ed9f082f9de1f11010597"
+    },
+    {
+      "id": "NG-7",
+      "section": "Не делать",
+      "item": 7,
+      "text_sha256": "88bdc4293abcf5abf1fcad3d620221334b542a115ca28e84466291386426373a"
+    }
+  ]
+}

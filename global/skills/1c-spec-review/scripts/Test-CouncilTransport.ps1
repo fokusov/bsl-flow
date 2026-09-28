@@ -251,6 +251,53 @@ try {
     Assert-Throws { Invoke-BSLFlowCouncilApi -Binding (New-Binding) -PromptText 'hi' -Credential 't' -AttemptDir (Join-Path $tempRoot 'cancel') -CancellationToken $cancelSource.Token -HttpSend { throw 'sender must not run after pre-dispatch cancellation' } } 'NOT_DISPATCHED' 'pre-dispatch cancellation prevents the sender call'
     $cancelSource.Dispose()
 
+    # Anthropic Messages protocol: forced submit_review tool use, x-api-key auth.
+    . (Join-Path $skill 'scripts\Council.Common.ps1')
+    $anthropicPolicy = Get-BSLFlowCouncilPolicy "llm:`n  providers:`n    anthropic:`n      protocol: anthropic_messages`n"
+    Assert-True ([string]$anthropicPolicy.providers.anthropic.protocol -ceq 'anthropic_messages' -and [string]$anthropicPolicy.providers.anthropic.base_url -ceq 'https://api.anthropic.com' -and [string]$anthropicPolicy.providers.anthropic.token_env -ceq 'ANTHROPIC_API_KEY') 'policy accepts anthropic_messages with the known endpoint and ANTHROPIC_API_KEY default'
+    Assert-Throws { Get-BSLFlowCouncilPolicy "llm:`n  providers:`n    x:`n      protocol: Anthropic_Messages`n      base_url: https://x.example`n" } 'Invalid protocol' 'protocol names are case-sensitive'
+    $anthBinding = [pscustomobject][ordered]@{
+        provider = 'anthropic'; model = 'claude-fixture'; effort = 'high'; protocol = 'anthropic_messages'
+        endpoint = [pscustomobject][ordered]@{ scheme = 'https'; host = 'api.anthropic.com'; port = 443; base_path = '/' }
+    }
+    $memberSchema = [ordered]@{ type = 'object'; required = @('role'); properties = [ordered]@{ role = [ordered]@{ type = 'string'; enum = @('intent_critic') } } }
+    $anthReq = Get-BSLFlowCouncilApiRequest -Binding $anthBinding -PromptText 'sealed prompt' -OutputSchema $memberSchema
+    Assert-True ([string]$anthReq.path -ceq '/v1/messages' -and [int]$anthReq.body.max_tokens -eq 16384 -and $anthReq.body.system -and [string]$anthReq.body.messages[0].role -ceq 'user' -and [string]$anthReq.body.messages[0].content -ceq 'sealed prompt') 'anthropic request carries model, max_tokens, system and one user message'
+    Assert-True ([string]$anthReq.body.tools[0].name -ceq 'submit_review' -and $anthReq.body.tools[0].input_schema -eq $memberSchema -and [string]$anthReq.body.tool_choice.type -ceq 'tool' -and [string]$anthReq.body.tool_choice.name -ceq 'submit_review') 'anthropic structured output is a forced submit_review tool with the role schema'
+    Assert-True (-not $anthReq.body.Contains('thinking') -and -not $anthReq.body.Contains('reasoning_effort')) 'named effort is not mapped for anthropic_messages (model default applies)'
+    $anthIntBinding = $anthBinding.PSObject.Copy(); $anthIntBinding.effort = '2048'
+    Assert-True ([int](Get-BSLFlowCouncilApiRequest -Binding $anthIntBinding -PromptText 'p').body.max_tokens -eq 2048) 'integer effort stays the anthropic max_tokens cap'
+    $anthHeaders = Get-BSLFlowCouncilApiHeaders -Protocol 'anthropic_messages' -Credential 'sk-ant-fixture'
+    Assert-True ([string]$anthHeaders['x-api-key'] -ceq 'sk-ant-fixture' -and [string]$anthHeaders['anthropic-version'] -ceq '2023-06-01' -and -not $anthHeaders.Contains('Authorization')) 'anthropic headers use x-api-key and anthropic-version, never a bearer token'
+
+    $anthBody = '{"id":"msg_1","type":"message","role":"assistant","model":"claude-fixture-20260101","content":[{"type":"text","text":"Submitting."},{"type":"tool_use","id":"toolu_1","name":"submit_review","input":{"role":"intent_critic","verdict":"PASS","findings":[],"do_not_change":["2026-09-01T00:00:00Z keep"]}}],"stop_reason":"tool_use","usage":{"input_tokens":120,"cache_creation_input_tokens":30,"cache_read_input_tokens":50,"output_tokens":42}}'
+    $anthSeenBox = @{}
+    $anthSend = { param($u, $b, $t, $to, $max, $ct, $h) $anthSeenBox['seen'] = [ordered]@{ url = $u; body = $b; headers = $h }; [pscustomobject][ordered]@{ status = 200; body = $anthBody } }.GetNewClosure()
+    $anthResult = Invoke-BSLFlowCouncilApi -Binding $anthBinding -PromptText 'hi' -Credential 'sk-ant-fixture' -AttemptDir (Join-Path $tempRoot 'anth-ok') -OutputSchema $memberSchema -HttpSend $anthSend
+    $anthSeen = $anthSeenBox['seen']
+    Assert-True ([string]$anthSeen.url -ceq 'https://api.anthropic.com:443/v1/messages' -and [string]$anthSeen.headers['x-api-key'] -ceq 'sk-ant-fixture') 'anthropic dispatch posts to {base_url}/v1/messages with x-api-key'
+    Assert-True (($anthSeen.body | ConvertFrom-Json).tools[0].input_schema.properties.role.enum[0] -ceq 'intent_critic') 'role schema reaches the wire as the tool input_schema'
+    Assert-True ([string]$anthResult.payload.verdict -ceq 'PASS' -and [string]$anthResult.payload.role -ceq 'intent_critic') 'tool_use input is the role payload'
+    Assert-True ([string]@($anthResult.payload.do_not_change)[0] -ceq '2026-09-01T00:00:00Z keep') 'tool_use input strings are taken verbatim'
+    Assert-True ([string]$anthResult.observed_model -ceq 'claude-fixture-20260101') 'anthropic observed model comes from the message envelope'
+    Assert-True ([long]$anthResult.usage.input_tokens -eq 200 -and [long]$anthResult.usage.output_tokens -eq 42) 'anthropic usage maps to ledger input_tokens (incl. cache) and output_tokens'
+    Assert-True ((Get-Content -Raw -LiteralPath (Join-Path $tempRoot 'anth-ok/request-meta.json')) -notmatch 'sk-ant-fixture') 'anthropic request metadata excludes the credential'
+
+    $noToolSend = { param($u, $b, $t, $to) [pscustomobject][ordered]@{ status = 200; body = '{"id":"msg_2","type":"message","role":"assistant","model":"claude-fixture","content":[{"type":"text","text":"{\"role\":\"intent_critic\",\"verdict\":\"PASS\"}"}],"stop_reason":"end_turn","usage":{"input_tokens":1,"output_tokens":1}}' } }
+    $noToolError = $null
+    try { $null = Invoke-BSLFlowCouncilApi -Binding $anthBinding -PromptText 'hi' -Credential 'sk-ant-fixture' -AttemptDir (Join-Path $tempRoot 'anth-notool') -HttpSend $noToolSend } catch { $noToolError = [string]$_.Exception.Message }
+    Assert-True ($noToolError -match '^BF_INVALID_RESPONSE: anthropic response carries no submit_review tool_use block; schema error') 'missing tool_use is a schema error (invalid_response), not a generic failure'
+    $noToolDiagnostic = Get-Content -Raw -LiteralPath (Join-Path $tempRoot 'anth-notool/diagnostic.json') | ConvertFrom-Json
+    Assert-True ([string]$noToolDiagnostic.code -ceq 'BF_INVALID_RESPONSE') 'missing tool_use diagnostic is classified as invalid response'
+    $wrongToolSend = { param($u, $b, $t, $to) [pscustomobject][ordered]@{ status = 200; body = '{"type":"message","model":"m","content":[{"type":"tool_use","id":"t","name":"other_tool","input":{}}],"stop_reason":"tool_use"}' } }
+    Assert-Throws { Invoke-BSLFlowCouncilApi -Binding $anthBinding -PromptText 'hi' -Credential 'k' -AttemptDir (Join-Path $tempRoot 'anth-wrongtool') -HttpSend $wrongToolSend } 'no submit_review tool_use' 'a tool_use for another tool is not a result'
+    $truncatedSend = { param($u, $b, $t, $to) [pscustomobject][ordered]@{ status = 200; body = '{"type":"message","model":"m","content":[{"type":"tool_use","id":"t","name":"submit_review","input":{"role":"intent_critic"}}],"stop_reason":"max_tokens"}' } }
+    Assert-Throws { Invoke-BSLFlowCouncilApi -Binding $anthBinding -PromptText 'hi' -Credential 'k' -AttemptDir (Join-Path $tempRoot 'anth-trunc') -HttpSend $truncatedSend } 'stop_reason must be tool_use' 'truncated anthropic message is not terminal'
+    $anthDenied = { param($u, $b, $t, $to) [pscustomobject][ordered]@{ status = 400; body = '{"type":"error","error":{"type":"invalid_request_error","message":"bad"}}' } }
+    Assert-Throws { Invoke-BSLFlowCouncilApi -Binding $anthBinding -PromptText 'hi' -Credential 'k' -AttemptDir (Join-Path $tempRoot 'anth-400') -HttpSend $anthDenied } 'FAILED_BEFORE_ACCEPTANCE' 'anthropic 4xx is failed before acceptance'
+    $anthOverloaded = { param($u, $b, $t, $to) [pscustomobject][ordered]@{ status = 529; body = '{"type":"error","error":{"type":"overloaded_error","message":"busy"}}' } }
+    Assert-Throws { Invoke-BSLFlowCouncilApi -Binding $anthBinding -PromptText 'hi' -Credential 'k' -AttemptDir (Join-Path $tempRoot 'anth-529') -HttpSend $anthOverloaded } 'UNKNOWN_AFTER_DISPATCH' 'anthropic overload (5xx) is unknown after dispatch'
+
     # Real loopback HTTP transport. The server captures the request before
     # replying, so these checks exercise the built-in HttpClient sender rather
     # than only the injectable mock path above.
@@ -299,6 +346,31 @@ try {
         Assert-True ((Get-Content -Raw -LiteralPath (Join-Path $compatibleAttempt 'request-meta.json')) -notmatch [regex]::Escape($loopbackCredential)) 'compatible request metadata excludes the credential'
     }
     finally { Stop-CouncilLoopbackServer $compatibleJob }
+
+    # Real HttpClient sender for anthropic_messages: exact protocol headers, no bearer.
+    $anthropicPort = Get-CouncilFreeLoopbackPort
+    $anthropicReady = Join-Path $loopbackRoot 'anthropic-ready'
+    $anthropicHeaders = Join-Path $loopbackRoot 'anthropic-headers.txt'
+    $anthropicRequest = Join-Path $loopbackRoot 'anthropic-request.json'
+    $anthropicBody = '{"id":"msg_loop","type":"message","role":"assistant","model":"claude-loopback","content":[{"type":"tool_use","id":"toolu_loop","name":"submit_review","input":{"role":"architecture_critic","verdict":"PASS"}}],"stop_reason":"tool_use","usage":{"input_tokens":7,"output_tokens":3}}'
+    $anthropicJob = $null
+    try {
+        $anthropicJob = Start-CouncilLoopbackServer -Port $anthropicPort -ReadyPath $anthropicReady -HeadersPath $anthropicHeaders -BodyPath $anthropicRequest -StatusCode 200 -ResponseBody $anthropicBody
+        $anthropicLoopBinding = [pscustomobject][ordered]@{
+            provider = 'loopback'; model = 'claude-loopback'; effort = 'high'; protocol = 'anthropic_messages'
+            endpoint = [pscustomobject][ordered]@{ scheme = 'http'; host = '127.0.0.1'; port = $anthropicPort; base_path = '/' }
+        }
+        $anthropicAttempt = Join-Path $loopbackRoot 'anthropic-attempt'
+        $anthropicResult = Invoke-BSLFlowCouncilApi -Binding $anthropicLoopBinding -PromptText 'loopback anthropic' -Credential $loopbackCredential -AttemptDir $anthropicAttempt -TimeoutSeconds 5 -MaxInputBytes 65536 -MaxOutputBytes 16384
+        $anthropicHeadersText = Get-Content -Raw -LiteralPath $anthropicHeaders
+        $anthropicRequestObject = Get-Content -Raw -LiteralPath $anthropicRequest | ConvertFrom-Json
+        Assert-True ($anthropicResult.payload.verdict -eq 'PASS' -and [long]$anthropicResult.usage.input_tokens -eq 7) 'loopback anthropic tool_use result completes'
+        Assert-True ($anthropicHeadersText -match '(?im)^POST /v1/messages HTTP/1\.1\r?$') 'loopback anthropic path reaches the wire'
+        Assert-True ($anthropicHeadersText -match ('(?im)^x-api-key: ' + [regex]::Escape($loopbackCredential) + '\r?$') -and $anthropicHeadersText -match '(?im)^anthropic-version: 2023-06-01\r?$') 'loopback anthropic sends x-api-key and anthropic-version'
+        Assert-True ($anthropicHeadersText -notmatch '(?im)^Authorization:' -and $anthropicHeadersText -match '(?im)^Content-Type: application/json\r?$') 'loopback anthropic sends no bearer header and a plain JSON content type'
+        Assert-True ([string]$anthropicRequestObject.tool_choice.name -ceq 'submit_review' -and [string]$anthropicRequestObject.messages[0].content -ceq 'loopback anthropic') 'loopback anthropic request keeps the forced tool contract'
+    }
+    finally { Stop-CouncilLoopbackServer $anthropicJob }
 
     # Input is rejected before a socket is opened; output is drained through a
     # bounded stream and is never persisted as an unbounded raw response.

@@ -1,35 +1,46 @@
 ---
 name: 1c-estimate
-description: Estimate a finalized 1C OpenSpec change as min/max forks in man-hours (middle developer, 3 years, full cycle) and AI agent-hours, writing estimate.md and estimate.json sidecars beside the spec.
+description: Estimate a finalized 1C OpenSpec change as min/max forks in man-hours (middle developer, 3 years, full cycle) and AI agent-hours, writing estimate.md and estimate.json beside the spec. Use when the user asks how long a specified 1C change will take or for an effort estimate.
 ---
 
 # 1c-estimate
 
-Assisted skill: builds a consultative effort estimate for a finalized 1C change. The estimate is not a stage, gate or authorization of the controller, does not change task lifecycle, and calls no external services beyond the current session model.
+Assisted, consultative skill. The estimate is not a stage, gate or authorization of the controller, leaves the task lifecycle unchanged, and uses only the current session model.
 
-## Preconditions
+## When to use
 
-1. The OpenSpec change (schema `bsl-flow`) contains `spec.md`.
-2. Final validation passed: `final-validation.json` with `passed=true`. For an S change with low/medium risk that requires no external review, a passed lint (`spec-lint.json` with `passed=true`) is the final validation. Otherwise refuse with the exact reason; preliminary estimates are forbidden.
-3. Unclosed BLOCK findings make the estimate impossible (a passed final validation already proves closure; the lint path has no review by construction).
-4. Material unknowns refuse the estimate: an unknown that changes scope, architecture, metadata object composition or needs separate agreement — check the `Неопределённости / допущения` section of the spec; examples: unknown data-migration volume, undefined integration, missing rights requirements.
-5. Spike detection: if the task is explicitly marked as research/spike in `original-task.md`/`spec.md` or the user explicitly asks for a timebox, produce `kind=timebox` (no blocks, totals, exclusions or forks; a single `timebox_hours`), never a fork.
+- The user asks for an effort estimate of a 1C change that has a finalized spec.
+- The user asks for a timebox for an explicitly marked research/spike task.
 
-## Procedure
+## Inputs
 
-1. Read `spec.md` plus `design.md`/`original-task.md` when present; take the classification (S/M/L × low/medium/high) from the spec.
-2. Decompose into work blocks by requirements and acceptance criteria (metadata objects, modules/code, forms, rights, integrations/BSP, data migrations, tests, instructions). Every block gets its own human/ai forks and a justification; human hours are full-cycle hours (the phase shares from [references/anchors.md](references/anchors.md) are already inside the block fork). A block that cannot be estimated from the spec goes to `exclusions` with a reason. A single-number estimate without decomposition is forbidden.
-3. Start from the anchor for the classification ([references/anchors.json](references/anchors.json)), adjust with decomposition evidence. The `external_artifact` and `posting` request flags deterministically raise the AI anchor before divergence (modifiers in [references/anchors.json](references/anchors.json), explained in [references/anchors.md](references/anchors.md)); record the flags verbatim in `fork_drivers`. If any total boundary still deviates from its anchor by more than 30%, `estimate.md` must contain a `## Расхождение с якорем` section that names every divergent boundary (for example `ai_min`) with its exact percent — the validator recomputes the percents and rejects sections that state other numbers or omit a divergent boundary.
-4. `ai_basis`: defaults are `gpt-6-astra` / effort `medium` / attempts 1–4 (constants of this skill, not config); record the actually assumed values and the expected attempts fork.
-5. Record confidence `high|medium|low`, assumptions, and fork drivers — include the applicable request flags (`permissions`, `data_migration`, `data_deletion`, `posting`, `data_exchange`, `form_flow`, `external_artifact`, `ambiguous_business_rule`). Uncalibrated anchors are themselves a reason not to claim high confidence.
-6. Write `estimate.json` exactly per [references/estimate-schema.json](references/estimate-schema.json) (closed schema, `schema_version: 1`, `status: final`; rounding: human and timebox 0.5 h, ai 0.25 h; totals are the conservative sums of blocks). Write `estimate.md` with the same input hashes and creation timestamp, the blocks table, the phase multipliers used, totals, confidence, assumptions, drivers, exclusions and (when divergent) the anchor-explanation section.
-7. Validate deterministically: `scripts/Test-1CEstimate.ps1 -ChangePath <change-dir>`. It must pass; fix and re-run otherwise. It re-checks the gate, schema, sums, rounding, hashes, anchor divergence (with the request-flag AI modifiers applied) and cross-checks the percents stated in the explanation section against its own computation.
-8. Answer in chat with: both total forks (or the timebox), confidence, the top fork drivers, and the path to `estimate.md`.
+`spec.md`, plus `design.md` and `original-task.md` when present, and `final-validation.json` (or `spec-lint.json` for an S low/medium-risk change without required review). Detailed rules: [estimate-rules.md](references/estimate-rules.md); anchors: [anchors.md](references/anchors.md), [anchors.json](references/anchors.json).
 
-## Staleness and plan/fact
+## Steps
 
-On any later read, compare the recorded hashes with the live files (`null` equals only `null`; a file appearing where `null` was recorded is a change). A stale estimate is never presented as current — regenerate it. `actuals` (`human_hours`, `ai_hours`, `attempts`, `source`, `recorded_at`) is filled later: agent facts from controller journals, human facts by the user; never auto-collected and never re-normalizing the plan in v1.
+1. Confirm the preconditions in estimate-rules.md: passed final validation (or passed lint for S), no open BLOCK finding, no material unknown. Result: go, or a refusal with the exact reason.
+2. Take the S/M/L × risk classification from the spec; for a marked spike or an explicit timebox request, switch to `kind=timebox`. Result: the estimate kind.
+3. Decompose by requirements and acceptance criteria into work blocks with human (full-cycle) and AI forks and a justification each; unestimable blocks go to `exclusions`. Result: the blocks table.
+4. Start from the classification anchor, apply the request-flag modifiers, adjust with decomposition evidence. For a total boundary more than 30% from its anchor, write the `## Расхождение с якорем` section with each exact percent. Result: totals and divergence notes.
+5. Set `ai_basis.model` (session model, else profile `estimate.ai_basis.model`, else `unknown`), confidence, assumptions and fork drivers with the applicable request flags. Result: the basis fields.
+6. Write `estimate.json` per [estimate-schema.json](references/estimate-schema.json) and `estimate.md` with the same input hashes. Result: both sidecars beside `spec.md`.
+7. Run `scripts/Test-1CEstimate.ps1 -ChangePath <change-dir>`; fix and rerun until it passes. Result: a passing validation.
+8. Answer with both total forks (or the timebox), confidence, the top fork drivers and the path to `estimate.md`.
 
-## Output
+## Outputs
 
-State the kind, both totals, confidence, main drivers, written artifacts and the validation verdict.
+`estimate.json`, `estimate.md`, and a short answer: kind, both totals, confidence, main drivers, written artifacts and the validation verdict.
+
+## Checks
+
+`Test-1CEstimate.ps1` passes. It re-checks the gate, schema, sums, rounding, hashes and anchor divergence (with the request-flag AI modifiers), and cross-checks the percents stated in the divergence section.
+
+## Stop and ask when
+
+- A material unknown (scope, architecture, metadata composition, or anything needing separate agreement) is open in `Неопределённости / допущения`.
+- A recorded estimate's hashes differ from the live files: regenerate it before presenting it.
+- The user wants actuals recorded: `actuals` is filled by the user or from controller journals.
+
+## Managed mode
+
+Inside a 1c-task stage, follow [references/stage-contract.md of 1c-task](../1c-task/references/stage-contract.md) instead.

@@ -1,0 +1,18 @@
+{
+  "name": "skillset",
+  "contract": "onec-ops/v1",
+  "capabilities": {
+    "metadata.inspect": { "entry": "Invoke-SkillsetOp.ps1", "mode": "agent_tool" },
+    "syntax.check": { "entry": "Invoke-SkillsetOp.ps1", "mode": "agent_tool" },
+    "static.bslls": { "entry": "Invoke-SkillsetOp.ps1", "mode": "agent_tool" },
+    "build.cf": { "entry": "Invoke-SkillsetOp.ps1", "mode": "agent_tool" },
+    "build.cfe": { "entry": "Invoke-SkillsetOp.ps1", "mode": "agent_tool" },
+    "build.epf": { "entry": "Invoke-SkillsetOp.ps1", "mode": "agent_tool" },
+    "extension.list": { "entry": "Invoke-SkillsetOp.ps1", "mode": "agent_tool" },
+    "extension.load": { "entry": "Invoke-SkillsetOp.ps1", "mode": "agent_tool", "requires_authorization": true },
+    "config.update": { "entry": "Invoke-SkillsetOp.ps1", "mode": "agent_tool", "requires_authorization": true },
+    "test.yaxunit": { "entry": "Invoke-SkillsetOp.ps1", "mode": "agent_tool", "requires_authorization": true },
+    "test.vanessa": { "entry": "Invoke-SkillsetOp.ps1", "mode": "agent_tool", "requires_authorization": true }
+  },
+  "detect": "Test-SkillsetAvailable.ps1"
+}

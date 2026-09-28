@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "review_sha256": "85bdbd8e9542aa5a3732adf51103feaaf73f9c98ac442cf07f6255b5c7bfc01c",
+  "draft_spec_sha256": "b9085d442a15853ffa2e60e92554f5b18f5840be62b9cbb438cd3a03a50c0802",
+  "final_spec_sha256": "b9085d442a15853ffa2e60e92554f5b18f5840be62b9cbb438cd3a03a50c0802",
+  "draft_design_sha256": null,
+  "final_design_sha256": null,
+  "reconciled_at_utc": "2026-09-27T00:00:00Z",
+  "summary": "SYNTHETIC/DEMO reconciliation fixture: no findings were fabricated, so the specification is unchanged.",
+  "decisions": [],
+  "do_not_change_checks": []
+}

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "review_sha256": "0451d94152d5cb0866a0d9d80fc8b634f1d0d840668e61acb640b689eb3f31d2",
+  "draft_spec_sha256": "b21d265f0e47dd78fedb9a5639fe1e640a6bc8422dc24fa36de49ee2d602ddd8",
+  "final_spec_sha256": "b21d265f0e47dd78fedb9a5639fe1e640a6bc8422dc24fa36de49ee2d602ddd8",
+  "draft_design_sha256": null,
+  "final_design_sha256": null,
+  "reconciled_at_utc": "2026-09-27T00:00:00Z",
+  "summary": "SYNTHETIC/DEMO reconciliation fixture: the empty finding list leaves the reviewed specification unchanged.",
+  "decisions": [],
+  "do_not_change_checks": []
+}

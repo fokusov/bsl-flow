@@ -1,0 +1,43 @@
+{
+  "date": "2026-09-26T10:15:00Z",
+  "sourceDir": "file:///C:/work/bsl-flow-static-current/src",
+  "fileinfos": [
+    {
+      "path": "file:///C:/work/bsl-flow-static-current/src/CommonModules/Utils/Module.bsl",
+      "mdoRef": "CommonModule.Utils",
+      "diagnostics": [
+        {
+          "range": {
+            "start": { "line": 42, "character": 8 },
+            "end": { "line": 42, "character": 29 }
+          },
+          "severity": "Error",
+          "code": "FunctionShouldHaveReturnDiagnostic",
+          "source": "bsl-language-server",
+          "message": "Function should always return a value",
+          "tags": null,
+          "relatedInformation": null
+        },
+        {
+          "range": {
+            "start": { "line": 10, "character": 0 },
+            "end": { "line": 10, "character": 12 }
+          },
+          "severity": "Warning",
+          "code": "UsingServiceTag",
+          "source": "bsl-language-server",
+          "message": "Using a service tag  in production code",
+          "tags": null,
+          "relatedInformation": null
+        }
+      ],
+      "metrics": {
+        "procedures": 3,
+        "functions": 2,
+        "ncloc": 58,
+        "covLines": 0,
+        "cognitiveComplexity": 4
+      }
+    }
+  ]
+}

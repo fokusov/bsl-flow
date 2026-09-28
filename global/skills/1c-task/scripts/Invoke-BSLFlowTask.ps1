@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidateSet('Start','Status','Next','Context','Run','Record','Update','Accept','Resume','Cancel','Deliver','Serve','Publish','PublishResume','Create','EditRegistry','List','Show','History','Overview','ArchiveTask','UnarchiveTask','Activate')][string]$Action,
+    [Parameter(Mandatory)][string]$Action,
     [Parameter(Mandatory)][string]$ProjectPath,
     [string]$TaskId,
     [string]$InputFile,
@@ -24,7 +24,9 @@ param(
     [string]$Sort,
     [string]$Order,
     [int]$Limit=0,
-    [string]$Cursor
+    [string]$Cursor,
+    [string]$DispatchId,
+    [string]$ResultFile
 )
 
 Set-StrictMode -Version Latest
@@ -37,10 +39,14 @@ foreach($module in @('Task.Storage.ps1','Task.Registry.ps1','Task.Contracts.ps1'
 . (Join-Path (Split-Path $PSScriptRoot -Parent) 'adapters/Codex.ps1')
 . (Join-Path (Split-Path $PSScriptRoot -Parent) 'adapters/OpenCode.ps1')
 . (Join-Path (Split-Path $PSScriptRoot -Parent) 'adapters/ProfiledCodex.ps1')
+. (Join-Path (Split-Path $PSScriptRoot -Parent) 'adapters/ClaudeCode.ps1')
+. (Join-Path (Split-Path $PSScriptRoot -Parent) 'adapters/CurrentAgent.ps1')
 . (Join-Path $PSScriptRoot 'Task.ManagedReview.ps1')
 
-$code=0;$state=$null;$delivery=$null;$registryHandled=$false
+$script:BFKnownActions=@('Start','Status','Next','Context','Run','Record','Update','Accept','Resume','Cancel','Deliver','Serve','Publish','PublishResume','Create','EditRegistry','List','Show','History','Overview','ArchiveTask','UnarchiveTask','Submit')
+$code=0;$state=$null;$delivery=$null;$registryHandled=$false;$promptHandled=$false
 try {
+    if($Action -cnotin $script:BFKnownActions){throw ('BF_INVALID: unknown action ''{0}''.' -f $Action)}
     if($RuntimeAuth){
         if($Action -notin @('Run','Resume','Update','Serve')){throw 'BF_INVALID: runtime auth is only valid for execution or recovery.'}
         if(-not [Console]::IsInputRedirected){throw 'BF_INVALID: runtime auth requires a private redirected stdin pipe.'}
@@ -58,7 +64,7 @@ try {
         $authLine=$null;$auth=$null
     }
     $ProjectPath=Assert-BFSafePath $ProjectPath
-    if($Action -in @('Create','EditRegistry','List','Show','History','Overview','ArchiveTask','UnarchiveTask','Activate')){
+    if($Action -in @('Create','EditRegistry','List','Show','History','Overview','ArchiveTask','UnarchiveTask')){
         # Repository task registry (schema/store v1). The registry command owns
         # its output contract (one versioned JSON document, or Human text) and
         # its exit codes: 0 success, 2 BF_INVALID, 11 BF_BLOCKED/BF_CONFLICT.
@@ -86,11 +92,11 @@ try {
         $state=Start-BFTask $ProjectPath (Read-BFJson $InputFile)
     } else {
         Assert-BFUuid $TaskId
-        if($Action -in @('Run','Resume','Next') -and (Test-BFRegistryPlannedTask -ProjectPath $ProjectPath -TaskId $TaskId)){
-            # A planned repository task has no execution authorization: the
-            # controller write slice (activation) is not declared yet, so the
+        if($Action -in @('Run','Resume','Next','Submit') -and (Test-BFRegistryPlannedTask -ProjectPath $ProjectPath -TaskId $TaskId)){
+            # A planned repository task has no execution authorization: there
+            # is no controller action to move it out of `planned`, so the
             # run path must never start an attempt for it.
-            throw ('BF_BLOCKED: task {0} is planned in the repository task registry and activation is not yet declared; the {1} path will not start it.' -f $TaskId,$Action)
+            throw ('BF_BLOCKED: task {0} is planned in the repository task registry and has no execution authorization; the {1} path will not start it.' -f $TaskId,$Action)
         }
         switch($Action){
             'Update'{if(-not $InputFile){throw 'BF_INVALID: Update requires -InputFile.'};$state=Update-BFTask $ProjectPath $TaskId (Read-BFJson $InputFile)}
@@ -100,6 +106,8 @@ try {
             'Resume'{$state=Resume-BFAttempt $ProjectPath $TaskId;$state=Invoke-BFRun $ProjectPath $TaskId $CodexPath}
             'Run'{$state=Invoke-BFRun $ProjectPath $TaskId $CodexPath}
             'Deliver'{$delivery=Export-BFTaskDelivery $ProjectPath $TaskId;$state=Read-BFTask $ProjectPath $TaskId}
+            'Submit'{if(@($Stage).Count -ne 1){throw 'BF_INVALID: Submit requires exactly one -Stage.'};$state=Submit-BFCurrentAgentResult -ProjectPath $ProjectPath -TaskId $TaskId -Stage $Stage[0] -DispatchId $DispatchId -ResultFile $ResultFile}
+            'Next'{if($Format -ceq 'Prompt'){$envelope=New-BFCurrentAgentDispatch $ProjectPath $TaskId;$promptHandled=$true}else{$state=Read-BFTask $ProjectPath $TaskId}}
             default{$state=Read-BFTask $ProjectPath $TaskId}
         }
     }
@@ -107,11 +115,13 @@ try {
         # Pure read-only projection: it resolves the ADR source and includes
         # Get-BFNext internally; it writes nothing.
         $envelope=Get-BFTaskContext $state $ProjectPath
-    } elseif(-not $registryHandled -and $Action -notin @('Serve','Publish','PublishResume')){
+    } elseif(-not $registryHandled -and -not $promptHandled -and $Action -notin @('Serve','Publish','PublishResume')){
         $next=Get-BFNext $state
         $envelope=New-BFEnvelope $state $next.action @($next.blockers) $next.stage
         if($null -ne $delivery){$envelope.delivery=$delivery}
+        if($Action -eq 'Submit'){$last=@($state.evidence)[-1];$envelope.submitted=[ordered]@{attempt_id=$last.attempt_id;stage=$last.stage;outcome=$last.outcome;summary=$last.summary;isolation='current_agent'}}
     }
+    if($Action -eq 'Submit'){$code=switch($state.status){'ready'{0}'completed'{0}'needs_input'{10}'failed'{12}'cancelled'{13}default{11}}}
     if($Action -in @('Run','Resume','Accept')){
         $code=switch($state.status){'completed'{0}'needs_input'{10}'failed'{12}'cancelled'{13}default{11}}
     }
@@ -126,7 +136,7 @@ try {
         $envelope=[ordered]@{schema_version=1;task_id=$TaskId;revision=$null;status=if($code -eq 12){'failed'}else{'blocked'};stage=$null;next_action='inspect_blocker';blockers=@($reason);evidence_refs=@()}
     }
     # Read-only commands expose corrupted/unavailable state in the envelope, never PASS.
-    if($Action -in @('Status','Next','Context') -and $code -eq 11){$code=0}
+    if($Action -in @('Status','Next','Context') -and $code -eq 11 -and $Format -cne 'Prompt'){$code=0}
 }
 if(-not $registryHandled){ Write-Output ($envelope|ConvertTo-Json -Depth 64 -Compress) }
 if($null -ne (Get-Variable BFNativeCredential -Scope Script -ErrorAction SilentlyContinue)){

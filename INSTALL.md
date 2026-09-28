@@ -1,10 +1,17 @@
-# Установка BSL Flow 0.8.0-dev.4
+# Установка BSL Flow 0.9.0-dev.1
 
 Установка framework не загружает расширения в базы.
 
+## Core и Managed
+
+Для обычной assisted-работы установи Core: `./scripts/Install-BSLFlowCore.ps1 -Host codex` (либо `claude`, `opencode`, `agents`). Начни с `-WhatIf`. Для Managed затем используй `Install-BSLFlowManaged.ps1`; он проверяет receipt установленного Core. Полный legacy-маршрут `Install-BSLFlow.ps1` сохранён. Подробности backup/rollback и перехода с 0.8 — [миграция](docs/MIGRATION_0.9_RU.md).
+
+`Build-BSLFlowPackage.ps1 -Package core|managed|full` выбирает поставку. CI-матрица Core рассчитана на Windows/Linux/macOS; факт её выполнения и реальные host/runtime-пилоты проверяются отдельно.
+
+Протокол Council `anthropic_messages` использует forced `tool_choice`. Выбери модель, поддерживающую принудительный вызов инструмента: HTTP 400 при его отклонении — ошибка совместимости провайдера. Укажи другой проверенный model ID в пользовательском профиле; не отключай валидацию результата. Конкретные доступные модели зависят от аккаунта и не зашиты в генератор профиля.
 ## Запуск задач
 
-Единственный пользовательский вход — PowerShell-контроллер. Зависимости движка перечислены в требованиях ниже.
+Core использует отдельные skills. Для явно запрошенной Managed-задачи входом служит PowerShell-контроллер; зависимости движка перечислены ниже.
 
 ```powershell
 & "$env:USERPROFILE\.agents\skills\1c-task\scripts\Invoke-BSLFlowTask.ps1" -Action Start -ProjectPath C:\PRJ\client\project -InputFile C:\Tasks\request.json
@@ -17,12 +24,22 @@
 
 ## Требования
 
-- PowerShell 7 с машинной установкой `C:\Program Files\PowerShell\7\pwsh.exe`;
+- Core: PowerShell 7 из PATH на Windows/Linux/macOS; Managed: Windows с машинной установкой `C:\Program Files\PowerShell\7\pwsh.exe`;
 - Git;
 - Node.js 20.19 или новее;
 - OpenSpec CLI;
-- Codex;
+- выбранный хост (Codex, Claude Code или OpenCode);
 - credentials совета: API-ключ в переменной окружения из `token_env` провайдера (например, `DEEPSEEK_API_KEY`) либо `token`/`base_url` в незакоммиченном `.bsl-flow/providers.local.yaml`.
+
+M-маршрут ревью спеки (`review.reviewer.provider`) не требует Codex/OpenCode жёстко — провайдер выбирается в `bsl-flow.yaml`. Установщик по умолчанию проверяет `opencode`, если он единственный сконфигурированный провайдер:
+
+- `opencode` (для OpenCode-хоста) — требует OpenCode CLI в `PATH`;
+- `claude_cli` — использует установленный `claude` CLI в режиме без записи (`--allowedTools`/`--disallowedTools`);
+- `codex_exec` — использует `codex exec --sandbox read-only`, тот же CLI, что и managed-адаптер;
+- `api` — один вызов через транспорт совета (`llm.models`/`llm.providers`), без OpenCode/Codex;
+- `claude_subagent` — assisted-режим: подсказка запустить пакетный сабагент и импортировать его JSON через `-ImportRaw`.
+
+Если OpenCode не установлен или не нужен, передай `Install-BSLFlow.ps1 -SkipOpenCodeReviewer`.
 
 Для полного регрессионного набора пакета дополнительно нужен .NET SDK 5 или новее: тесты компилируют маленький имитатор reviewer и не обращаются к платной модели. Для повседневной работы skills SDK не нужен. Проверки запускай через `scripts/Test-BSLFlowPackage.ps1`; они не запускают 1С и не заменяют приёмку в тестовой базе.
 
@@ -31,8 +48,8 @@
 По умолчанию package suite работает offline: не проверяет реальные credentials/model catalog и не делает model calls. Дополнительные проверки установленного host-окружения включаются отдельно:
 
 ```powershell
-.\scripts\Test-BSLFlowPackage.ps1 -PackageRoot .
-.\scripts\Test-BSLFlowPackage.ps1 -PackageRoot . -HostChecks
+.\scripts\Test-BSLFlowPackage.ps1 -PackageRoot (Get-Location).Path
+.\scripts\Test-BSLFlowPackage.ps1 -PackageRoot (Get-Location).Path -HostChecks
 ```
 
 `-HostChecks` читает текущую host-конфигурацию и завершается с явной причиной, если CLI, установленная skill или model недоступны. Он также не выполняет платный model call и не запускает 1С.
@@ -40,13 +57,13 @@
 ## Воспроизводимая сборка пакета
 
 ```powershell
-.\scripts\Build-BSLFlowPackage.ps1 -PackageRoot .
-.\scripts\Build-BSLFlowPackage.ps1 -PackageRoot . -Test
+.\scripts\Build-BSLFlowPackage.ps1 -PackageRoot (Get-Location).Path
+.\scripts\Build-BSLFlowPackage.ps1 -PackageRoot (Get-Location).Path -Test
 ```
 
-Build создаёт `outputs\BSL-Flow-0.8.0-dev.4.zip`, внешний файл `.sha256` и внутренний `package-manifest.json` с SHA-256 каждого файла. Пути архива сортируются, timestamps фиксируются; `.git`, `.bsl-flow`, `work` и `outputs` в пакет не входят. Повторная сборка тем же PowerShell runtime должна дать тот же SHA-256. `-Test` повторяет сборку, распаковывает точный ZIP во временный каталог, сверяет manifest и запускает offline package suite из распакованного artifact. Установка в глобальные каталоги при этом не выполняется.
+Build создаёт `outputs\BSL-Flow-0.9.0-dev.1.zip`, внешний файл `.sha256` и внутренний `package-manifest.json` с SHA-256 каждого файла. Пути архива сортируются, timestamps фиксируются; `.git`, `.bsl-flow`, `work` и `outputs` в пакет не входят. Повторная сборка тем же PowerShell runtime должна дать тот же SHA-256. `-Test` повторяет сборку, распаковывает точный ZIP во временный каталог, сверяет manifest и запускает offline package suite из распакованного artifact. Установка в глобальные каталоги при этом не выполняется.
 
-Build entrypoint, установщик, task CLI и offline suite требуют PowerShell 7. Используется стандартная машинная установка `C:\Program Files\PowerShell\7\pwsh.exe`; fallback на Windows PowerShell 5.1 не предусмотрен.
+Build и Core требуют PowerShell 7 из PATH. Managed сохраняет стандартную Windows-установку `C:\Program Files\PowerShell\7\pwsh.exe`; Windows PowerShell 5.1 не поддерживается.
 
 Базовая проверенная комбинация: OpenSpec `1.11.0`. Результаты сборки и принятые решения — в [CHANGELOG.md](CHANGELOG.md).
 
@@ -76,7 +93,8 @@ Set-ExecutionPolicy -Scope Process Bypass
 Установщик:
 
 - проверит packaged OpenSpec schema;
-- проверит эффективные права bounded read/file listing и sealed reviewer agents, включая запрет unrestricted grep;
+- если в `PATH` нет `opencode` и не передан `-SkipOpenCodeReviewer`, выведет предупреждение (не ошибку) о том, что для M-ревью нужен либо OpenCode, либо настроенный `review.reviewer.provider` (`claude_cli`, `codex_exec`, `api`, `claude_subagent`), и пропустит проверку OpenCode-конфигурации reviewer-а;
+- при наличии `opencode` в `PATH` (и без `-SkipOpenCodeReviewer`) проверит его эффективные права bounded read/file listing и sealed reviewer agents, включая запрет unrestricted grep;
 - установит единственную копию восьми skills в общий `%USERPROFILE%\.agents\skills` и после backup удалит управляемые дубликаты из `%CODEX_HOME%\skills`;
 - установит глобальную schema `bsl-flow`;
 - заменит старый managed bootstrap-блок новым bsl-flow-блоком и удалит после backup старую OpenSpec schema;
@@ -134,12 +152,12 @@ review:
       intent_critic:
         enabled: true
         required: true
-        model: flash
+        model: review-fast
         fallback: current_agent
       chair:
         enabled: true
         required: true
-        model: sol
+        model: review-chair
         fallback: current_agent
   permissions:
     project_read_mode: read_search
@@ -152,7 +170,7 @@ review:
     timeout_seconds: 600
 ```
 
-Роли резолвят модели через `llm.models`, а credentials — через `token_env` провайдеров или локальный оверлей. В стандартном `project_read_mode: read_search` reviewer может читать релевантные исходники, но не должен обходить всё дерево; служебные каталоги `.git`, `.bsl-flow` и бинарные артефакты закрыты permissions. Для sealed review без чтения проекта установи `project_read_mode: attached_only`. Для другой модели меняй привязку роли или профиль в `llm.models`; silent fallback не выполняется. Таймаут 600 секунд рассчитан на длинные ревью; уменьшай его только после измеренного пилота выбранной модели.
+`review-fast`, `review-strong` и `review-chair` — символьные профили модели, а не имена моделей. Шаблон проекта их не определяет: конкретный провайдер и модель для каждого профиля привязываются только в файле профиля пользователя (см. следующий раздел и `scripts/New-BSLFlowUserConfig.ps1`). Пока профиль не привязан, гейт допуска совета до первого платного вызова отказывает fail-closed: `BF_BLOCKED: model profile 'review-fast' is not bound; define llm.models.review-fast (and its provider) in ~/.bsl-flow/config.yaml (see New-BSLFlowUserConfig.ps1)`. Роли резолвят модели через `llm.models` (проектный и/или профильный), а credentials — через `token_env` провайдеров или локальный оверлей. В стандартном `project_read_mode: read_search` reviewer может читать релевантные исходники, но не должен обходить всё дерево; служебные каталоги `.git`, `.bsl-flow` и бинарные артефакты закрыты permissions. Для sealed review без чтения проекта установи `project_read_mode: attached_only`. Для другой модели меняй привязку профиля в `llm.models` профиля пользователя; silent fallback не выполняется. Таймаут 600 секунд рассчитан на длинные ревью; уменьшай его только после измеренного пилота выбранной модели.
 
 Новые поля существующей секции `policy`:
 
@@ -167,30 +185,50 @@ policy:
 
 ### Конфиг совета в профиле пользователя
 
-Привязки «роль → модель», профили моделей и провайдеров совета можно хранить вне проекта — в файле профиля `%USERPROFILE%\.bsl-flow\config.yaml`. Файл не создаётся автоматически; его отсутствие — штатное состояние, поведение совета при этом не меняется. Приоритет конфигурации: **профиль → проект → локальный оверлей** (`.bsl-flow/providers.local.yaml` сохраняет высший приоритет для `token`/`base_url`).
+Проектный шаблон `bsl-flow.yaml` не содержит конкретных имён моделей: роли совета ссылаются на символьные профили `review-fast` (критики), `review-strong` (brainstorm) и `review-chair` (председатель). Привязка каждого профиля к настоящему провайдеру и модели живёт только в файле профиля пользователя `%USERPROFILE%\.bsl-flow\config.yaml` (POSIX: `$HOME/.bsl-flow/config.yaml`). Файл не создаётся автоматически; его отсутствие — штатное состояние, но тогда любая включённая роль совета остаётся без модели, и допуск до первого платного вызова отказывает fail-closed:
 
-Профиль может определять только провайдеров, профили моделей и привязки ролей:
+```
+BF_BLOCKED: model profile 'review-fast' is not bound; define llm.models.review-fast (and its provider) in ~/.bsl-flow/config.yaml (see New-BSLFlowUserConfig.ps1)
+```
+
+Быстрее всего создать файл профиля неинтерактивным генератором:
+
+```powershell
+pwsh -NoProfile -File scripts/New-BSLFlowUserConfig.ps1 -Template anthropic-deepseek
+```
+
+`-Template` принимает `openai-deepseek`, `anthropic-deepseek` или `anthropic-only`; каждый шаблон привязывает `review-fast`/`review-strong`/`review-chair` к провайдерам с `token_env` и оставляет плейсхолдеры вида `REPLACE-ME` в имени модели — их нужно заменить на реальный id модели у выбранного провайдера. Путь по умолчанию — `~/.bsl-flow/config.yaml` (или значение `BSL_FLOW_USER_CONFIG`, если оно задано); `-Path` задаёт другой файл, `-Force` перезаписывает существующий, `-WhatIf` показывает план без записи. Пример сгенерированного файла (после подстановки реальных id):
 
 ```yaml
 llm:
   providers:
-    personal:
+    anthropic:
+      protocol: anthropic_messages
+      base_url: https://api.anthropic.com
+      token_env: ANTHROPIC_API_KEY
+    deepseek:
       protocol: openai_compatible
-      base_url: https://api.example.com/v1
-      token_env: MY_PERSONAL_TOKEN
+      base_url: https://api.deepseek.com
+      token_env: DEEPSEEK_API_KEY
   models:
-    personal-high:
-      provider: personal
-      model: vendor/model-x
+    review-fast:
+      provider: deepseek
+      model: deepseek/deepseek-v4-pro
+      effort: medium
+    review-chair:
+      provider: anthropic
+      model: anthropic/claude-opus
       effort: high
 review:
   council:
     roles:
+      intent_critic:
+        model: review-fast
       chair:
-        model: personal-high
+        model: review-chair
 ```
 
-Проектный `bsl-flow.yaml` переопределяет профиль по каждому именованному провайдеру, профилю модели и роли; сущности, заданные только в профиле, дополняют набор. Остальные ключи совета (`review.council.enabled`, `budget`, `review.reviewer.*`, `review.routing` и другие) в профиле запрещены: неизвестный ключ или литеральный токен отклоняются fail-closed ошибкой с именем файла и ключа, совет не стартует. Credential резолвится только через `token_env` провайдера или локальный оверлей. Для тестов и CI путь переопределяется переменной окружения `BSL_FLOW_USER_CONFIG` (полный путь к файлу; если переменная задана, а файла нет — ошибка).
+Приоритет конфигурации: **профиль → проект → локальный оверлей** (`.bsl-flow/providers.local.yaml` сохраняет высший приоритет для `token`/`base_url`). Профиль может определять только провайдеров, профили моделей и привязки ролей (только ключ `model`, без `enabled`/`required`/`fallback` — они остаются проектными). Проектный `bsl-flow.yaml`, если он всё же переопределяет конкретный провайдер, профиль модели или роль, имеет приоритет; сущности, заданные только в профиле, дополняют набор. Остальные ключи совета (`review.council.enabled`, `budget`, `review.reviewer.*`, `review.routing` и другие) в профиле запрещены: неизвестный ключ или литеральный токен отклоняются fail-closed ошибкой с именем файла и ключа, совет не стартует. Совет требует различающиеся модели у критиков и председателя (`review.council.independence`); привязывай `review-fast` и `review-chair` к разным моделям (по умолчанию — к разным провайдерам, как в примере выше). Credential резолвится только через `token_env` провайдера или локальный оверлей. Для тестов и CI путь переопределяется переменной окружения `BSL_FLOW_USER_CONFIG` (полный путь к файлу; если переменная задана, а файла нет — ошибка).
 
 ## Ручной bootstrap проекта
 
@@ -214,6 +252,6 @@ openspec schema validate bsl-flow
 
 ## Ошибки внешнего review
 
-M review выполняет один изолированный reviewer; L/high-risk review выполняет API-совет (`review.council`). Роли Council резолвят модели через `llm.models`, credentials — через `token_env` провайдеров или локальный оверлей. Отсутствие credential, модели или корректного JSON для обязательного Council route является blocker: admission-гейт завершает совет до любого платного вызова. Framework не подменяет модель, не понижает L/high-risk до одного reviewer и не пропускает review автоматически. Невалидный output не записывается в `review.json`.
+M review выполняет один изолированный reviewer через сконфигурированный `review.reviewer.provider` (`opencode`, `claude_cli`, `codex_exec`, `api` или `claude_subagent`; для всех кроме `claude_subagent` также обязателен `review.reviewer.model`); L/high-risk review выполняет API-совет (`review.council`). Роли Council резолвят модели через `llm.models`, credentials — через `token_env` провайдеров или локальный оверлей. Отсутствие credential, модели или корректного JSON для обязательного Council route является blocker: admission-гейт завершает совет до любого платного вызова. Framework не подменяет модель, не понижает L/high-risk до одного reviewer и не пропускает review автоматически. Невалидный output не записывается в `review.json`.
 
 Project config может усилить routing, но не отключить обязательный review для M/L/high-risk. `review.enabled: false` допустим только там, где review и так необязателен; попытка обойти обязательный gate завершается ошибкой. Историческая конфигурация одиночного OpenCode-reviewer не переинтерпретируется молча: явный legacy-блок требует отдельного `opencode_compat`-режима, иначе запуск завершается migration blocker-ом.

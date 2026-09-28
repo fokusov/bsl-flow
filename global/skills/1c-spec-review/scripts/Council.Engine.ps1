@@ -5,26 +5,7 @@ Set-StrictMode -Version Latest
 # Snapshot, role views, attempt binding, readiness, aggregate and prepared publication.
 # One writer persists aggregate artifacts. No model dispatch here.
 
-function Get-BSLFlowCouncilPolicyHash {
-    # -PolicyText hashes the effective merged policy (project + user profile)
-    # directly; -PolicyPath keeps the legacy raw-file behavior.
-    param(
-        [Parameter(Mandatory, Position = 0, ParameterSetName = 'Path')][string]$PolicyPath,
-        [Parameter(Mandatory, ParameterSetName = 'Text')][AllowEmptyString()][string]$PolicyText
-    )
-    # The council snapshot hashes the decoded UTF-8 policy text. Read it through
-    # the same BOM-stripping decoder during recovery, so a UTF-8 BOM is encoding
-    # metadata rather than a false policy change.
-    $utf8 = [System.Text.UTF8Encoding]::new($false)
-    if ($PSCmdlet.ParameterSetName -ceq 'Text') {
-        return Get-BSLFlowBytesSha256 ($utf8.GetBytes($PolicyText))
-    }
-    if (-not (Test-Path -LiteralPath $PolicyPath -PathType Leaf)) {
-        throw "Council policy file not found: $PolicyPath"
-    }
-    $text = [System.IO.File]::ReadAllText($PolicyPath, $utf8)
-    return Get-BSLFlowBytesSha256 ($utf8.GetBytes($text))
-}
+. (Join-Path $PSScriptRoot 'Review.Api.Profile.ps1')
 
 function New-BSLFlowCouncilSnapshot {
     param(
