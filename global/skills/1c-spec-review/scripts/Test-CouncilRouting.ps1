@@ -384,7 +384,7 @@ param([string]`$PublicScript,[string]`$Project,[string]`$Change,[string]`$State)
 
     for ($requestIndex = 0; $requestIndex -lt 4; $requestIndex++) {
         $acceptTask = $publicListener.AcceptTcpClientAsync()
-        if (-not $acceptTask.Wait(5000)) {
+        if (-not $acceptTask.Wait(60000)) {
             $diagnostic = ''
             if (-not $publicProcess.HasExited) { $publicProcess.Kill(); $publicProcess.WaitForExit() }
             $diagnostic = (($publicProcess.StandardError.ReadToEnd()) + ' ' + ($publicProcess.StandardOutput.ReadToEnd())).Trim()
